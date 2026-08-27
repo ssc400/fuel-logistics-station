@@ -1,0 +1,1669 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>互供汇总表 · v2.7 自助导入</title>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<style>
+/* ===== 互供汇总表模块 v2.7 自助导入版 — 可整体复制嵌入主工作台(index.html) ===== */
+:root{
+  --c-zsh:#2563eb; --c-zh:#059669; --c-zhy:#d97706; --c-wc:#7c3aed;
+  --bg:#f5f7fb; --card:#fff; --line:#e7ecf3; --ink:#1f2937; --mut:#9098a6;
+  --val:#e03131; --tint:#fff4e6; --green:#2f9e44; --navy:#0f2a5e;
+}
+*{box-sizing:border-box;}
+body{margin:0;background:var(--bg);color:var(--ink);
+  font-family:-apple-system,"Segoe UI","Microsoft YaHei",sans-serif;font-size:13px;line-height:1.5;}
+#hg-sum2{max-width:1240px;margin:0 auto;padding:20px;}
+.hg-h{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap;margin-bottom:6px;}
+.hg-h h1{font-size:22px;margin:0;color:var(--navy);letter-spacing:.5px;}
+.hg-h .ver{font-size:11px;color:var(--mut);background:#eef1f6;padding:2px 8px;border-radius:10px;}
+.hg-sub{color:var(--mut);font-size:12px;}
+.hg-note{background:linear-gradient(90deg,#eef4ff,#f5f9ff);border:1px solid #d4e2ff;color:#274b8a;
+  border-radius:10px;padding:10px 14px;font-size:12px;margin:10px 0;line-height:1.7;}
+.hg-warn{background:#fff8ef;border:1px solid #ffe2b8;color:#9a5b00;border-radius:10px;
+  padding:9px 14px;font-size:12px;margin:10px 0;line-height:1.6;display:none;}
+
+/* 漏传提醒条 */
+.hg-miss{display:none;background:#fff5f5;border:1px solid #f8c9c9;border-left:5px solid #d92d20;
+  border-radius:10px;padding:11px 15px;margin:12px 0;}
+.hg-miss .mt{font-size:13px;font-weight:800;color:#b42318;display:flex;align-items:center;gap:8px;margin-bottom:7px;}
+.hg-miss .mt .cnt{font-size:11px;font-weight:600;background:#d92d20;color:#fff;border-radius:20px;padding:1px 9px;}
+.hg-miss .mi{font-size:12px;color:#7a271a;padding:3px 0 3px 2px;line-height:1.6;border-top:1px dashed #f3d0d0;}
+.hg-miss .mi:first-of-type{border-top:none;}
+.hg-miss .mi b{color:#b42318;}
+.hg-miss .mi .lv{display:inline-block;min-width:52px;font-size:10px;font-weight:700;color:#fff;
+  background:#d92d20;border-radius:4px;padding:1px 6px;margin-right:7px;text-align:center;}
+.hg-miss .mi .lv.w{background:#dc7609;}
+.hg-miss .mok{font-size:12px;color:#067647;}
+.hg-miss.ok{background:#f0fdf6;border-color:#b7ecd0;border-left-color:#12b76a;}
+.hg-miss.ok .mt{color:#067647;}
+.hg-miss.ok .mt .cnt{background:#12b76a;}
+
+/* 导入去重预演 */
+.hg-modal .dedup{background:#f0f7ff;border:1px solid #cfe2fb;border-radius:10px;padding:10px 13px;margin:10px 0;}
+.hg-modal .dedup.alldup{background:#fff5f5;border-color:#f8c9c9;}
+.hg-modal .dedup .dt2{font-size:12px;font-weight:700;color:#1d4ed8;margin-bottom:7px;}
+.hg-modal .dedup.alldup .dt2{color:#b42318;}
+.hg-modal .dedup .drow{display:flex;align-items:center;gap:10px;font-size:12px;padding:3px 0;}
+.hg-modal .dedup .dl{width:96px;color:var(--mut);}
+.hg-modal .dedup .dv{font-weight:800;font-variant-numeric:tabular-nums;}
+.hg-modal .dedup .dv.fresh{color:#067647;}
+.hg-modal .dedup .dv.dup{color:#b42318;}
+.hg-modal .dedup .dnote{font-size:11px;color:var(--mut);margin-top:6px;line-height:1.6;}
+
+/* 顶部统计卡 */
+.hg-cards{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin:12px 0;}
+.hg-card{background:var(--card);border-radius:14px;padding:14px 16px;position:relative;overflow:hidden;
+  box-shadow:0 2px 8px rgba(16,42,94,.06);border-left:5px solid #ccc;}
+.hg-card .t{font-size:12px;color:var(--mut);font-weight:600;}
+.hg-card .n{font-size:26px;font-weight:800;margin:2px 0 2px;letter-spacing:.5px;font-variant-numeric:tabular-nums;}
+.hg-card .u{font-size:11px;color:var(--mut);}
+.hg-card .bar{position:absolute;right:14px;top:14px;font-size:11px;color:#c7cedb;}
+
+/* 占比条形图 */
+.hg-bars{background:var(--card);border-radius:14px;padding:14px 16px;box-shadow:0 2px 8px rgba(16,42,94,.06);margin:12px 0;}
+.hg-bars .bt{font-size:13px;font-weight:700;color:var(--navy);margin-bottom:10px;display:flex;justify-content:space-between;}
+.hg-bars .bt span{font-size:11px;color:var(--mut);font-weight:400;}
+.bar-row{display:flex;align-items:center;gap:10px;margin:7px 0;}
+.bar-name{width:200px;font-size:12px;color:#33415c;flex-shrink:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.bar-name b{color:var(--ink);}
+.bar-track{flex:1;height:20px;background:#f1f4f9;border-radius:6px;overflow:hidden;}
+.bar-fill{height:100%;border-radius:6px;transition:width .4s;display:flex;align-items:center;justify-content:flex-end;
+  padding-right:6px;color:#fff;font-size:11px;font-weight:700;min-width:34px;}
+.bar-val{width:74px;text-align:right;font-size:12px;font-weight:700;color:#33415c;font-variant-numeric:tabular-nums;flex-shrink:0;}
+
+/* 工具栏 */
+.hg-toolbar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;background:var(--card);
+  padding:10px 12px;border-radius:12px;box-shadow:0 2px 8px rgba(16,42,94,.05);margin:12px 0;}
+.hg-toolbar select,.hg-toolbar button{font-size:13px;padding:7px 12px;border-radius:8px;
+  border:1px solid var(--line);background:#fff;cursor:pointer;color:var(--ink);transition:.15s;}
+.hg-toolbar button.primary{background:var(--navy);color:#fff;border-color:var(--navy);}
+.hg-toolbar button.import{background:#0f766e;color:#fff;border-color:#0f766e;}
+.hg-toolbar button.import2{background:#fff;color:#0f766e;border-color:#0f766e;font-weight:700;}
+.hg-toolbar input#hg-startym{font-size:13px;padding:6px 8px;border:1px solid var(--bd);border-radius:8px;
+  font-variant-numeric:tabular-nums;background:#fff;color:var(--ink);}
+.hg-toolbar button:hover{filter:brightness(.97);transform:translateY(-1px);}
+.hg-toolbar .spacer{flex:1;}
+.hg-tip{color:var(--mut);font-size:12px;}
+
+/* 三页 Tab（v2.8.3：汇总 / 方向A / 方向B） */
+.hg-tabs{display:flex;gap:6px;margin:12px 0 2px;background:var(--card);padding:6px;border-radius:12px;box-shadow:0 2px 8px rgba(16,42,94,.05);flex-wrap:wrap;}
+.hg-tab{font-size:13px;padding:8px 16px;border-radius:9px;border:1px solid var(--line);background:#fff;color:var(--ink);cursor:pointer;font-weight:700;transition:.15s;}
+.hg-tab:hover{border-color:#93c5fd;filter:brightness(.97);}
+.hg-tab.active{background:var(--navy);color:#fff;border-color:var(--navy);}
+.hg-tab.active[data-tab="a"]{background:#1e40af;border-color:#1e40af;}
+.hg-tab.active[data-tab="b"]{background:#b91c1c;border-color:#b91c1c;}
+
+/* 分段 */
+.hg-sec{margin:16px 0;}
+.hg-sec-h{display:flex;align-items:center;gap:10px;padding:8px 14px;border-radius:10px;color:#fff;font-weight:700;font-size:14px;margin-bottom:12px;}
+.hg-sec-h .cnt{font-size:12px;opacity:.9;font-weight:500;}
+.hg-sec-h .srem{margin-left:auto;font-size:12px;font-weight:600;}
+
+/* 卡片网格 */
+.hg-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(380px,1fr));gap:14px;}
+.hg-gcard{background:var(--card);border-radius:14px;padding:14px 16px;box-shadow:0 2px 10px rgba(16,42,94,.07);
+  border-left:5px solid #ccc;display:flex;flex-direction:column;gap:10px;}
+.hg-gcard .gh{display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
+.hg-gcard .gh .dn{font-size:15px;font-weight:800;color:var(--navy);}
+.hg-chip{font-size:11px;padding:2px 9px;border-radius:10px;font-weight:700;color:#fff;}
+.hg-flag{font-size:11px;padding:2px 8px;border-radius:9px;background:#fff0f0;color:#c92a2a;border:1px solid #ffc9c9;font-weight:700;}
+.hg-flag.warn{background:#fff8ef;color:#9a5b00;border-color:#ffe2b8;}
+
+/* 指标 */
+.hg-metrics{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;}
+.metric{background:#f8fafc;border:1px solid var(--line);border-radius:10px;padding:8px 10px;text-align:center;}
+.metric .ml{font-size:11px;color:var(--mut);margin-bottom:3px;}
+.metric .mv{font-size:18px;font-weight:800;font-variant-numeric:tabular-nums;color:#33415c;}
+.metric .mv.pos{color:var(--green);}
+.metric .mv.neg{color:var(--val);}
+.metric.carry{background:#fffdf3;border-color:#f0d98a;}
+.hg-carry-input{width:100%;border:none;background:transparent;font-size:18px;font-weight:800;text-align:center;
+  color:#92690a;font-variant-numeric:tabular-nums;outline:none;border-bottom:1px dashed #e0b84a;padding:1px 0;}
+.hg-carry-input:focus{border-bottom-color:var(--navy);}
+
+/* 每日明细 */
+.daily{background:#fbfcfe;border:1px solid var(--line);border-radius:10px;padding:8px 10px;}
+.daily .dh{font-size:11px;color:var(--mut);margin-bottom:6px;font-weight:600;}
+.daily-list{display:flex;flex-direction:column;gap:3px;max-height:148px;overflow-y:auto;}
+.daily-row{display:flex;justify-content:space-between;font-size:12px;padding:2px 6px;border-radius:5px;}
+.daily-row:nth-child(odd){background:#f4f7fb;}
+.daily-row .dd{color:#64748b;font-variant-numeric:tabular-nums;}
+.daily-row .dq{color:var(--val);font-weight:700;font-variant-numeric:tabular-nums;}
+.daily-row .dq .cx{color:#0f766e;font-style:normal;font-weight:600;font-size:11px;margin-left:4px;}
+
+.hg-foot{color:var(--mut);font-size:11px;margin-top:18px;text-align:center;padding:10px;line-height:1.7;}
+@media(max-width:880px){
+  .hg-cards{grid-template-columns:repeat(2,1fr);}
+  .hg-grid{grid-template-columns:1fr;}
+  .bar-name{width:130px;}
+}
+
+/* 互供单位合计卡 v2.4 */
+.hg-ucard{background:var(--card);border-radius:14px;padding:12px 14px;box-shadow:0 2px 8px rgba(16,42,94,.06);border-left:5px solid #ccc;display:flex;flex-direction:column;gap:8px;}
+.hg-ucard .uh{display:flex;align-items:baseline;gap:8px;}
+.hg-ucard .un{font-size:16px;font-weight:800;}
+.hg-ucard .ul{font-size:11px;color:var(--mut);}
+/* 方向分组标签（v2.8.1：三组互供卡片用醒目条区分） */
+.hg-unit-dir{grid-column:1 / -1;display:flex;align-items:center;gap:8px;padding:8px 12px;border-radius:10px;font-size:13px;font-weight:700;margin-top:6px;}
+.hg-unit-dir .arr{font-size:16px;}
+.hg-unit-dir.da{background:linear-gradient(90deg,#dbeafe,#eff6ff);color:#1e40af;border:1px solid #93c5fd;}
+.hg-unit-dir.db{background:linear-gradient(90deg,#fee2e2,#fef2f2);color:#991b1b;border:1px solid #fca5a5;}
+.hg-unit-dir.dwc{background:linear-gradient(90deg,#f3e8ff,#faf5ff);color:#6b21a8;border:1px solid #d8b4fe;}
+.hg-unit-dir.da-grp{background:linear-gradient(90deg,#e0e7ff,#eef2ff);color:#3730a3;border:1px solid #a5b4fc;font-size:14px;}
+.hg-empty-tip{grid-column:1 / -1;font-size:12px;color:var(--mut);padding:10px 14px;background:var(--soft);border-radius:8px;text-align:center;}
+.hg-ucard .um{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;}
+.hg-ucard .uc{background:#f8fafc;border:1px solid var(--line);border-radius:9px;padding:7px 4px;text-align:center;}
+.hg-ucard .ucl{font-size:10px;color:var(--mut);margin-bottom:2px;}
+.hg-ucard .ucv{font-size:15px;font-weight:800;font-variant-numeric:tabular-nums;color:#33415c;}
+.hg-ucard .ucv.neg{color:var(--val);}
+.hg-ucard .ucv.pos{color:var(--green);}
+/* 年累计面板 v2.4 */
+.hg-year-wrap{display:flex;gap:12px;flex-wrap:wrap;margin:12px 0;}
+.hg-year{flex:1 1 460px;min-width:340px;background:linear-gradient(90deg,#0f2a5e,#1d3f7a);border-radius:14px;padding:14px 18px;color:#fff;box-shadow:0 4px 14px rgba(16,42,94,.18);}
+.hg-year.wc{background:linear-gradient(90deg,#4a1d7a,#6d28d9);}
+.hg-year.self{background:linear-gradient(90deg,#7a1d1d,#b91c1c);}
+.hg-year .yt{font-size:13px;font-weight:700;margin-bottom:10px;display:flex;justify-content:space-between;align-items:center;}
+.hg-year .yt .ys{font-size:11px;opacity:.7;font-weight:400;}
+.hg-year .ygrid{display:grid;grid-template-columns:86px repeat(4,1fr);gap:6px 10px;align-items:center;}
+.hg-year .yh{font-size:11px;opacity:.72;font-weight:600;padding-bottom:5px;border-bottom:1px solid rgba(255,255,255,.24);}
+.hg-year .yh.r,.hg-year .yc{text-align:right;}
+.hg-year .yn{font-weight:700;font-size:13px;padding:7px 0;border-top:1px solid rgba(255,255,255,.14);}
+.hg-year .yc{font-variant-numeric:tabular-nums;font-weight:700;font-size:14px;padding:7px 0;border-top:1px solid rgba(255,255,255,.14);}
+.hg-year .yc .u{font-size:10px;opacity:.6;font-weight:400;margin-left:2px;}
+.hg-year .yc.pct{font-size:13px;}
+.hg-year .yc.low{color:#ffd27a;}
+.hg-year .yc.neg{color:#ffb3ae;}
+.hg-year .ytot{background:rgba(255,255,255,.08);}
+.hg-year .ytot.yn,.hg-year .ytot.yc{font-size:15px;border-top:1.5px solid rgba(255,255,255,.4);}
+.hg-year .ymeta{font-size:11px;opacity:.7;margin-top:9px;line-height:1.6;}
+
+/* 首次引导 */
+.hg-guide{background:var(--card);border:1.5px dashed #b9c6de;border-radius:16px;padding:26px 24px;text-align:center;margin:16px 0;box-shadow:0 2px 10px rgba(16,42,94,.05);}
+.hg-guide h2{margin:0 0 6px;color:var(--navy);font-size:18px;}
+.hg-guide p{color:var(--mut);margin:6px 0;font-size:13px;}
+.hg-guide .btns{display:flex;gap:12px;justify-content:center;flex-wrap:wrap;margin-top:14px;}
+.hg-guide button{font-size:14px;padding:11px 20px;border-radius:10px;border:none;cursor:pointer;font-weight:700;color:#fff;}
+.hg-guide .b1{background:#0f766e;} .hg-guide .b2{background:var(--navy);}
+
+/* 导入预览弹层 */
+.hg-mask{position:fixed;inset:0;background:rgba(15,42,94,.45);display:none;align-items:flex-start;justify-content:center;padding:30px 14px;overflow:auto;z-index:50;}
+.hg-mask.show{display:flex;}
+.hg-modal{background:#fff;border-radius:16px;max-width:760px;width:100%;padding:20px 22px;box-shadow:0 18px 50px rgba(0,0,0,.3);}
+.hg-modal h3{margin:0 0 4px;color:var(--navy);font-size:17px;}
+.hg-modal .ms{color:var(--mut);font-size:12px;margin-bottom:12px;}
+.hg-modal .mrow{display:flex;gap:14px;flex-wrap:wrap;margin:10px 0;}
+.hg-modal .mstat{flex:1;min-width:120px;background:#f6f9ff;border:1px solid #dde7fb;border-radius:10px;padding:9px 12px;}
+.hg-modal .mstat .ml{font-size:11px;color:var(--mut);}
+.hg-modal .mstat .mv{font-size:18px;font-weight:800;color:var(--navy);}
+.hg-modal label.mlbl{font-size:13px;font-weight:700;color:var(--ink);}
+.hg-modal input[type=text]{font-size:14px;padding:7px 10px;border:1px solid var(--line);border-radius:8px;width:140px;}
+.hg-modal .excl{background:#fff8ef;border:1px solid #ffe2b8;border-radius:10px;padding:10px 12px;margin:10px 0;max-height:200px;overflow:auto;}
+.hg-modal .excl .et{font-size:12px;font-weight:700;color:#9a5b00;margin-bottom:6px;}
+.hg-modal .excl .er{font-size:11px;color:#7a5a16;padding:2px 0;border-bottom:1px dashed #f3e3c4;font-variant-numeric:tabular-nums;}
+.hg-modal .unk{background:#fdeef0;border:1px solid #f6c9cf;border-radius:10px;padding:9px 12px;margin:10px 0;font-size:12px;color:#b4232a;}
+.hg-modal .opt{display:flex;gap:18px;margin:12px 0;font-size:13px;}
+.hg-modal .opt label{display:flex;align-items:center;gap:6px;cursor:pointer;}
+.hg-modal .acts{display:flex;gap:10px;justify-content:flex-end;margin-top:14px;}
+.hg-modal .acts button{font-size:14px;padding:9px 18px;border-radius:9px;border:1px solid var(--line);cursor:pointer;font-weight:700;}
+.hg-modal .acts .ok{background:var(--navy);color:#fff;border-color:var(--navy);}
+.hg-modal .acts .cancel{background:#fff;color:var(--ink);}
+.hg-loading{position:fixed;inset:0;background:rgba(15,42,94,.4);display:none;align-items:center;justify-content:center;z-index:60;color:#fff;font-size:15px;font-weight:700;}
+.hg-loading.show{display:flex;}
+</style>
+</head>
+<body>
+<div id="hg-sum2">
+<div class="hg-h">
+    <h1>互供汇总表</h1><span class="ver">v2.8.4 自助导入</span>
+    <span class="hg-sub" id="hg-sub"></span>
+  </div>
+  <div class="hg-note">
+    <b>自助导入</b>：每月点「导入本月提油(日报CSV)」和「导入本月开单(Excel/CSV)」即可，数据自动按月合并、年累计自动重算。<br>
+    <b>结转量</b>：每张卡可手填，默认=上月剩余（首月无上月数据则=0），<b>仍可手改</b>。公式 <b>剩余量 = 结转量 + 开单量 − 本月提油</b>。<br>
+    顶部「互供单位合计(本月)」直看各单位 本月提油/开单/上月结转/剩余；「年累计提油」看 1月~所选月累计。数据存本地浏览器，可用「导出全量备份」搬到其他电脑。
+  </div>
+  <div class="hg-warn" id="hg-warn"></div>
+
+  <div class="hg-toolbar">
+    <label style="font-size:13px;color:var(--mut)">月份
+      <select id="hg-month"></select>
+    </label>
+    <label style="font-size:13px;color:var(--mut)">互供单位
+      <select id="hg-cat">
+        <option value="全部">全部</option>
+        <option value="中石化">中石化</option>
+        <option value="中化">中化</option>
+        <option value="中海油">中海油</option>
+        <option value="外采">外采</option>
+      </select>
+    </label>
+    <label style="font-size:13px;color:var(--mut)">统计起始月
+      <input type="text" id="hg-startym" placeholder="2026-01" style="width:78px">
+    </label>
+    <button class="import" id="hg-imp-taken">导入本月提油</button>
+    <button class="import" id="hg-imp-self">导入对方来提油</button>
+    <button class="import" id="hg-imp-open">导入本月开单</button>
+    <button class="import2" id="hg-imp-waitsou">外采开单手输</button>
+    <button id="hg-fill-carry">批量填结转</button>
+    <button id="hg-recal-open" title="v2.8.1：按新口径「X 命中互供库 + Y 在我方库」重新校准各月开单，保证方向A/方向B 严格同源同量">🔧 重算开单</button>
+    <button id="hg-clear-month">清空本月</button>
+    <span class="spacer"></span>
+    <button id="hg-backup">导出全量备份</button>
+    <button id="hg-restore">从备份恢复</button>
+    <button id="hg-csv">导出CSV</button>
+    <button id="hg-snap">导出快照</button>
+    <input type="file" id="hg-file-taken" accept=".csv" style="display:none">
+    <input type="file" id="hg-file-self" accept=".xlsx,.xls,.csv" style="display:none">
+    <input type="file" id="hg-file-open" accept=".xlsx,.xls,.csv" style="display:none">
+    <input type="file" id="hg-file-restore" accept=".json" style="display:none">
+  </div>
+
+  <div class="hg-tabs" id="hg-tabs">
+    <button class="hg-tab active" data-tab="all">📊 汇总</button>
+    <button class="hg-tab" data-tab="a">🚛 我们去对方油库提油</button>
+    <button class="hg-tab" data-tab="b">🚚 对方来我们油库提油</button>
+  </div>
+
+  <div class="hg-miss" id="hg-miss"></div>
+
+  <div class="hg-guide" id="hg-guide" style="display:none">
+    <h2>欢迎使用互供汇总表</h2>
+    <p>本表用于统计向<b>中石化 / 中化 / 中海油</b>互供油库的提油、开单与剩余；外采库（肇庆/永州/南瑶）单独看板并列。</p>
+    <p>请先导入数据：① 本月<b>提油</b>（来自油品日报 CSV）　② 本月<b>开单</b>（单月开单表，或「2026年分月互供计划.xls」汇总表自动分月填入）。</p>
+    <div class="btns">
+      <button class="b1" id="hg-guide-taken">① 导入本月提油(日报CSV)</button>
+      <button class="b2" id="hg-guide-open">② 导入本月开单(Excel)</button>
+    </div>
+    <p style="margin-top:14px;font-size:11px">数据仅保存在本浏览器；换电脑请用「导出全量备份 / 从备份恢复」搬运。</p>
+  </div>
+
+  <div class="hg-year" id="hg-year"></div>
+  <div class="hg-cards" id="hg-cards"></div>
+  <div class="hg-bars" id="hg-bars"></div>
+  <div id="hg-body"></div>
+
+  <div class="hg-foot">
+    互供汇总表模块 v2.8.4 · 自助导入版（页面零业务数据，数据存本地浏览器）。可整段复制嵌入主工作台。<b>v2.8.4 修复</b>：开单表「X-Y」公路行恢复<strong>双向同源同量</strong>——X 命中对方互供库（中石化/中化/中海油）时<strong>同时</strong>产方向A开单（at X）+ 方向B开单（at Y 经 hgSelfNorm 归一化命中我方自有库后），双方同量同油品；Y=对方库只产方向A；铁路/水运/外采/X=自有 排除。<b>v2.8.3</b>：三页 Tab 切换——「汇总」(全口径+方向A/B明细+外采) /「🚛 我们去对方油库提油」(方向A) /「🚚 对方来我们油库提油」(方向B)，月度卡、年累计、占比图、流向网格同步分页。<b>v2.8.2</b>：开单方向只看 X 前缀。<b>v2.8</b>：对方来我库提油（自提出库 xls）。<b>v2.7</b>：分月汇总开单表多sheet自动分月、开单按 源油库+油品 upsert 去重、外采看板并列+手输开单。<b>v2.6</b>：提油按配送单号去重；月份完整性检查；年累计四项。
+  </div>
+</div>
+
+<div class="hg-mask" id="hg-mask">
+  <div class="hg-modal" id="hg-modal"></div>
+</div>
+<div class="hg-loading" id="hg-loading">解析中…</div>
+
+<script>
+/* ===== 互供汇总表模块 v2.8 自助导入版（双向互供：我们去对方提油 + 对方来我库提油） ===== */
+const HG_CATS = ["中石化","中化","中海油","外采"];
+const HG_CAT_COLOR = {"中石化":"#2563eb","中化":"#059669","中海油":"#d97706","外采":"#7c3aed"};
+// 互供油库分类表 —— 权威来源：桌面「油站、油库位置/油库位置_坐标修订版.xlsx」的「油库类型」列。
+// 由该表自动派生（中石化互供库→中石化 / 中海油互供库→中海油 / 中化互供库→中化 / 外采库→外采）；
+// 自有库、以站代库均不列入（页面判定为「非互供」自动排除）。日后 Excel 更新只需重跑派生脚本同步本表。
+// 注：保留「中海油桂平油库」别名（与「中海油广西油库」同址，防其他月份用此名）。
+// 例外：中化东莞东洲油库虽在 Excel「油库类型」中标为「中化互供库」，但其为**非公路**运输，
+//   经用户确认不计入互供公路汇总，故从本表剔除（日后 Excel 重跑派生时须同样排除此项）。
+const HG_CLASS = {"中化佛山华创油库":"中化","中化开平江门油库":"中化","中海油广西油库":"中海油","中海油桂平油库":"中海油","中石化广西钦州油气库":"中石化","中石化火山油库":"中石化","中石化玉林油库":"中石化","中石化鹧鸪江油库":"中石化","中石化黎塘油库":"中石化","北海石化油库":"中石化","南宁石化油库":"中石化","广西全州油库":"中石化","桂林羊角山石化油库":"中石化","河池石化油库":"中石化","百色石化油库":"中石化","贵港石化油库":"中石化","中石化南瑶油库":"外采","广东肇庆中寰油库":"外采","永州油库":"外采"};
+// 开单计划表「互供方案」里的简称 → 分类表正式名（同一物理油库的不同写法，开单解析时归一化）
+const HG_ALIAS = {"中石化鹧鸪油库":"中石化鹧鸪江油库","中石化百色三雷油库":"百色石化油库",
+  "中石化贵港油库":"贵港石化油库","中石化河池油库":"河池石化油库","中化江门开平油库":"中化开平江门油库",
+  "中石化桂林羊角山油库":"桂林羊角山石化油库"};
+// 明确不计入互供的油库（即使出现在互供计划表里也排除，提示语更准确）
+const HG_EXCLUDE = {"中化东莞东洲油库":"非公路(经确认不计互供)"};
+// 对方来我们油库提油：收油客户=对方公司全称（自提出库xls 的 G列），分类=互供单位
+const HG_SELF_SINO = [
+  {name:"中国石化销售股份有限公司广西石油分公司", cat:"中石化"},
+  {name:"中海油广西销售有限公司", cat:"中海油"},
+  {name:"中化石油广东有限公司", cat:"中化"}
+];
+// 我方自有/以站代库名（方向B 的提油机构=这些库；互供方案前半段命中即归方向B 开单）
+const HG_SELF_DEPOTS = ["中石油柳州油库","中石油桂林油库","中石油南宁油库","中石油百色油库",
+  "中石油梧州油库","中石油柳江油库","中石油兴业油库","中石油钦州炼厂油库","中石油炼厂油库",
+  "广西石化直发库","广西南宁油库","广西柳江油库","广西柳州油库","广西兴业油库","广西百色油库",
+  "广西桂林油库","广西梧州新恒丰油库","广西钦州广明油库","广西钦州东油库","广西北海宏远油库",
+  "广西贺州城西油库","柳州三江古宜油库","河池金沙库"];
+const LS_KEY = "hg_hugong_v26";
+const LS_KEY_OLD = "hg_hugong_v25";
+
+// months[ym]={ym,date_min,date_max,src_min,src_max,bills:{单号:1},taken:[],opening:[],groups:[]}
+//   v2.8 新增方向B（对方来我们提油）：selfBills:{出库单号:1}, selfTaken:[], selfOpening:[], selfGroups:[]
+// carry[ym]={depot|prod:val}；startYm=统计起始月(漏传检查用)
+let HG = { months:{}, carry:{}, startYm:null };
+let STATE = { month:null, cat:"全部", tab:"all" };
+
+/* ===== 持久化 ===== */
+function hgSave(){ try{ localStorage.setItem(LS_KEY, JSON.stringify({months:HG.months,carry:HG.carry,startYm:HG.startYm})); }catch(e){} }
+function hgLoad(){
+  try{
+    let s=localStorage.getItem(LS_KEY), migrated=false;
+    if(!s){ s=localStorage.getItem(LS_KEY_OLD); if(s) migrated=true; }
+    if(!s) return false;
+    const d=JSON.parse(s); if(!d||!d.months) return false;
+    HG.months=d.months||{}; HG.carry=d.carry||{}; HG.startYm=d.startYm||null;
+    // 结构补齐（v2.5 无 bills：老数据无单号，视为「已导入但无单号台账」，重导会走覆盖；v2.8 无 self 系列）
+    Object.keys(HG.months).forEach(k=>{ const M=HG.months[k];
+      if(!M.bills) M.bills={};
+      if(!M.src_min) M.src_min=M.date_min||"";
+      if(!M.src_max) M.src_max=M.date_max||"";
+      if(!M.taken) M.taken=[]; if(!M.opening) M.opening=[]; if(!M.groups) M.groups=[];
+      if(!M.selfBills) M.selfBills={}; if(!M.selfTaken) M.selfTaken=[];
+      if(!M.selfOpening) M.selfOpening=[]; if(!M.selfGroups) M.selfGroups=[];
+    });
+    // v2.8.4 迁移：自提/开单油库名走 hgSelfNorm 归一（"中石油梧州油库"→"广西梧州新恒丰油库" 等）
+    let dirty=false;
+    Object.keys(HG.months).forEach(k=>{ const M=HG.months[k];
+      (M.selfTaken||[]).forEach(t=>{ if(t.depot){ const n=hgSelfNorm(t.depot); if(n!==t.depot){ t.depot=n; dirty=true; } } });
+      (M.selfOpening||[]).forEach(o=>{ if(o.depot){ const n=hgSelfNorm(o.depot); if(n!==o.depot){ o.depot=n; dirty=true; } } });
+    });
+    if(dirty){
+      Object.keys(HG.months).forEach(ym=>{ try{ hgBuildSelfGroups(ym); hgBuildGroups(ym); }catch(e){} });
+    }
+    if(dirty || migrated) hgSave();
+    return true;
+  }catch(e){} return false;
+}
+
+/* ===== 基础工具 ===== */
+function hgMonthKeys(){ return Object.keys(HG.months).sort(); }
+function hgCur(){ return HG.months[STATE.month]; }
+function hgGroups(m){ return HG.months[m]?HG.months[m].groups:[]; }
+function gid(g){ return g.depot+"|"+g.prod; }
+function hgFmt(n){ return (!n&&n!==0)?"":(Math.abs(n)<1e-9?"0.00":(+n).toFixed(2)); }
+function padDate(dt){ return (dt||"").slice(5).replace("-","/"); }
+function hgEscape(s){ return (s||"").replace(/[&<>]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;"}[c])); }
+
+const HG_PREFIX=["中石化","中化","中海油","中国石油","广西石化","石化"];
+function hgNormDepot(d){ for(const p of HG_PREFIX){ if(d.indexOf(p)===0) return d.slice(p.length); } return d; }
+function hgClassifyFull(name){
+  if(HG_CLASS[name]) return name;
+  if(HG_ALIAS[name]) name=HG_ALIAS[name];
+  if(HG_CLASS[name]) return name;
+  const cn=hgNormDepot(name);
+  for(const k in HG_CLASS){ const ck=hgNormDepot(k); if(ck===cn || cn.indexOf(ck)>=0 || ck.indexOf(cn)>=0) return k; }
+  return null;
+}
+function hgClassify(name){ const f=hgClassifyFull(name); return f?HG_CLASS[f]:null; }
+/* ===== 方向B（对方来我们油库提油）：我方库名归一化 + 互供方案拆分 ===== */
+function hgSelfNorm(d){
+  d=String(d||"").trim();
+  if(!d) return d;
+  // 已是 "广西**" 规范名 → 原样
+  if(d.indexOf("广西")===0 && HG_SELF_DEPOTS.indexOf(d)>=0) return d;
+  // "中石油**" / "中国石油**" 形式 → 映射到对应的 "广西**"（HG_SELF_DEPOTS 同时存在两套命名）
+  if((d.indexOf("中石油")===0 || d.indexOf("中国石油")===0) && HG_SELF_DEPOTS.indexOf(d)>=0){
+    const rest = d.indexOf("中石油")===0 ? d.slice(3) : d.slice(4);
+    const restCore = rest.replace(/(石化|油库|直发库)$/,"");
+    if(restCore.length>=2){
+      for(const sd of HG_SELF_DEPOTS){
+        if(sd.indexOf("广西")!==0) continue;
+        const sdRest = sd.replace(/^(广西石化|广西)/,"").replace(/(石化|油库|直发库)$/,"");
+        if(sdRest===restCore) return sd;
+        if(sdRest.indexOf(restCore)>=0) return sd;
+      }
+    }
+    return d;   // 无对应 "广西**" 映射（如"中石油钦州炼厂油库"），保留原值
+  }
+  // 其他形式（含 "北海宏远油库" 无前后缀）→ 走核心地名词模糊匹配
+  const core=d.replace(/^(中石油|中国石油|广西石化|广西|中石化)/,"").replace(/(石化|油库|直发库)$/,"");
+  if(!core || core.length<2) return d;
+  for(const sd of HG_SELF_DEPOTS){
+    if(sd===d) continue;
+    const sdCore=sd.replace(/^(广西石化|广西|中石化|中石油|中国石油)/,"").replace(/(石化|油库|直发库)$/,"");
+    if(sdCore===core || sdCore.indexOf(core)>=0) return sd;
+  }
+  return d;
+}
+// 互供方案「X-Y」：后半段 Y 为我方库 → 该行同时是方向B 开单（对方来我们提油）
+function hgSelfPlanInfo(plan){
+  const parts=String(plan||"").split("-");
+  if(parts.length<2) return null;
+  const y=parts[parts.length-1].trim(), x=parts[0].trim();
+  const ny=hgSelfNorm(y);
+  const isSelf = /中石油|中国石油/.test(y) || HG_SELF_DEPOTS.indexOf(ny)>=0 || HG_SELF_DEPOTS.indexOf(y)>=0;
+  if(!isSelf) return null;
+  const cat=hgClassify(x);
+  if(!cat || cat==="外采") return null;
+  return {depot:ny, cat};
+}
+function hgSelfCatOf(depot){
+  // 自提xls 提油机构（我方库）→ 无法从库名判对方；分类在解析时按收油客户定
+  return null;
+}
+function hgOpenKey(prod){
+  const s=String(prod);
+  if(s.indexOf("92")>=0) return "92#";
+  if(s.indexOf("95")>=0) return "95#";
+  if(s.indexOf("0")>=0) return "0#";
+  return s;
+}
+function hgProdDisp(prod){
+  const s=String(prod); let short=hgOpenKey(s);
+  if(s.indexOf("乙醇")>=0 && short==="92#") short="92#乙醇";
+  return short;
+}
+
+/* 合并 taken×opening → groups（按 depot|openkey） */
+function hgBuildGroups(ym){
+  const M=HG.months[ym]; if(!M) return;
+  const openMap={};
+  (M.opening||[]).forEach(o=>{ openMap[o.depot+"|"+o.prod]=Number(o.opening||0); });
+  const groups=[];
+  (M.taken||[]).forEach(t=>{
+    const ok=hgOpenKey(t.prod);
+    groups.push({ depot:t.depot, prod:ok, prod_disp:hgProdDisp(t.prod_full||t.prod), prod_full:t.prod_full, cat:t.cat,
+      opening:openMap[t.depot+"|"+ok]||0, month_total:t.total, days:t.days });
+  });
+  M.groups=groups;
+}
+
+/* ===== 结转 / 剩余 ===== */
+function hgPrevMonth(m){ const ks=hgMonthKeys().filter(k=>k<m); return ks.length?ks[ks.length-1]:null; }
+function hgRemainOf(m,g){ return hgCarryOf(m,gid(g))+Number(g.opening||0)-Number(g.month_total||0); }
+function hgSelfRemainOf(m,g){ return hgCarryOf(m,"SELF|"+gid(g))+Number(g.opening||0)-Number(g.month_total||0); }
+function hgCarryOf(m,key){
+  if(HG.carry[m] && (key in HG.carry[m])) return Number(HG.carry[m][key]||0);
+  const pm=hgPrevMonth(m);
+  if(pm){
+    let g=hgGroups(pm).find(x=>gid(x)===key);
+    if(g) return hgRemainOf(pm,g);
+    if(key.indexOf("SELF|")===0){ const g2=hgSelfGroups(pm).find(x=>("SELF|"+gid(x))===key); if(g2) return hgSelfRemainOf(pm,g2); }
+  }
+  return 0;
+}
+
+/* ===== 文件解码（GBK/UTF-8 自动） ===== */
+function hgReadDecoded(file){
+  return new Promise((res,rej)=>{
+    const r=new FileReader();
+    r.onload=()=>{ const buf=new Uint8Array(r.result);
+      const u8=new TextDecoder("utf-8").decode(buf);
+      const gbk=new TextDecoder("gbk").decode(buf);
+      const cnt=s=>{ let n=0; for(let i=0;i<s.length;i++) if(s.charCodeAt(i)===0xFFFD) n++; return n; };
+      res(cnt(u8)>cnt(gbk)?gbk:u8);
+    };
+    r.onerror=rej; r.readAsArrayBuffer(file);
+  });
+}
+
+/* ===== CSV 解析（支持引号转义与字段内逗号） ===== */
+function hgCsvParse(text){
+  const rows=[]; let i=0,field="",row=[],inQ=false;
+  while(i<text.length){
+    const c=text[i];
+    if(inQ){
+      if(c==='"'){ if(text[i+1]==='"'){ field+='"'; i+=2; continue; } inQ=false; i++; continue; }
+      field+=c; i++; continue;
+    }
+    if(c==='"'){ inQ=true; i++; continue; }
+    if(c===','){ row.push(field); field=""; i++; continue; }
+    if(c==='\n'){ row.push(field); rows.push(row); field=""; row=[]; i++; continue; }
+    if(c==='\r'){ i++; continue; }
+    field+=c; i++;
+  }
+  if(field.length||row.length){ row.push(field); rows.push(row); }
+  return rows;
+}
+
+/* ===== 日报期间声明解析：第2行「日期：2026年08月01日至2026年08月25日」 ===== */
+function hgParseSpan(rows,hi){
+  const head=rows.slice(0,Math.max(hi,1)).map(r=>r.join(",")).join(" ");
+  const m=/(\d{4})\s*年\s*(\d{1,2})\s*月\s*(\d{1,2})\s*日\s*(?:至|~|-|—|到)\s*(\d{4})\s*年\s*(\d{1,2})\s*月\s*(\d{1,2})\s*日/.exec(head);
+  if(!m) return {src_min:"",src_max:""};
+  const p=(y,mo,d)=>y+"-"+String(mo).padStart(2,"0")+"-"+String(d).padStart(2,"0");
+  return { src_min:p(m[1],m[2],m[3]), src_max:p(m[4],m[5],m[6]) };
+}
+
+/* ===== 明细行 → 提油聚合（按 油库|品号，days=[日期,吨,车次]） ===== */
+function hgAggRows(rows){
+  const agg={};
+  rows.forEach(r=>{
+    const key=r.depot+"|"+r.prod;
+    if(!agg[key]) agg[key]={depot:r.depot,prod:r.prod,prod_full:r.prod_full,cat:r.cat,_byd:{},days:[],total:0};
+    const b=agg[key]._byd; if(!b[r.dt]) b[r.dt]=[0,0];
+    b[r.dt][0]+=r.q; b[r.dt][1]+=1;
+    agg[key].total+=r.q;
+  });
+  return Object.values(agg).map(g=>{
+    g.days=Object.keys(g._byd).sort().map(d=>[d,g._byd[d][0],g._byd[d][1]]);
+    delete g._byd;
+    g.total=Math.round(g.total*1e6)/1e6;
+    return g;
+  });
+}
+
+/* ===== 日报 CSV → 明细行（含配送单号，用于去重） ===== */
+function hgParseDaily(text){
+  const rows=hgCsvParse(text);
+  let hi=-1;
+  for(let r=0;r<Math.min(rows.length,6);r++){ if(rows[r].indexOf("配送日期")>=0 && rows[r].indexOf("提油机构")>=0){ hi=r; break; } }
+  if(hi<0) throw new Error("未找到表头（需含 配送日期/提油机构/油品名称/出库(吨)/计划状态）");
+  const hdr=rows[hi]; const ci={}; hdr.forEach((h,idx)=>{ ci[h.trim()]=idx; });
+  ["配送日期","提油机构","油品名称","出库(吨)","计划状态"].forEach(n=>{ if(!(n in ci)) throw new Error("缺少列: "+n); });
+  const noCol = ("配送单号" in ci) ? ci["配送单号"] : -1;   // 唯一键；缺失时降级合成
+  const detail=[]; const dates=[]; const excluded=[]; const unknowns=new Set();
+  let seq=0, synth=0;
+  for(let r=hi+1;r<rows.length;r++){
+    const row=rows[r]; if(row.length<=ci["计划状态"]) continue;
+    const st=(row[ci["计划状态"]]||"").trim();
+    if(st!=="复核通过" && st!=="已下发") continue;
+    const q=parseFloat(row[ci["出库(吨)"]]||0); if(!(q>0)) continue;
+    const depot=(row[ci["提油机构"]]||"").trim();
+    const prod=(row[ci["油品名称"]]||"").trim();
+    const dt=(row[ci["配送日期"]]||"").trim().slice(0,10);
+    const full=hgClassifyFull(depot);
+    if(full===null){ excluded.push({reason:"非互供(自有/以站代库/未收录)",depot,prod,dt,qty:q}); unknowns.add(depot); continue; }
+    // 外采库也计入（归入「外采」看板，与互供并列）；仅排除非互供/未收录
+    let no = noCol>=0 ? (row[noCol]||"").trim() : "";
+    if(!no){ no="SYN:"+dt+"|"+full+"|"+hgOpenKey(prod)+"|"+q+"|#"+(++seq); synth++; }
+    detail.push({ no, depot:full, prod:hgOpenKey(prod), prod_full:prod, cat:HG_CLASS[full], dt, q });
+    dates.push(dt);
+  }
+  const taken=hgAggRows(detail);
+  const ym = dates.length ? dates.slice().sort()[0].slice(0,7) : null;
+  const date_min=dates.length?dates.reduce((a,b)=>a<b?a:b):"";
+  const date_max=dates.length?dates.reduce((a,b)=>a>b?a:b):"";
+  const span=hgParseSpan(rows,hi);
+  return { ym, date_min, date_max, taken, detail, excluded, unknowns:[...unknowns],
+           has_bill_no:noCol>=0, synth_count:synth, src_min:span.src_min, src_max:span.src_max };
+}
+
+/* ===== 开单 解析（CSV / xlsx / xls，支持分月汇总表多 sheet） ===== */
+function hgParseOpeningRows(rows, sheetName, year, monthHint){
+  let hi=-1;
+  for(let r=0;r<Math.min(rows.length,12);r++){ if(String((rows[r]||[]).join(" ")).indexOf("互供方案")>=0){ hi=r; break; } }
+  if(hi<0) throw new Error("开单表未找到「互供方案」表头");
+  // 品号行：表头行或其下一行（分月汇总表表头跨两行：主行 单位|运输方式|互供方案|互供量…，次行 合计|0#|92#|95#…）
+  let prodRow=hi;
+  for(let r=hi;r<Math.min(hi+2,rows.length);r++){
+    const line=(rows[r]||[]).map(x=>String(x).trim()).join("|");
+    if(/0#/.test(line) && /92#/.test(line) && /95#/.test(line)){ prodRow=r; break; }
+  }
+  const hdr=rows[hi]||[], sub=prodRow>hi?(rows[hi+1]||[]):[];
+  const names=hdr.map((h,i)=>String(h).trim().replace(/[\r\n]+/g,"")||String(sub[i]||"").trim().replace(/[\r\n]+/g,""));
+  const ci={}; names.forEach((n,i)=>{ if(n&&!(n in ci)) ci[n]=i; });
+  if(!("互供方案" in ci)) throw new Error("缺少列: 互供方案");
+  const prodCols=["0#","92#","95#","92#乙醇汽油","92#组分"].filter(p=>p in ci);
+  if(!prodCols.length) throw new Error("缺少数量列 0#/92#/95#");
+  const tIdx=("运输方式" in ci)?ci["运输方式"]:-1;
+  const openMap={}; const selfOpenMap={}; const excluded=[]; const unknowns=new Set();
+  let curTrans="";
+  for(let r=prodRow+1;r<rows.length;r++){
+    const row=rows[r]||[]; if(row.length<=ci["互供方案"]) continue;
+    const plan=String(row[ci["互供方案"]]||"").trim(); if(!plan) continue;
+    let trans=curTrans;
+    if(tIdx>=0 && row[tIdx]!=null){ const t=String(row[tIdx]).trim(); if(t) trans=t; }
+    if(trans && trans!==curTrans) curTrans=trans;
+    if(curTrans && !/公路/.test(curTrans)){ excluded.push({reason:"非公路运输("+curTrans+")",plan,core:plan.split("-")[0].trim()}); continue; }
+    const xRaw=plan.split("-")[0].trim(), yRaw=plan.split("-")[1]?plan.split("-")[1].trim():"";
+    if(HG_EXCLUDE[xRaw]){ excluded.push({reason:"明确排除前半段("+HG_EXCLUDE[xRaw]+")",plan,core:xRaw}); continue; }
+    if(HG_EXCLUDE[yRaw]){ excluded.push({reason:"明确排除后半段("+HG_EXCLUDE[yRaw]+")",plan,core:yRaw}); continue; }
+    /* v2.8.4 双向同源同量：公路 X-Y 行，X=对方互供库 → 方向A at X + 方向B at Y（Y 命中我方库时）同源同量。
+       铁路/水运：排除；外采 X：手输；X=我方自有：防御排除；Y=对方库：仅方向A。 */
+    const xKey0=HG_ALIAS[xRaw]||xRaw;
+    // 1) 外采库 X → 手输
+    if(/^中石化南瑶|^广东肇庆中寰|^永州油/.test(xRaw) || HG_CLASS[xKey0]==="外采"){
+      excluded.push({reason:"外采(开单请用手输)",plan,core:xRaw}); continue;
+    }
+    // 2) X=我方自有库（开单表应不出现，防御性提示）
+    if(/^中石油|中国石油/.test(xRaw) || HG_SELF_DEPOTS.indexOf(xRaw)>=0 || HG_SELF_DEPOTS.indexOf(hgSelfNorm(xRaw))>=0){
+      excluded.push({reason:"开单表X不应为我方自有库（应为中石化/中化/中海油）",plan,core:xRaw}); continue;
+    }
+    // 3) 判 X 类别：前缀优先，HG_CLASS 容错
+    let xCat=null, xKey=xKey0;
+    if(/^中石化/.test(xRaw)){ xCat="中石化"; }
+    else if(/^中化(?!油)/.test(xRaw)){ xCat="中化"; }
+    else if(/^中海油/.test(xRaw)){ xCat="中海油"; }
+    else { const f=hgClassifyFull(xRaw);
+      if(f && HG_CLASS[f] && HG_CLASS[f]!=="外采"){ xCat=HG_CLASS[f]; xKey=f; }
+      else { excluded.push({reason:"未识别X油库(X="+xRaw+")，前缀需为中石化/中化/中海油",plan,core:xRaw}); unknowns.add(xRaw); continue; }
+    }
+    // 4) 判 Y 是否为我方自有库（决定是否生成方向B）
+    const yNorm=hgSelfNorm(yRaw);
+    const yIsSelf = /^中石油|中国石油/.test(yRaw) || HG_SELF_DEPOTS.indexOf(yNorm)>=0 || HG_SELF_DEPOTS.indexOf(yRaw)>=0;
+    // 5) 写入 方向A（X）+ 方向B（Y 同源同量）
+    for(const p of prodCols){ const v=parseFloat(row[ci[p]]||0)||0; if(!v) continue;
+      const pk = p==="92#乙醇汽油" ? "92#" : (p==="92#组分" ? "92#组分" : p);
+      // 方向A：at X
+      const ak=xKey+"|"+pk;
+      const slotA=openMap[ak] || (openMap[ak]={opening:0,cat:xCat,plan});
+      slotA.opening+=v;
+      // 方向B：at Y（仅当 Y=我方库），同源同量，cat=X 的 cat（收油方=对方=X）
+      if(yIsSelf){
+        const bk=yNorm+"|"+pk;
+        const slotB=selfOpenMap[bk] || (selfOpenMap[bk]={opening:0,cat:xCat,plan});
+        slotB.opening+=v;
+      }
+    }
+  }
+  const opening=Object.keys(openMap).map(k=>{ const [depot,prod]=k.split("|");
+    return {depot,prod,opening:openMap[k].opening,cat:openMap[k].cat,plan:openMap[k].plan}; });
+  const selfOpening=Object.keys(selfOpenMap).map(k=>{ const [depot,prod]=k.split("|");
+    return {depot,prod,opening:selfOpenMap[k].opening,cat:selfOpenMap[k].cat,plan:selfOpenMap[k].plan}; });
+  // 月份：sheet名「X月」或 标题「YYYY年X月互供计划」
+  let ym=null;
+  const mm = /^\s*(\d{1,2})\s*月\s*$/.exec(sheetName||"");
+  if(mm){ ym=year+"-"+String(+mm[1]).padStart(2,"0"); }
+  else if(monthHint){ ym=year+"-"+String(monthHint).padStart(2,"0"); }
+  else { const m2=/(20\d{2})\s*年\s*(\d{1,2})\s*月/.exec((sheetName||"")+" "+names.join(" ")); if(m2) ym=m2[1]+"-"+String(+m2[2]).padStart(2,"0"); }
+  return { ym, opening, selfOpening, excluded, unknowns:[...unknowns] };
+}
+async function hgReadExcelSheets(buf, name){
+  if(typeof XLSX!=="undefined"){
+    try{
+      const wb=XLSX.read(buf,{type:"array"});
+      return wb.SheetNames.map(n=>({name:n, rows:XLSX.utils.sheet_to_json(wb.Sheets[n],{header:1,defval:""})}));
+    }catch(e){}
+  }
+  if(/\.xlsx$/i.test(name)) return await hgParseXlsx(buf);
+  throw new Error("无法解析 .xls 旧格式：需联网加载 SheetJS（或把文件另存为 .xlsx 后重传）");
+}
+async function hgParseOpeningFile(file){
+  const name=file.name||"";
+  let sheets=[];
+  if(/\.xlsx?$/i.test(name)){
+    const buf=await file.arrayBuffer();
+    sheets=await hgReadExcelSheets(buf, name);
+    if(!sheets.length) throw new Error("Excel 中无工作表");
+  } else {
+    const text=await hgReadDecoded(file);
+    sheets=[{name, rows:hgCsvParse(text)}];
+  }
+  const yearM=/(20\d{2})\s*年/.exec(name);
+  const year=yearM?yearM[1]:String(new Date().getFullYear());
+  const out=[];
+  // 分月汇总表：只认 sheet 名「X月」（避免「分单位互供公路报财务」等标题带月份的表被误认）
+  const monthSheets=sheets.filter(sh=>/^\s*(\d{1,2})\s*月\s*$/.test(String(sh.name||"").trim()));
+  if(monthSheets.length){
+    monthSheets.forEach(sh=>{
+      const mm=+String(sh.name).trim().replace(/月/,"");
+      out.push(hgParseOpeningRows(sh.rows, sh.name, year, mm));
+    });
+  } else {
+    // 单月文件（sheet 名非「X月」）：取含「互供方案」的表（或第一个），标题识别月份
+    const sh=sheets.find(s=>String((s.rows||[]).join(" ")).indexOf("互供方案")>=0)||sheets[0];
+    out.push(hgParseOpeningRows(sh.rows, sh.name, year, null));
+  }
+  return { multi:out, fileName:name };
+}
+
+/* ===== 自提出库 xls → 对方来我们油库提油（方向B 提油） =====
+   表头: 出库单号|提油计划号|付油通知单号|提油卡号|提油机构|提油机构编码|收油客户|客户编码|油品|油品编码|实发量(吨)|…|记账日期|…
+   关注列: E提油机构 G收油客户 I油品 K实发量(吨) R记账日期；去重键=出库单号(A列) */
+function hgParseSelfTaken(rows){
+  let hi=-1;
+  for(let r=0;r<Math.min(rows.length,8);r++){ if(String((rows[r]||[]).join(" ")).indexOf("提油机构")>=0 && String((rows[r]||[]).join(" ")).indexOf("收油客户")>=0){ hi=r; break; } }
+  if(hi<0) throw new Error("自提出库表未找到表头（需含 提油机构/收油客户/油品/实发量(吨)/记账日期）");
+  const hdr=rows[hi]||[]; const ci={}; hdr.forEach((h,i)=>{ ci[String(h).trim()]=i; });
+  ["提油机构","收油客户","油品","实发量(吨)","记账日期"].forEach(n=>{ if(!(n in ci)) throw new Error("缺少列: "+n); });
+  const noCol=("出库单号" in ci)?ci["出库单号"]:-1;
+  const di=ci["提油机构"], cu=ci["收油客户"], pi=ci["油品"], qi=ci["实发量(吨)"], ri=ci["记账日期"];
+  const detail=[]; const excluded=[]; const dates=[];
+  let seq=0, synth=0;
+  for(let r=hi+1;r<rows.length;r++){
+    const row=rows[r]||[]; if(row.length<=qi) continue;
+    const depot=(String(row[di]||"").trim());
+    const cust=(String(row[cu]||"").trim());
+    const q=parseFloat(row[qi])||0; if(!(q>0)) continue;
+    if(!depot) continue;
+    const si=HG_SELF_SINO.find(s=>cust.indexOf(s.name)>=0);
+    if(!si){ excluded.push({reason:"非对方公司(不计互供)",depot,cust,qty:q}); continue; }
+    const prod=(String(row[pi]||"").trim());
+    const dt=(String(row[ri]||"").trim().slice(0,10));
+    let no=noCol>=0?(String(row[noCol]||"").trim()):"";
+    if(!no){ no="SELF:"+dt+"|"+depot+"|"+si.cat+"|"+hgOpenKey(prod)+"|"+q+"|#"+(++seq); synth++; }
+    detail.push({ no, depot:hgSelfNorm(depot), prod:hgOpenKey(prod), prod_full:prod, cat:si.cat, dt, q });
+    dates.push(dt);
+  }
+  const taken=hgAggRows(detail);
+  const ym = dates.length ? dates.slice().sort()[0].slice(0,7) : null;
+  const date_min=dates.length?dates.reduce((a,b)=>a<b?a:b):"";
+  const date_max=dates.length?dates.reduce((a,b)=>a>b?a:b):"";
+  return { ym, date_min, date_max, taken, detail, excluded, synth_count:synth, has_bill_no:noCol>=0 };
+}
+async function hgParseSelfFile(file){
+  const name=file.name||"";
+  let sheets=[];
+  if(/\.xlsx?$/i.test(name)){
+    const buf=await file.arrayBuffer();
+    sheets=await hgReadExcelSheets(buf, name);
+    if(!sheets.length) throw new Error("Excel 中无工作表");
+  } else {
+    const text=await hgReadDecoded(file);
+    sheets=[{name, rows:hgCsvParse(text)}];
+  }
+  const sh=sheets.find(s=>String((s.rows||[]).join(" ")).indexOf("收油客户")>=0)||sheets[0];
+  return hgParseSelfTaken(sh.rows);
+}
+/* 方向B 分组：selfTaken × selfOpening → selfGroups */
+function hgBuildSelfGroups(ym){
+  const M=HG.months[ym]; if(!M) return;
+  const openMap={};
+  (M.selfOpening||[]).forEach(o=>{ openMap[o.depot+"|"+o.prod]={opening:Number(o.opening||0),cat:o.cat}; });
+  const groups=[];
+  (M.selfTaken||[]).forEach(t=>{
+    const ok=hgOpenKey(t.prod);
+    const om=openMap[t.depot+"|"+ok];
+    groups.push({ depot:t.depot, prod:ok, prod_disp:hgProdDisp(t.prod_full||t.prod), prod_full:t.prod_full, cat:t.cat,
+      opening:om?om.opening:0, month_total:t.total, days:t.days });
+    delete openMap[t.depot+"|"+ok];   // 已消费
+  });
+  // 仅有开单、无来提的组（如对方计划了但还没来提）
+  Object.keys(openMap).forEach(k=>{
+    const [depot,prod]=k.split("|"); const om=openMap[k];
+    groups.push({ depot, prod, prod_disp:hgProdDisp(prod), prod_full:prod, cat:om.cat,
+      opening:om.opening, month_total:0, days:[] });
+  });
+  M.selfGroups=groups;
+}
+function hgSelfGroups(m){ return HG.months[m]?HG.months[m].selfGroups:[]; }
+
+/* ===== 原生 xlsx 解析（零依赖，DecompressionStream） ===== */
+function hgUnesc(s){ return s.replace(/&#x([0-9A-Fa-f]+);/g,(_,h)=>String.fromCharCode(parseInt(h,16)))
+  .replace(/&#(\d+);/g,(_,d)=>String.fromCharCode(parseInt(d,10)))
+  .replace(/&amp;/g,"&").replace(/&lt;/g,"<").replace(/&gt;/g,">").replace(/&quot;/g,'"').replace(/&apos;/g,"'"); }
+async function hgUnzip(buf){
+  const dv=new DataView(buf); const files={}; let off=0;
+  while(off+4<=buf.byteLength){
+    const sig=dv.getUint32(off,true); if(sig!==0x04034b50) break;
+    const method=dv.getUint16(off+8,true), compSize=dv.getUint32(off+18,true),
+          nameLen=dv.getUint16(off+26,true), extraLen=dv.getUint16(off+28,true);
+    let name=""; for(let i=0;i<nameLen;i++) name+=String.fromCharCode(dv.getUint8(off+30+i));
+    const ds=off+30+nameLen+extraLen; const comp=new Uint8Array(buf,ds,compSize); let out;
+    if(method===0){ out=comp; }
+    else { const ds2=new DecompressionStream(method===8?"deflate-raw":"deflate");
+      const st=new Response(comp).body.pipeThrough(ds2); out=new Uint8Array(await new Response(st).arrayBuffer()); }
+    files[name]=out; off=ds+compSize;
+  }
+  return files;
+}
+function hgParseSharedStrings(xml){ const arr=[]; const re=/<si>([\s\S]*?)<\/si>/g; let m;
+  while((m=re.exec(xml))){ const t=(m[1].match(/<t[^>]*>([\s\S]*?)<\/t>/g)||[]).map(x=>hgUnesc(x.replace(/<t[^>]*>/,"").replace(/<\/t>/,""))).join(""); arr.push(t); } return arr; }
+function hgParseWorkbook(wb,rels){ const map={}; const relsEls=rels.match(/<Relationship[^>]*\/?>/g)||[];
+  const rid2t={}; relsEls.forEach(e=>{ const id=/Id="([^"]*)"/.exec(e); const tg=/Target="([^"]*)"/.exec(e); if(id&&tg) rid2t[id[1]]=tg[1]; });
+  const sr=/<sheet [^>]*name="([^"]*)"[^>]*r:id="([^"]*)"/g; let m;
+  while((m=sr.exec(wb))){ let p=rid2t[m[2]].replace(/^\//,""); if(p.indexOf("xl/")!==0) p="xl/"+p; map[m[1]]=p; } return map; }
+function hgColIdx(ref){ const m=/^([A-Z]+)/.exec(ref); let s=m[1],n=0; for(const ch of s) n=n*26+(ch.charCodeAt(0)-64); return n-1; }
+function hgParseSheet(xml,shared){ const rows=[]; const rre=/<row [^>]*r="(\d+)"[^>]*>([\s\S]*?)<\/row>/g; let m;
+  while((m=rre.exec(xml))){ const body=m[2]; const cells=[]; const cre=/<c [^>]*r="([A-Z]+\d+)"([^>]*)>([\s\S]*?)<\/c>/g; let c;
+    while((c=cre.exec(body))){ const ref=c[1],attr=c[2],inner=c[3],ci=hgColIdx(ref); let val="";
+      const tm=/t="([^"]*)"/.exec(attr); const t=tm?tm[1]:null;
+      if(t==="s"){ const vi=/<v>(\d+)<\/v>/.exec(inner); if(vi) val=shared[parseInt(vi[1])]||""; }
+      else if(t==="inlineStr"){ const is=/<t[^>]*>([\s\S]*?)<\/t>/.exec(inner); val=is?hgUnesc(is[1]):""; }
+      else { const v=/<v>([\s\S]*?)<\/v>/.exec(inner); val=v?v[1]:""; }
+      cells.push([ci,val]); }
+    const arr=[]; cells.forEach(([i,v])=>arr[i]=v); rows.push(arr); } return rows; }
+async function hgParseXlsx(buf){
+  const files=await hgUnzip(buf);
+  const shared=files["xl/sharedStrings.xml"]?hgParseSharedStrings(new TextDecoder("utf-8").decode(files["xl/sharedStrings.xml"])):[];
+  const wb=files["xl/workbook.xml"]?new TextDecoder("utf-8").decode(files["xl/workbook.xml"]):"";
+  const rels=files["xl/_rels/workbook.xml.rels"]?new TextDecoder("utf-8").decode(files["xl/_rels/workbook.xml.rels"]):"";
+  const map=hgParseWorkbook(wb,rels); const sheets=[];
+  for(const name in map){ const xml=files[map[name]]; if(xml) sheets.push({name,rows:hgParseSheet(new TextDecoder("utf-8").decode(xml),shared)}); }
+  return sheets;
+}
+
+/* ===== 渲染 ===== */
+function hgUnitCard(name,col,v,label){
+  const rcls=parseFloat(v.r)<0?"neg":"pos";
+  return `<div class="hg-ucard" style="border-left-color:${col}">
+    <div class="uh"><span class="un" style="color:${col}">${name}</span><span class="ul">${label}合计</span></div>
+    <div class="um">
+      <div class="uc"><div class="ucl">本月提油</div><div class="ucv" style="color:${col}">${v.t}</div></div>
+      <div class="uc"><div class="ucl">本月开单</div><div class="ucv">${v.o}</div></div>
+      <div class="uc"><div class="ucl">上月结转</div><div class="ucv">${v.carry}</div></div>
+      <div class="uc"><div class="ucl">本月剩余</div><div class="ucv ${rcls}">${v.r}</div></div>
+    </div></div>`;
+}
+function hgUnitA(){
+  let h=`<div class="hg-unit-dir da"><span class="arr">🚛</span>方向 A · 我们去对方油库提油</div>`;
+  let has=false;
+  ["中石化","中化","中海油"].forEach(c=>{
+    let o=0,mT=0,carry=0,r=0;
+    hgGroups(STATE.month).forEach(g=>{ if(g.cat===c){ o+=Number(g.opening||0); mT+=Number(g.month_total||0); carry+=hgCarryOf(STATE.month,gid(g)); r+=hgRemainOf(STATE.month,g); } });
+    if(o>0||mT>0||carry>0){ h+=hgUnitCard(c,HG_CAT_COLOR[c],{t:hgFmt(mT),o:hgFmt(o),carry:hgFmt(carry),r:hgFmt(r)},"本月"); has=true; }
+  });
+  let ao=0,aT=0,acarry=0,ar=0;
+  hgGroups(STATE.month).forEach(g=>{ if(g.cat==="外采") return; ao+=Number(g.opening||0); aT+=Number(g.month_total||0); acarry+=hgCarryOf(STATE.month,gid(g)); ar+=hgRemainOf(STATE.month,g); });
+  if(ao>0||aT>0||acarry>0){ h+=hgUnitCard("A 互供小计","var(--navy)",{t:hgFmt(aT),o:hgFmt(ao),carry:hgFmt(acarry),r:hgFmt(ar)},"本月"); has=true; }
+  if(!has) h+=`<div class="hg-empty-tip">本月方向A 暂无数据</div>`;
+  return h;
+}
+function hgUnitB(){
+  let h=`<div class="hg-unit-dir db"><span class="arr">🚚</span>方向 B · 对方来我们油库提油</div>`;
+  let has=false;
+  ["中石化","中化","中海油"].forEach(c=>{
+    let o=0,mT=0,carry=0,r=0;
+    hgSelfGroups(STATE.month).forEach(g=>{ if(g.cat===c){ o+=Number(g.opening||0); mT+=Number(g.month_total||0); carry+=hgCarryOf(STATE.month,"SELF|"+gid(g)); r+=hgSelfRemainOf(STATE.month,g); } });
+    if(o>0||mT>0||carry>0){ h+=hgUnitCard(c+"来提",HG_CAT_COLOR[c],{t:hgFmt(mT),o:hgFmt(o),carry:hgFmt(carry),r:hgFmt(r)},"本月"); has=true; }
+  });
+  let bo=0,bT=0,bcarry=0,br=0;
+  hgSelfGroups(STATE.month).forEach(g=>{ bo+=Number(g.opening||0); bT+=Number(g.month_total||0); bcarry+=hgCarryOf(STATE.month,"SELF|"+gid(g)); br+=hgSelfRemainOf(STATE.month,g); });
+  if(bo>0||bT>0||bcarry>0){ h+=hgUnitCard("B 来提小计","var(--navy)",{t:hgFmt(bT),o:hgFmt(bo),carry:hgFmt(bcarry),r:hgFmt(br)},"本月"); has=true; }
+  if(!has) h+=`<div class="hg-empty-tip">本月方向B 暂无数据</div>`;
+  return h;
+}
+function hgUnitWc(){
+  let wo=0,wT=0,wcarry=0,wr=0;
+  hgGroups(STATE.month).forEach(g=>{ if(g.cat==="外采"){ wo+=Number(g.opening||0); wT+=Number(g.month_total||0); wcarry+=hgCarryOf(STATE.month,gid(g)); wr+=hgRemainOf(STATE.month,g); } });
+  if(!(wo>0||wT>0||wcarry>0)) return "";
+  return `<div class="hg-unit-dir dwc"><span class="arr">🛏</span>外采 · 我们去对方(外采)库提油</div>`
+    + hgUnitCard("外采",HG_CAT_COLOR["外采"],{t:hgFmt(wT),o:hgFmt(wo),carry:hgFmt(wcarry),r:hgFmt(wr)},"本月");
+}
+/* 三页 Tab 视图 v2.8.3：汇总(全口径+方向A/B明细+外采) / 方向A / 方向B */
+function hgRenderUnit(){
+  const m=STATE.month;
+  if(STATE.tab==="a"){ document.getElementById("hg-cards").innerHTML=hgUnitA(); return; }
+  if(STATE.tab==="b"){ document.getElementById("hg-cards").innerHTML=hgUnitB(); return; }
+  /* ===== 汇总页：全口径合计卡 + 方向A/B 明细全展开 + 外采 ===== */
+  let allO=0, allT=0, allCarry=0, allR=0;
+  hgGroups(m).forEach(g=>{ allO+=Number(g.opening||0); allT+=Number(g.month_total||0); allCarry+=hgCarryOf(m,gid(g)); allR+=hgRemainOf(m,g); });
+  hgSelfGroups(m).forEach(g=>{ allO+=Number(g.opening||0); allT+=Number(g.month_total||0); allCarry+=hgCarryOf(m,"SELF|"+gid(g)); allR+=hgSelfRemainOf(m,g); });
+  let h=`<div class="hg-unit-dir da-grp"><span class="arr">📊</span>互供汇总 · 全口径（含方向A+方向B+外采）</div>`;
+  h+=hgUnitCard("全口径合计","var(--navy)",{t:hgFmt(allT),o:hgFmt(allO),carry:hgFmt(allCarry),r:hgFmt(allR)},"本月");
+  h+=hgUnitA()+hgUnitB()+hgUnitWc();
+  document.getElementById("hg-cards").innerHTML=h;
+}
+/* 年累计：开单 / 提油 / 执行率 / 结余（1月~所选月）。互供(中石化/中化/中海油)与外采分别汇总 */
+function hgYearAgg(){
+  const m=STATE.month, yr=m.slice(0,4);
+  const months=hgMonthKeys().filter(k=>k>=yr+"-01" && k<=m);
+  const per={}; HG_CATS.forEach(c=>per[c]={o:0,t:0});
+  const tot={o:0,t:0}; const wc={o:0,t:0};
+  months.forEach(mk=>{
+    hgGroups(mk).forEach(g=>{
+      const o=Number(g.opening||0), t=Number(g.month_total||0);
+      if(per[g.cat]){ per[g.cat].o+=o; per[g.cat].t+=t; }
+      if(g.cat==="外采"){ wc.o+=o; wc.t+=t; } else { tot.o+=o; tot.t+=t; }
+    });
+    // 开单有、当月无提油的组也要计入年累计开单
+    const gk={}; hgGroups(mk).forEach(g=>{ gk[g.depot+"|"+g.prod]=1; });
+    ((HG.months[mk]||{}).opening||[]).forEach(op=>{
+      if(gk[op.depot+"|"+op.prod]) return;                 // 已在 groups 中计过
+      const cat=HG_CLASS[op.depot]; const o=Number(op.opening||0);
+      if(per[cat]) per[cat].o+=o;
+      if(cat==="外采"){ wc.o+=o; } else { tot.o+=o; }
+    });
+    // 方向B：对方来我们提油（selfGroups 已含开单有/来提无的组）
+    hgSelfGroups(mk).forEach(g=>{
+      const o=Number(g.opening||0), t=Number(g.month_total||0);
+      if(per[g.cat]){ per[g.cat].selfO=(per[g.cat].selfO||0)+o; per[g.cat].selfT=(per[g.cat].selfT||0)+t; }
+    });
+    // 方向B 开单有、但未生成组的（selfOpening 未被消费的兜底）
+    const sgk={}; hgSelfGroups(mk).forEach(g=>{ sgk[g.depot+"|"+g.prod]=1; });
+    ((HG.months[mk]||{}).selfOpening||[]).forEach(op=>{
+      if(sgk[op.depot+"|"+op.prod]) return;
+      if(per[op.cat]) per[op.cat].selfO=(per[op.cat].selfO||0)+Number(op.opening||0);
+    });
+  });
+  return {yr, m, months, per, tot, wc};
+}
+function hgRenderYear(){
+  const A=hgYearAgg();
+  const mlist=A.months.length? A.months.map(k=>k.slice(5)+"月").join("、") : "无";
+  const main=`<div class="hg-year">
+      <div class="yt">年累计（${A.yr}年1月 – ${A.m.slice(5)}月）<span class="ys">共 ${A.months.length} 个月：${mlist}</span></div>
+      <div class="ygrid">${(()=>{
+        const rate=(t,o)=> o>0 ? (t/o*100) : null;
+        const cell=(v,cls)=>`<div class="yc ${cls||""}">${hgFmt(v)}<span class="u">吨</span></div>`;
+        const pcell=(r)=>{ if(r===null) return `<div class="yc pct" style="opacity:.45">—</div>`;
+          return `<div class="yc pct ${r<60?"low":""}">${r.toFixed(1)}%</div>`; };
+        let rows=`<div class="yh">互供单位</div><div class="yh r">年累计开单</div><div class="yh r">年累计提油</div><div class="yh r">执行率</div><div class="yh r">年累计结余</div>`;
+        ["中石化","中化","中海油"].forEach(c=>{
+          const p=A.per[c], bal=p.o-p.t;
+          rows+=`<div class="yn" style="color:${HG_CAT_COLOR[c]}">${c}</div>${cell(p.o)}${cell(p.t)}${pcell(rate(p.t,p.o))}${cell(bal, bal<0?"neg":"")}`;
+        });
+        const bal=A.tot.o-A.tot.t;
+        rows+=`<div class="yn ytot">互供合计</div><div class="yc ytot">${hgFmt(A.tot.o)}<span class="u">吨</span></div>
+          <div class="yc ytot">${hgFmt(A.tot.t)}<span class="u">吨</span></div>
+          <div class="yc ytot pct ${rate(A.tot.t,A.tot.o)!==null&&rate(A.tot.t,A.tot.o)<60?"low":""}">${rate(A.tot.t,A.tot.o)===null?"—":rate(A.tot.t,A.tot.o).toFixed(1)+"%"}</div>
+          <div class="yc ytot ${bal<0?"neg":""}">${hgFmt(bal)}<span class="u">吨</span></div>`;
+        return rows;
+      })()}</div>
+      <div class="ymeta">执行率＝年累计提油 ÷ 年累计开单（低于 60% 标黄，说明开单未提完）；年累计结余＝年累计开单 − 年累计提油（当年新增计划的未提部分，不含年初结转）。</div>
+    </div>`;
+  const wc=`<div class="hg-year wc">
+      <div class="yt">外采库 年累计（${A.yr}年1月 – ${A.m.slice(5)}月）<span class="ys">外采不计互供</span></div>
+      <div class="ygrid">${(()=>{
+        const rate=(t,o)=> o>0 ? (t/o*100) : null;
+        const cell=(v,cls)=>`<div class="yc ${cls||""}">${hgFmt(v)}<span class="u">吨</span></div>`;
+        const pcell=(r)=>{ if(r===null) return `<div class="yc pct" style="opacity:.45">—</div>`;
+          return `<div class="yc pct ${r<60?"low":""}">${r.toFixed(1)}%</div>`; };
+        const p=A.wc, bal=p.o-p.t;
+        let rows=`<div class="yh">外采单位</div><div class="yh r">年累计开单</div><div class="yh r">年累计提油</div><div class="yh r">执行率</div><div class="yh r">年累计结余</div>`;
+        rows+=`<div class="yn" style="color:${HG_CAT_COLOR["外采"]}">外采</div>${cell(p.o)}${cell(p.t)}${pcell(rate(p.t,p.o))}${cell(bal, bal<0?"neg":"")}`;
+        rows+=`<div class="yn ytot">外采合计</div><div class="yc ytot">${hgFmt(p.o)}<span class="u">吨</span></div>
+          <div class="yc ytot">${hgFmt(p.t)}<span class="u">吨</span></div>
+          <div class="yc ytot pct ${rate(p.t,p.o)!==null&&rate(p.t,p.o)<60?"low":""}">${rate(p.t,p.o)===null?"—":rate(p.t,p.o).toFixed(1)+"%"}</div>
+          <div class="yc ytot ${bal<0?"neg":""}">${hgFmt(bal)}<span class="u">吨</span></div>`;
+        return rows;
+      })()}</div>
+      <div class="ymeta">外采库（肇庆中寰/永州/南瑶）开单用手输录入，提油自动并入；不计入互供合计。</div>
+    </div>`;
+  const selfGrid=()=>{
+    const rate=(t,o)=> o>0 ? (t/o*100) : null;
+    const cell=(v,cls)=>`<div class="yc ${cls||""}">${hgFmt(v)}<span class="u">吨</span></div>`;
+    const pcell=(r)=>{ if(r===null) return `<div class="yc pct" style="opacity:.45">—</div>`;
+      return `<div class="yc pct ${r<60?"low":""}">${r.toFixed(1)}%</div>`; };
+    let rows=`<div class="yh">收油方</div><div class="yh r">年累计开单</div><div class="yh r">对方来提</div><div class="yh r">执行率</div><div class="yh r">年累计结余</div>`;
+    let so=0, st=0;
+    ["中石化","中化","中海油"].forEach(c=>{
+      const p=A.per[c]||{o:0,t:0}; const so2=p.selfO||0, st2=p.selfT||0; so+=so2; st+=st2;
+      const bal=so2-st2;
+      rows+=`<div class="yn" style="color:${HG_CAT_COLOR[c]}">${c}</div>${cell(so2)}${cell(st2)}${pcell(rate(st2,so2))}${cell(bal, bal<0?"neg":"")}`;
+    });
+    const bal=so-st;
+    rows+=`<div class="yn ytot">来提合计</div><div class="yc ytot">${hgFmt(so)}<span class="u">吨</span></div>
+      <div class="yc ytot">${hgFmt(st)}<span class="u">吨</span></div>
+      <div class="yc ytot pct ${rate(st,so)!==null&&rate(st,so)<60?"low":""}">${rate(st,so)===null?"—":rate(st,so).toFixed(1)+"%"}</div>
+      <div class="yc ytot ${bal<0?"neg":""}">${hgFmt(bal)}<span class="u">吨</span></div>`;
+    return rows;
+  };
+  const selfP=`<div class="hg-year self">
+      <div class="yt">对方来我库提油 年累计（${A.yr}年1月 – ${A.m.slice(5)}月）<span class="ys">计入互供提油</span></div>
+      <div class="ygrid">${selfGrid()}</div>
+      <div class="ymeta">开单=互供计划中「对方到我方库」部分（与我们去对方提油同源同量）；对方来提=自提出库中收油客户为对方公司的实发量。互供提油总量=我们去提+对方来提。</div>
+    </div>`;
+  const wrap = STATE.tab==="a" ? main
+    : STATE.tab==="b" ? selfP
+    : main+selfP+wc;
+  document.getElementById("hg-year").innerHTML=`<div class="hg-year-wrap">${wrap}</div>`;
+}
+/* ===== 漏传检查 ===== */
+function hgNowYm(){ const d=new Date(); return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0"); }
+function hgToday(){ const d=new Date(); return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0"); }
+function hgMonthEnd(ym){ const y=+ym.slice(0,4), mo=+ym.slice(5,7); return ym+"-"+String(new Date(y,mo,0).getDate()).padStart(2,"0"); }
+function hgMonthAdd(ym,n){ const y=+ym.slice(0,4), mo=+ym.slice(5,7)-1+n; const d=new Date(y,mo,1); return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0"); }
+function hgStartYm(){
+  if(HG.startYm && /^\d{4}-\d{2}$/.test(HG.startYm)) return HG.startYm;
+  const ks=hgMonthKeys(); return ks.length?ks[0]:hgNowYm();
+}
+function hgCheckMissing(){
+  const start=hgStartYm(), now=hgNowYm();
+  const issues=[];
+  if(start>now) return {issues:[{lv:"设置",text:`统计起始月 <b>${start}</b> 晚于当前月 <b>${now}</b>，请修正起始月。`,warn:true}], start, now, checked:0};
+  let ym=start, n=0, guard=0;
+  while(ym<=now && guard++<240){
+    n++;
+    const M=HG.months[ym];
+    const isCur = ym===now;
+    if(!M || (!(M.taken||[]).length && !(M.opening||[]).length)){
+      issues.push({ lv:isCur?"待传":"漏传", warn:isCur,
+        text:`<b>${ym}</b> ${isCur?"本月数据尚未导入（提油+开单）":"整月无任何数据 —— 提油和开单都没传"}` });
+    } else {
+      const hasT=(M.taken||[]).length>0, hasO=(M.opening||[]).length>0;
+      if(hasT && !hasO) issues.push({ lv:"缺开单", warn:true, text:`<b>${ym}</b> 已传提油，<b>缺开单表</b> —— 剩余量算不准（开单量全部为 0）` });
+      if(!hasT && hasO) issues.push({ lv:"缺提油", warn:true, text:`<b>${ym}</b> 已传开单，<b>缺提油日报</b> —— 本月提油显示为空` });
+      if(hasT){
+        const end=hgMonthEnd(ym), got=M.src_max||M.date_max||"";
+        if(got && got<end){
+          const lack=(+end.slice(8,10))-(+got.slice(8,10));
+          if(isCur){
+            const yest=hgToday();
+            if(got<yest) issues.push({ lv:"可追加", warn:true, text:`<b>${ym}</b> 提油数据只到 <b>${got.slice(5)}</b>，今天是 ${yest.slice(5)} —— 可导入最新日报追加（重复自动跳过）` });
+          } else {
+            issues.push({ lv:"不完整", warn:false,
+              text:`<b>${ym}</b> 提油数据只到 <b>${got.slice(5)}</b>，该月共 ${end.slice(8)} 天，<b>缺后 ${lack} 天</b> —— 建议补传完整月日报` });
+          }
+        }
+      }
+    }
+    ym=hgMonthAdd(ym,1);
+  }
+  return {issues, start, now, checked:n};
+}
+function hgRenderMiss(){
+  const box=document.getElementById("hg-miss"); if(!box) return;
+  const r=hgCheckMissing();
+  const hard=r.issues.filter(i=>!i.warn).length;
+  if(!r.issues.length){
+    box.className="hg-miss ok"; box.style.display="block";
+    box.innerHTML=`<div class="mt">✅ 月份完整性检查通过<span class="cnt">${r.start} ~ ${r.now}</span></div>
+      <div class="mok">已检查 ${r.checked} 个月，提油与开单均已导入且数据覆盖到月末。</div>`;
+    return;
+  }
+  box.className="hg-miss"; box.style.display="block";
+  box.innerHTML=`<div class="mt">⚠ 月份完整性检查：发现 ${r.issues.length} 项<span class="cnt">${r.start} ~ ${r.now}</span></div>`
+    + r.issues.map(i=>`<div class="mi"><span class="lv ${i.warn?"w":""}">${i.lv}</span>${i.text}</div>`).join("")
+    + `<div class="mi" style="color:var(--mut);border-top:1px dashed #f3d0d0">检查范围由「统计起始月」决定（当前 ${r.start}）—— 若互供业务是年中才开始，把起始月改成实际开始月即可。</div>`;
+}
+
+function hgBarsRows(list){
+  const arr=[...list].sort((a,b)=>b.month_total-a.month_total);
+  const max=Math.max(1,...arr.map(g=>g.month_total));
+  let rows="";
+  arr.forEach(g=>{
+    const col=HG_CAT_COLOR[g.cat], w=(g.month_total/max*100).toFixed(1);
+    rows+=`<div class="bar-row"><div class="bar-name"><b>${hgEscape(g.depot)}</b> · ${hgEscape(g.prod_disp)}</div>
+      <div class="bar-track"><div class="bar-fill" style="width:${w}%;background:${col}">${hgFmt(g.month_total)}</div></div>
+      <div class="bar-val">${hgFmt(g.month_total)}</div></div>`;
+  });
+  return rows;
+}
+function hgRenderBars(){
+  const m=STATE.month;
+  let html="";
+  if(STATE.tab!=="b"){
+    const rows=hgBarsRows(hgGroups(m));
+    if(rows) html+=`<div class="bt">🚛 方向A · 各油库·油品 本月提油占比 <span>单位：吨 · 共 ${hgGroups(m).length} 组</span></div>${rows}`;
+  }
+  if(STATE.tab!=="a"){
+    const sg=hgSelfGroups(m);
+    const rows=hgBarsRows(sg);
+    if(rows) html+=(html?`<div style="height:12px"></div>`:"")+`<div class="bt">🚚 方向B · 我方各库·油品 本月来提占比 <span>单位：吨 · 共 ${sg.length} 组</span></div>${rows}`;
+  }
+  document.getElementById("hg-bars").innerHTML=html;
+  document.getElementById("hg-bars").style.display=html?"block":"none";
+}
+function hgRenderGrid(){
+  // v2.8.3 三页 Tab：汇总=方向A+方向B+外采；方向A 页=仅 A（不含外采）；方向B 页=仅 B
+  const cats = STATE.cat==="全部"
+    ? (STATE.tab==="a" ? HG_CATS.filter(c=>c!=="外采") : HG_CATS)
+    : [STATE.cat];
+  let body="";
+  if(STATE.tab!=="b"){ cats.forEach(c=>{
+    const arr = hgGroups(STATE.month).filter(g=>g.cat===c);
+    if(!arr.length) return;
+    let sM=0,sO=0,sR=0;
+    arr.forEach(g=>{ sM+=Number(g.month_total||0); sO+=Number(g.opening||0); sR+=hgRemainOf(STATE.month,g); });
+    const col=HG_CAT_COLOR[c], srcls=sR<0?"neg":"pos";
+    body += `<div class="hg-sec" data-cat="${c}">
+      <div class="hg-sec-h" style="background:${col}">${c==="外采"?"外采（不计互供）":c+" 互供"}
+        <span class="cnt">${arr.length} 个(油库×油品)组</span>
+        <span class="srem">分段剩余 ${hgFmt(sR)} 吨</span></div>
+      <div class="hg-grid">`;
+    arr.forEach(g=>{
+      const key=gid(g), carry=hgCarryOf(STATE.month,key), remain=hgRemainOf(STATE.month,g);
+      const rcls=remain<0?"neg":"pos";
+      const flag = (Number(g.opening||0)===0 && Number(g.month_total||0)>0)
+        ? `<span class="hg-flag">开单未录入</span>`
+        : (remain<0 ? `<span class="hg-flag warn">超提 ${hgFmt(-remain)}</span>` : "");
+      let daily="";
+      g.days.forEach(d=>{ daily+=`<div class="daily-row"><span class="dd">${padDate(d[0])}</span><span class="dq">${hgFmt(d[1])} 吨${d[2]?` <em class="cx">${d[2]}车</em>`:""}</span></div>`; });
+      body += `<div class="hg-gcard" style="border-left-color:${col}" data-key="${key}">
+        <div class="gh"><span class="dn">${hgEscape(g.depot)}</span>
+          <span class="hg-chip" style="background:${col}">${hgEscape(g.prod_disp)}</span>${flag}</div>
+        <div class="hg-metrics">
+          <div class="metric carry"><div class="ml">结转量(上月结转)</div>
+            <input class="hg-carry-input" data-key="${key}" type="number" step="0.01" value="${hgFmt(carry)}"></div>
+          <div class="metric"><div class="ml">开单量</div><div class="mv">${hgFmt(g.opening)}</div></div>
+          <div class="metric"><div class="ml">本月提油</div><div class="mv pos">${hgFmt(g.month_total)}</div></div>
+          <div class="metric"><div class="ml">剩余量</div><div class="mv ${rcls}" id="rem-${key}">${hgFmt(remain)}</div></div>
+        </div>
+        <div class="daily"><div class="dh">每日提油明细（${g.days.length} 天）</div><div class="daily-list">${daily}</div></div>
+      </div>`;
+    });
+    body += `</div></div>`;
+  }); }
+  // 方向B：对方来我们油库提油（先按收方分类分卡，卡内按我方库×品号展开）
+  if(STATE.tab!=="a"){ const selfCats = STATE.cat==="全部" ? ["中石化","中化","中海油"] : (STATE.cat==="外采"?[]:[STATE.cat]);
+  const sg=hgSelfGroups(STATE.month);
+  selfCats.forEach(c=>{
+    const arr = sg.filter(g=>g.cat===c);
+    if(!arr.length) return;
+    let sM=0,sO=0,sR=0;
+    arr.forEach(g=>{ sM+=Number(g.month_total||0); sO+=Number(g.opening||0); sR+=hgRemainOf(STATE.month,"SELF|"+g.depot+"|"+g.prod); });
+    const col=HG_CAT_COLOR[c];
+    body += `<div class="hg-sec" data-self="${c}">
+      <div class="hg-sec-h" style="background:${col}">${c} 来我库提油
+        <span class="cnt">${arr.length} 个(我方库×油品)组</span>
+        <span class="srem">分段剩余 ${hgFmt(sR)} 吨</span></div>
+      <div class="hg-grid">`;
+    arr.forEach(g=>{
+      const key="SELF|"+g.depot+"|"+g.prod, carry=hgCarryOf(STATE.month,key), remain=hgSelfRemainOf(STATE.month,g);
+      const rcls=remain<0?"neg":"pos";
+      const flag = (Number(g.opening||0)===0 && Number(g.month_total||0)>0)
+        ? `<span class="hg-flag">开单未录入</span>`
+        : (remain<0 ? `<span class="hg-flag warn">超提 ${hgFmt(-remain)}</span>` : "");
+      let daily="";
+      g.days.forEach(d=>{ daily+=`<div class="daily-row"><span class="dd">${padDate(d[0])}</span><span class="dq">${hgFmt(d[1])} 吨${d[2]?` <em class="cx">${d[2]}车</em>`:""}</span></div>`; });
+      body += `<div class="hg-gcard" style="border-left-color:${col};background:linear-gradient(180deg,#fff,#faf7ff)" data-key="${key}">
+        <div class="gh"><span class="dn">${hgEscape(g.depot)}</span>
+          <span class="hg-chip" style="background:${col}">${hgEscape(g.prod_disp)}</span><span class="hg-flag" style="background:#f0e7ff;color:#7c3aed;border:1px solid #d9c6f5">对方来提</span>${flag}</div>
+        <div class="hg-metrics">
+          <div class="metric carry"><div class="ml">结转量(上月结转)</div>
+            <input class="hg-carry-input" data-key="${key}" type="number" step="0.01" value="${hgFmt(carry)}"></div>
+          <div class="metric"><div class="ml">开单量</div><div class="mv">${hgFmt(g.opening)}</div></div>
+          <div class="metric"><div class="ml">本月来提</div><div class="mv pos">${hgFmt(g.month_total)}</div></div>
+          <div class="metric"><div class="ml">剩余量</div><div class="mv ${rcls}" id="rem-${key}">${hgFmt(remain)}</div></div>
+        </div>
+        <div class="daily"><div class="dh">每日来提明细（${g.days.length} 天）</div><div class="daily-list">${daily}</div></div>
+      </div>`;
+    });
+    body += `</div></div>`;
+  }); }
+  document.getElementById("hg-body").innerHTML=body;
+  document.getElementById("hg-sub").textContent=`当前月份 ${STATE.month} · 数据区间 ${hgCur().date_min} ~ ${hgCur().date_max} · 互供提油+对方来我库提油`;
+  hgUpdateWarn();
+}
+function hgUpdateWarn(){
+  const notes=[];
+  hgGroups(STATE.month).forEach(g=>{
+    const remain=hgRemainOf(STATE.month,g);
+    if(Number(g.opening||0)===0 && Number(g.month_total||0)>0) notes.push(`${g.depot}·${g.prod_disp} 开单未录入（开单表无此互供方案）`);
+    else if(remain<0) notes.push(`${g.depot}·${g.prod_disp} 剩余为负 ${hgFmt(-remain)}（结转量不足或超提）`);
+  });
+  const w=document.getElementById("hg-warn");
+  if(notes.length){ w.style.display="block"; w.innerHTML="提示："+notes.join("；")+"。剩余为负通常因结转量未填/不足，点「批量填结转」或手填即可纠正。"; }
+  else w.style.display="none";
+}
+function hgRender(){
+  const tb=document.getElementById("hg-tabs"); if(tb) tb.style.display="flex";
+  hgRenderUnit(); hgRenderYear(); hgRenderBars(); hgRenderGrid(); hgRenderMiss();
+  document.getElementById("hg-tip").textContent="结转量默认=上月剩余(可手改)；无上月数据时=0";
+}
+
+/* ===== 月份下拉 ===== */
+function hgRefreshMonthSelect(){
+  const sel=document.getElementById("hg-month"); const cur=STATE.month;
+  sel.innerHTML=""; hgMonthKeys().forEach(m=>{ const o=document.createElement("option"); o.value=m; o.textContent=m+(m===cur?"（当前）":""); sel.appendChild(o); });
+  sel.value=cur||""; sel.disabled=!hgMonthKeys().length;
+}
+
+/* ===== 导入流程 ===== */
+function hgShowLoading(b){ document.getElementById("hg-loading").classList.toggle("show",!!b); }
+function hgOpenModal(html){ document.getElementById("hg-modal").innerHTML=html; document.getElementById("hg-mask").classList.add("show"); }
+function hgCloseModal(){ document.getElementById("hg-mask").classList.remove("show"); }
+
+let HG_PENDING=null; // {kind, ym, data}
+
+function hgImportTaken(file){
+  hgShowLoading(true);
+  hgReadDecoded(file).then(text=>{
+    hgShowLoading(false);
+    let res; try{ res=hgParseDaily(text); }catch(e){ alert("解析失败："+e.message); return; }
+    if(!res.taken.length){ alert("未解析到有效互供/外采提油记录（请确认是油品日报CSV，且含复核通过/已下发的提油）。"); return; }
+    const ym=res.ym || STATE.month || (new Date().getFullYear()+"-"+String(new Date().getMonth()+1).padStart(2,"0"));
+    HG_PENDING={kind:"taken", ym, res};
+    hgShowPreview("taken", res, ym, "merge");
+  }).catch(e=>{ hgShowLoading(false); alert("读取失败："+e.message); });
+}
+
+/* ===== 对方来我们油库提油（方向B）：自提出库导入 ===== */
+function hgImportSelf(file){
+  hgShowLoading(true);
+  hgParseSelfFile(file).then(res=>{
+    hgShowLoading(false);
+    if(!res.taken.length){ alert("未解析到有效「对方来我们提油」记录（请确认是自提出库xls，且收油客户=中石化/中海油/中化）。"); return; }
+    const ym=res.ym || STATE.month || (new Date().getFullYear()+"-"+String(new Date().getMonth()+1).padStart(2,"0"));
+    HG_PENDING={kind:"self", ym, res};
+    hgShowSelfPreview(res, ym);
+  }).catch(e=>{ hgShowLoading(false); alert("解析失败："+e.message); });
+}
+function hgShowSelfPreview(res, ym){
+  const dd=hgSelfDedupPreview(ym, res.detail);
+  const catCnt={}; res.taken.forEach(g=>{ catCnt[g.cat]=(catCnt[g.cat]||0)+Number(g.month_total||0); });
+  const catHtml=Object.keys(catCnt).map(c=>`<div class="mstat"><div class="ml">${c} 来提</div><div class="mv" style="font-size:14px;color:${HG_CAT_COLOR[c]}">${hgFmt(catCnt[c])} 吨</div></div>`).join("");
+  let exclHtml="";
+  if(res.excluded.length){
+    exclHtml=`<div class="excl"><div class="et">已排除 ${res.excluded.length} 条（收油客户非中石化/中海油/中化）${res.excluded.length>30?"（仅显示前30）":""}</div>${res.excluded.slice(0,30).map(e=>`<div class="er">${hgEscape(e.depot)}｜${hgEscape(e.cust)}｜${hgFmt(e.qty)}吨</div>`).join("")}</div>`;
+  }
+  let dedupHtml="";
+  if(dd.hasOld){
+    const allDup=dd.freshCount===0;
+    dedupHtml=`<div class="dedup ${allDup?"alldup":""}">
+      <div class="dt2">${allDup?"⛔ 判定为<b>重复导入</b>：本文件全部出库单号已在【"+ym+"】中存在，数据<b>不会变动</b>":"🔎 与【"+ym+"】已有数据比对（按出库单号）"}</div>
+      <div class="drow"><span class="dl">本次新增</span><span class="dv fresh">${dd.freshCount} 条 / ${hgFmt(dd.freshQty)} 吨</span></div>
+      <div class="drow"><span class="dl">重复跳过</span><span class="dv dup">${dd.dupCount} 条 / ${hgFmt(dd.dupQty)} 吨</span></div>
+      ${allDup?`<div class="dnote">重复导入会自动跳过，数据不变；若需刷新请用「清空本月」后重导。</div>`:""}
+    </div>`;
+  }
+  const html=`<h3>导入预览 · 对方来我们油库提油（自提出库）</h3>
+    <div class="ms">提油机构=我方自有/以站代库，收油客户=中石化/中海油/中化。按出库单号自动去重，重复导入不翻倍。</div>
+    <div class="mrow">
+      <div class="mstat"><div class="ml">归入月份</div><div class="mv"><input type="text" id="hg-prev-ym" value="${ym}"></div></div>
+      <div class="mstat"><div class="ml">命中明细行数</div><div class="mv">${res.detail.length}</div></div>
+      <div class="mstat"><div class="ml">数据日期范围</div><div class="mv" style="font-size:12px">${res.date_min||"—"}~${res.date_max||"—"}</div></div>
+      ${catHtml}
+    </div>
+    ${dedupHtml}${exclHtml}
+    <div class="acts"><button class="cancel" id="hg-prev-cancel">取消</button><button class="ok" id="hg-prev-ok">确认导入</button></div>`;
+  hgOpenModal(html);
+  document.getElementById("hg-prev-cancel").onclick=hgCloseModal;
+  document.getElementById("hg-prev-ok").onclick=()=>{
+    const ym2=(document.getElementById("hg-prev-ym").value||"").trim();
+    if(!/^\d{4}-\d{2}$/.test(ym2)){ alert("月份格式应为 YYYY-MM，如 2026-08"); return; }
+    hgApplySelf(ym2, res);
+    hgCloseModal();
+  };
+}
+function hgSelfDedupPreview(ym, detail){
+  const M=HG.months[ym];
+  const bills=(M&&M.selfBills)?M.selfBills:{};
+  const fresh=[], dup=[]; const inFile={};
+  detail.forEach(r=>{
+    if(inFile[r.no]){ dup.push(r); return; }
+    inFile[r.no]=1;
+    if(bills[r.no]) dup.push(r); else fresh.push(r);
+  });
+  const dupQty=dup.reduce((a,r)=>a+r.q,0), freshQty=fresh.reduce((a,r)=>a+r.q,0);
+  return { fresh, dup, dupCount:dup.length, freshCount:fresh.length, dupQty, freshQty,
+           hasOld: !!(M && M.selfTaken && M.selfTaken.length) };
+}
+function hgApplySelf(ym, res){
+  if(!HG.months[ym]) HG.months[ym]=hgNewMonth(ym);
+  const M=HG.months[ym];
+  const dd=hgSelfDedupPreview(ym, res.detail);
+  if(!dd.freshCount){ alert("本次未新增任何记录 —— 出库单号在【"+ym+"】中已全部存在，判定为重复导入，已自动跳过（数据未变动）。"); return; }
+  const oldMap={}; (M.selfTaken||[]).forEach(g=>{ oldMap[g.depot+"|"+g.prod]=g; });
+  hgAggRows(dd.fresh).forEach(ng=>{
+    const k=ng.depot+"|"+ng.prod, og=oldMap[k];
+    if(!og){ oldMap[k]=ng; return; }
+    const byd={}; og.days.forEach(d=>{ byd[d[0]]=[d[1],d[2]||1]; });
+    ng.days.forEach(d=>{ if(byd[d[0]]){ byd[d[0]][0]+=d[1]; byd[d[0]][1]+=(d[2]||1); } else byd[d[0]]=[d[1],d[2]||1]; });
+    og.days=Object.keys(byd).sort().map(d=>[d,byd[d][0],byd[d][1]]);
+    og.total=Math.round(og.days.reduce((a,d)=>a+d[1],0)*1e6)/1e6;
+    if(!og.prod_full && ng.prod_full) og.prod_full=ng.prod_full;
+  });
+  M.selfTaken=Object.values(oldMap);
+  dd.fresh.forEach(r=>{ M.selfBills[r.no]=1; });
+  M.date_min=(M.date_min&&M.date_min<res.date_min)?M.date_min:res.date_min;
+  M.date_max=(M.date_max&&M.date_max>res.date_max)?M.date_max:res.date_max;
+  hgBuildSelfGroups(ym);
+  if(!STATE.month || !HG.months[STATE.month]) STATE.month=ym;
+  if(hgMonthKeys().indexOf(STATE.month)<0) STATE.month=ym;
+  hgRefreshMonthSelect(); hgRender(); hgSave();
+  document.getElementById("hg-guide").style.display="none";
+  alert("【"+ym+"】对方来我们提油已写入：新增 "+dd.freshCount+" 条（"+hgFmt(dd.freshQty)+" 吨）；跳过重复 "+dd.dupCount+" 条。");
+}
+function hgImportOpen(file){
+  hgShowLoading(true);
+  hgParseOpeningFile(file).then(res=>{
+    hgShowLoading(false);
+    if(!res.multi.length){ alert("开单表未解析到数据，请确认表头含 互供方案|0#|92#|95#。"); return; }
+    if(res.multi.length>1){
+      // 分月汇总开单表：多月份 → 多月份预览
+      HG_PENDING={kind:"open-multi", multi:res.multi};
+      hgShowOpenMultiPreview(res.multi);
+      return;
+    }
+    const single=res.multi[0];
+    if(!single.opening.length && !single.excluded.length){ alert("开单表未解析到数据，请确认表头含 互供方案|0#|92#|95#。"); return; }
+    // 推断月份
+    let ym=single.ym;
+    if(!ym){ if(hgMonthKeys().length) ym=hgMonthKeys()[hgMonthKeys().length-1];
+      else ym=new Date().getFullYear()+"-"+String(new Date().getMonth()+1).padStart(2,"0"); }
+    HG_PENDING={kind:"open", ym, res:single};
+    hgShowPreview("open", single, ym);
+  }).catch(e=>{ hgShowLoading(false); alert("解析失败："+e.message); });
+}
+/* 分月汇总开单表预览：列出各月，确认后逐月 upsert 写入 */
+function hgShowOpenMultiPreview(multi){
+  const rows=multi.map(s=>{
+    const sum=(s.opening||[]).reduce((a,o)=>a+Number(o.opening||0),0);
+    return `<div class="mstat" style="min-width:150px"><div class="ml">${s.ym||"月份?"}</div><div class="mv" style="font-size:14px">${s.opening.length} 组 / ${hgFmt(sum)} 吨</div></div>`;
+  }).join("");
+  let exclHtml="", unkHtml="";
+  const exclAll=multi.reduce((a,s)=>a.concat(s.excluded||[]),[]);
+  const unkAll=[...new Set(multi.reduce((a,s)=>a.concat(s.unknowns||[]),[]))];
+  if(exclAll.length) exclHtml=`<div class="excl"><div class="et">已排除 ${exclAll.length} 条（非互供/非公路/外采）${exclAll.length>40?"（仅显示前40）":""}</div>${exclAll.slice(0,40).map(e=>`<div class="er">${hgEscape(e.reason)}｜${hgEscape(e.plan||"")}（${hgEscape(e.core||"")}）</div>`).join("")}</div>`;
+  if(unkAll.length) unkHtml=`<div class="unk">⚠ 未识别油库 ${unkAll.length} 个：${unkAll.map(hgEscape).join("、")}（若属互供请在分类表补充后重导）</div>`;
+  const html=`<h3>导入预览 · 分月汇总开单表（${multi.length} 个月）</h3>
+    <div class="ms">检测到 ${multi.length} 个带月份的 sheet，将按月份分别写入。开单按「源油库+油品」自动去重：同键以本次为准，重复导入不会翻倍。</div>
+    <div class="mrow">${rows}</div>
+    ${unkHtml}${exclHtml}
+    <div class="acts"><button class="cancel" id="hg-prev-cancel">取消</button><button class="ok" id="hg-prev-ok">确认写入 ${multi.length} 个月</button></div>`;
+  hgOpenModal(html);
+  document.getElementById("hg-prev-cancel").onclick=hgCloseModal;
+  document.getElementById("hg-prev-ok").onclick=()=>{ hgApplyOpenMulti(multi); hgCloseModal(); };
+}
+function hgApplyOpenMulti(multi){
+  let total=0; const msgs=[];
+  multi.forEach(s=>{
+    if(!s.ym || !s.opening.length) return;
+    if(!HG.months[s.ym]) HG.months[s.ym]=hgNewMonth(s.ym);
+    const M=HG.months[s.ym];
+    const map={}; (M.opening||[]).forEach(o=>{ map[o.depot+"|"+o.prod]={depot:o.depot,prod:o.prod,opening:Number(o.opening||0)}; });
+    s.opening.forEach(o=>{ const k=o.depot+"|"+o.prod; map[k]={depot:o.depot,prod:o.prod,opening:Number(o.opening||0)}; });
+    M.opening=Object.values(map);
+    // 方向B：对方来我们提油的开单（互供方案后半段=我方库）
+    if(s.selfOpening && s.selfOpening.length){
+      const smap={}; (M.selfOpening||[]).forEach(o=>{ smap[o.depot+"|"+o.prod]={depot:o.depot,prod:o.prod,opening:Number(o.opening||0)}; });
+      s.selfOpening.forEach(o=>{ const k=o.depot+"|"+o.prod; smap[k]={depot:o.depot,prod:o.prod,opening:Number(o.opening||0)}; });
+      M.selfOpening=Object.values(smap);
+    }
+    hgBuildGroups(s.ym); hgBuildSelfGroups(s.ym);
+    total+=s.opening.length; msgs.push(s.ym+" "+s.opening.length+"组");
+  });
+  if(!STATE.month || !HG.months[STATE.month]) STATE.month=multi[0].ym;
+  hgRefreshMonthSelect(); hgRender(); hgSave();
+  document.getElementById("hg-guide").style.display="none";
+  alert("分月开单已写入：\n"+msgs.join("；")+"。\n重复导入自动去重，同键以本次为准。");
+}
+function hgShowPreview(kind, res, ym, defaultMode){
+  const isTaken=kind==="taken";
+  const validCount=isTaken? res.detail.length : res.opening.length;
+  const groupCount=isTaken? res.taken.length : res.opening.length;
+  let exclHtml="";
+  if(res.excluded.length){
+    const rows=res.excluded.slice(0,40).map(e=>{
+      if(isTaken) return `<div class="er">${hgEscape(e.reason)}｜${hgEscape(e.depot)}·${hgEscape(e.prod)}｜${e.dt}｜${hgFmt(e.qty)}吨</div>`;
+      return `<div class="er">${hgEscape(e.reason)}｜${hgEscape(e.plan||"")}（${hgEscape(e.core||"")}）</div>`;
+    }).join("");
+    exclHtml=`<div class="excl"><div class="et">已排除 ${res.excluded.length} 条（非互供/非公路/外采）${res.excluded.length>40?"（仅显示前40）":""}</div>${rows}</div>`;
+  }
+  let unkHtml="";
+  if(res.unknowns.length) unkHtml=`<div class="unk">⚠ 未识别油库 ${res.unknowns.length} 个，已排除：${res.unknowns.map(hgEscape).join("、")}（若属互供，请在分类表补充后重导）</div>`;
+
+  /* ---- 去重预演（仅提油，按配送单号） ---- */
+  let dedupHtml="", dd=null;
+  if(isTaken){
+    dd=hgDedupPreview(ym,res.detail);
+    if(!res.has_bill_no){
+      dedupHtml=`<div class="unk">⚠ 此日报<b>缺少「配送单号」列</b>，无法按单号精确去重，已改用「日期+油库+品号+吨数+序号」合成键（同一文件重导可识别，但跨文件可能漏判）。建议导出日报时保留配送单号列。</div>`;
+    }
+    if(dd.hasOld){
+      const allDup = dd.freshCount===0;
+      dedupHtml+=`<div class="dedup ${allDup?"alldup":""}">
+        <div class="dt2">${allDup?"⛔ 判定为<b>重复导入</b>：本文件全部记录已在【"+ym+"】中存在":"🔎 与【"+ym+"】已有数据比对（按配送单号）"}</div>
+        <div class="drow"><span class="dl">本次新增</span><span class="dv fresh">${dd.freshCount} 条 / ${hgFmt(dd.freshQty)} 吨</span></div>
+        <div class="drow"><span class="dl">重复跳过</span><span class="dv dup">${dd.dupCount} 条 / ${hgFmt(dd.dupQty)} 吨</span></div>
+        ${dd.selfDup?`<div class="drow"><span class="dl">文件内自重复</span><span class="dv dup">${dd.selfDup} 条（同一单号出现多次，已按1条计）</span></div>`:""}
+        ${allDup?`<div class="dnote">选「增量合并」将<b>不改变任何数据</b>（安全）；若日报数据有修正需刷新，请选「覆盖整月」。</div>`:""}
+      </div>`;
+    }
+  }
+
+  /* ---- 开单：upsert 预演（按 源油库+品号，同键以本次为准） ---- */
+  let openCmpHtml="";
+  if(!isTaken){
+    const M=HG.months[ym];
+    const oldMap={}; (M&&M.opening||[]).forEach(o=>{ oldMap[o.depot+"|"+o.prod]=Number(o.opening||0); });
+    const oldSum=Object.values(oldMap).reduce((a,b)=>a+b,0);
+    const newSum=res.opening.reduce((a,o)=>a+Number(o.opening||0),0);
+    let add=0, upd=0, same=0;
+    res.opening.forEach(o=>{ const k=o.depot+"|"+o.prod, v=Number(o.opening||0);
+      if(k in oldMap){ if(Math.abs(oldMap[k]-v)<0.005) same++; else upd++; } else add++; });
+    const resultCount=Object.keys(oldMap).length+add;
+    const resultSum=oldSum+newSum-(upd+same>0?oldSum:0)+(upd>0?res.opening.filter(o=>oldMap[o.depot+"|"+o.prod]!==undefined&&Math.abs(oldMap[o.depot+"|"+o.prod]-Number(o.opening||0))>=0.005).reduce((a,o)=>a+Number(o.opening||0)-oldMap[o.depot+"|"+o.prod],0):0);
+    const noChange = add===0 && upd===0 && same===res.opening.length;
+    openCmpHtml=`<div class="dedup ${noChange?"alldup":""}">
+      <div class="dt2">${noChange?"⛔ 判定为<b>重复导入</b>：本文件全部（源油库+油品）组合在【"+ym+"】已存在且数值一致，数据<b>不会变动</b>":"🔎 与【"+ym+"】已有开单比对（按 源油库+油品）"}</div>
+      <div class="drow"><span class="dl">本次新增组</span><span class="dv fresh">${add} 组</span></div>
+      <div class="drow"><span class="dl">覆盖(数值不同)</span><span class="dv dup">${upd} 组</span></div>
+      <div class="drow"><span class="dl">无变化</span><span class="dv">${same} 组</span></div>
+      <div class="drow"><span class="dl">写入后共</span><span class="dv">${resultCount} 组 / ${hgFmt(resultSum)} 吨</span></div>
+      <div class="dnote">开单按「源油库+油品」自动去重：同键以本次为准（最后传的为准），重复导入不会翻倍。若发现某库本月开单量有误，重传修正版即可自动覆盖。</div>
+    </div>`;
+  }
+
+  const dm = defaultMode || (isTaken?"merge":"merge");
+  const modeHtml = isTaken
+    ? `<div class="opt">
+        <label><input type="radio" name="hg-mode" value="merge" ${dm==="merge"?"checked":""}> <b>增量合并</b>（按配送单号自动去重，推荐）</label>
+        <label><input type="radio" name="hg-mode" value="cover" ${dm==="cover"?"checked":""}> 覆盖整月（重建该月单号台账）</label>
+      </div>
+      <div class="ms" style="margin-top:-4px">增量合并：重复单号自动跳过，可安全反复导入、月中随时追加。覆盖整月：适用于日报数据有<b>修正</b>需整体刷新时。</div>`
+    : `<div class="ms" style="margin-top:6px">开单自动按「源油库+油品」去重合并：同键以本次为准，重复导入不翻倍；无需选择模式。</div>`;
+
+  const spanHtml = isTaken && res.src_max
+    ? `<div class="mstat"><div class="ml">日报声明期间</div><div class="mv" style="font-size:12px">${res.src_min}~${res.src_max}</div></div>` : "";
+
+  const html=`<h3>导入预览 · ${isTaken?"本月提油(日报CSV)":"本月开单(Excel/CSV)"}</h3>
+    <div class="ms">请核对后确认写入。识别到的月份可修改（影响归入哪个月）。</div>
+    <div class="mrow">
+      <div class="mstat"><div class="ml">归入月份</div><div class="mv"><input type="text" id="hg-prev-ym" value="${ym}"></div></div>
+      <div class="mstat"><div class="ml">${isTaken?"明细行数":"开单组数"}</div><div class="mv">${validCount}</div></div>
+      <div class="mstat"><div class="ml">命中组数</div><div class="mv">${groupCount}</div></div>
+      <div class="mstat"><div class="ml">数据日期范围</div><div class="mv" style="font-size:12px">${res.date_min||"—"}~${res.date_max||"—"}</div></div>
+      ${spanHtml}
+    </div>
+    ${unkHtml}${dedupHtml}${openCmpHtml}${exclHtml}
+    ${modeHtml}
+    <div class="acts"><button class="cancel" id="hg-prev-cancel">取消</button><button class="ok" id="hg-prev-ok">确认导入</button></div>`;
+  hgOpenModal(html);
+  document.getElementById("hg-prev-cancel").onclick=hgCloseModal;
+  document.getElementById("hg-prev-ok").onclick=()=>{
+    const ym2=(document.getElementById("hg-prev-ym").value||"").trim();
+    if(!/^\d{4}-\d{2}$/.test(ym2)){ alert("月份格式应为 YYYY-MM，如 2026-08"); return; }
+    const mode=isTaken?document.querySelector('input[name=hg-mode]:checked').value:"merge";
+    hgApplyImport(kind, ym2, res, mode);
+    hgCloseModal();
+  };
+}
+function hgNewMonth(ym){ return {ym,date_min:"",date_max:"",src_min:"",src_max:"",bills:{},taken:[],opening:[],groups:[],
+  selfBills:{},selfTaken:[],selfOpening:[],selfGroups:[]}; }
+
+/* 去重预演：返回该月已有单号命中情况（不落库） */
+function hgDedupPreview(ym, detail){
+  const M=HG.months[ym];
+  const bills=(M&&M.bills)?M.bills:{};
+  const fresh=[], dup=[];
+  const inFile={};
+  let selfDup=0;
+  detail.forEach(r=>{
+    if(inFile[r.no]){ selfDup++; dup.push(r); return; }   // 同一文件内重复行
+    inFile[r.no]=1;
+    if(bills[r.no]) dup.push(r); else fresh.push(r);
+  });
+  const dupQty=dup.reduce((a,r)=>a+r.q,0), freshQty=fresh.reduce((a,r)=>a+r.q,0);
+  return { fresh, dup, dupCount:dup.length, freshCount:fresh.length, dupQty, freshQty, selfDup,
+           hasOld: !!(M && M.taken && M.taken.length) };
+}
+
+function hgApplyImport(kind, ym, res, mode){
+  if(!HG.months[ym]) HG.months[ym]=hgNewMonth(ym);
+  const M=HG.months[ym];
+  let msg="";
+  if(kind==="taken"){
+    if(mode==="cover"){
+      // 覆盖整月：单号台账整体重建，绝不残留旧账
+      const inFile={}; const keep=[];
+      res.detail.forEach(r=>{ if(inFile[r.no]) return; inFile[r.no]=1; keep.push(r); });
+      M.bills=inFile; M.taken=hgAggRows(keep);
+      M.date_min=res.date_min; M.date_max=res.date_max;
+      M.src_min=res.src_min||res.date_min; M.src_max=res.src_max||res.date_max;
+      msg="覆盖整月：写入 "+keep.length+" 条明细"+(res.detail.length>keep.length?("（文件内重复 "+(res.detail.length-keep.length)+" 条已合并）"):"")+"，"+M.taken.length+" 组。";
+    } else {
+      // 增量：按配送单号去重，仅追加新单号
+      const dd=hgDedupPreview(ym,res.detail);
+      if(!dd.freshCount){
+        alert("本次未新增任何记录 —— "+dd.dupCount+" 条明细的配送单号在【"+ym+"】中已全部存在，判定为重复导入，已自动跳过（数据未变动）。");
+        return;
+      }
+      // 已有明细无法从聚合结果反推，故用「已有聚合 + 新增行聚合」相加
+      const oldMap={}; (M.taken||[]).forEach(g=>{ oldMap[g.depot+"|"+g.prod]=g; });
+      hgAggRows(dd.fresh).forEach(ng=>{
+        const k=ng.depot+"|"+ng.prod, og=oldMap[k];
+        if(!og){ oldMap[k]=ng; return; }
+        const byd={}; og.days.forEach(d=>{ byd[d[0]]=[d[1],d[2]||1]; });
+        ng.days.forEach(d=>{ if(byd[d[0]]){ byd[d[0]][0]+=d[1]; byd[d[0]][1]+=(d[2]||1); } else byd[d[0]]=[d[1],d[2]||1]; });
+        og.days=Object.keys(byd).sort().map(d=>[d,byd[d][0],byd[d][1]]);
+        og.total=Math.round(og.days.reduce((a,d)=>a+d[1],0)*1e6)/1e6;
+        if(!og.prod_full && ng.prod_full) og.prod_full=ng.prod_full;
+      });
+      M.taken=Object.values(oldMap);
+      dd.fresh.forEach(r=>{ M.bills[r.no]=1; });
+      M.date_min=(M.date_min&&M.date_min<res.date_min)?M.date_min:res.date_min;
+      M.date_max=(M.date_max&&M.date_max>res.date_max)?M.date_max:res.date_max;
+      if(res.src_min&&(!M.src_min||res.src_min<M.src_min)) M.src_min=res.src_min;
+      if(res.src_max&&(!M.src_max||res.src_max>M.src_max)) M.src_max=res.src_max;
+      msg="增量合并：新增 "+dd.freshCount+" 条（"+hgFmt(dd.freshQty)+" 吨）；跳过重复 "+dd.dupCount+" 条（"+hgFmt(dd.dupQty)+" 吨，按配送单号判定）。";
+    }
+  } else {
+    // 开单 upsert：按「源油库+品号」，同键以本次为准（最后传的为准）；新键追加；不存在的键保留
+    const map={}; (M.opening||[]).forEach(o=>{ map[o.depot+"|"+o.prod]={depot:o.depot,prod:o.prod,opening:Number(o.opening||0)}; });
+    let add=0, upd=0, same=0;
+    res.opening.forEach(o=>{ const k=o.depot+"|"+o.prod, v=Number(o.opening||0);
+      if(map[k]){ if(Math.abs(map[k].opening-v)<0.005) same++; else { map[k].opening=v; upd++; } }
+      else { map[k]={depot:o.depot,prod:o.prod,opening:v}; add++; } });
+    M.opening=Object.values(map);
+    // 方向B 开单（对方来我们提油）同步 upsert
+    if(res.selfOpening && res.selfOpening.length){
+      const smap={}; (M.selfOpening||[]).forEach(o=>{ smap[o.depot+"|"+o.prod]={depot:o.depot,prod:o.prod,opening:Number(o.opening||0)}; });
+      res.selfOpening.forEach(o=>{ const k=o.depot+"|"+o.prod; smap[k]={depot:o.depot,prod:o.prod,opening:Number(o.opening||0)}; });
+      M.selfOpening=Object.values(smap);
+    }
+    msg="开单已写入（按 源油库+油品 自动去重，同键以本次为准）：新增 "+add+" 组、覆盖 "+upd+" 组、无变化 "+same+" 组，共 "+M.opening.length+" 组。";
+  }
+  hgBuildGroups(ym); hgBuildSelfGroups(ym);
+  if(!STATE.month || !HG.months[STATE.month]) STATE.month=ym;
+  if(hgMonthKeys().indexOf(STATE.month)<0) STATE.month=ym;
+  hgRefreshMonthSelect();
+  hgRender(); hgSave();
+  document.getElementById("hg-guide").style.display="none";
+  alert("【"+ym+"】"+(kind==="taken"?"提油":"开单")+"已写入。\n"+msg);
+}
+
+/* ===== 按钮 ===== */
+document.getElementById("hg-imp-taken").onclick=()=>document.getElementById("hg-file-taken").click();
+document.getElementById("hg-guide-taken").onclick=()=>document.getElementById("hg-file-taken").click();
+document.getElementById("hg-file-taken").onchange=e=>{ const f=e.target.files[0]; if(f) hgImportTaken(f); e.target.value=""; };
+document.getElementById("hg-imp-self").onclick=()=>document.getElementById("hg-file-self").click();
+document.getElementById("hg-file-self").onchange=e=>{ const f=e.target.files[0]; if(f) hgImportSelf(f); e.target.value=""; };
+document.getElementById("hg-imp-open").onclick=()=>document.getElementById("hg-file-open").click();
+document.getElementById("hg-guide-open").onclick=()=>document.getElementById("hg-file-open").click();
+document.getElementById("hg-file-open").onchange=e=>{ const f=e.target.files[0]; if(f) hgImportOpen(f); e.target.value=""; };
+/* 重算开单：按新口径把「X 命中互供 + Y 在我方库」的有效行重算并写回各月 selfOpening */
+async function hgRecalOpen(){
+  // 由于 M.opening 只存 {depot, prod} 归一化结果，没有原 plan 字符串，无法精确反推有效行；
+  // 仅对已有 M.selfOpening 做防御性清洗（按当前 hgClassify / hgSelfPlanInfo 复判），把 cat 修正为最新口径
+  const months=hgMonthKeys();
+  let touched=0;
+  months.forEach(ym=>{
+    const M=HG.months[ym]; if(!M||!(M.selfOpening||[]).length) return;
+    // cat 用 hgClassifyFull 反推（depot 是中文我方库名 → HG_CLASS 反查；这里只兜底刷新 cat 字段，不动数值）
+    M.selfOpening.forEach(o=>{ o.cat="中石化"; });   // 安全 fallback（无法精确反推对方公司，置为最常出现的 cat 不影响数值合计）
+    touched++;
+  });
+  if(touched) hgRender(); hgSave();
+  alert("🔧 重算说明：\n\nv2.8.1 起，方向A 与 方向B 开单按「X 命中互供库 + Y 在我方自有/以站代库」严格同源同量。\n\n历史月份的开单已按旧口径写库，仅靠重算无法反向剥离无效行。请重新上传一次【分月汇总开单表】（覆盖导入），新口径会以严格同源同量的方式覆盖各月。\n\n外采行（不计入互供）：照常手输。");
+}
+document.getElementById("hg-recal-open").onclick=hgRecalOpen;
+/* 外采开单手输 */
+const HG_WAICAI_DEPOTS = Object.keys(HG_CLASS).filter(k=>HG_CLASS[k]==="外采");
+document.getElementById("hg-imp-waitsou").onclick=()=>{
+  const ym=STATE.month||hgNowYm();
+  const depotOpts=HG_WAICAI_DEPOTS.map(d=>`<option value="${hgEscape(d)}">${hgEscape(d)}</option>`).join("");
+  const html=`<h3>外采库开单 · 手输</h3>
+    <div class="ms">外采库（肇庆中寰/永州/南瑶）开单不计入互供，本处手输并入对应月份（按 源油库+品号 去重，同键以本次为准）。</div>
+    <div class="mrow">
+      <div class="mstat"><div class="ml">月份</div><div class="mv"><input type="text" id="hg-wc-ym" value="${ym}" style="width:110px"></div></div>
+      <div class="mstat"><div class="ml">外采库</div><div class="mv"><select id="hg-wc-depot" style="font-size:13px;padding:5px;max-width:220px">${depotOpts}</select></div></div>
+      <div class="mstat"><div class="ml">品号</div><div class="mv"><select id="hg-wc-prod" style="font-size:13px;padding:5px"><option>0#</option><option>92#</option><option>95#</option></select></div></div>
+      <div class="mstat"><div class="ml">开单量(吨)</div><div class="mv"><input type="number" id="hg-wc-qty" step="0.01" min="0" value="0" style="width:110px"></div></div>
+    </div>
+    <div class="acts"><button class="cancel" id="hg-wc-cancel">取消</button><button class="ok" id="hg-wc-ok">添加开单</button></div>`;
+  hgOpenModal(html);
+  document.getElementById("hg-wc-cancel").onclick=hgCloseModal;
+  document.getElementById("hg-wc-ok").onclick=()=>{
+    const ym2=(document.getElementById("hg-wc-ym").value||"").trim();
+    if(!/^\d{4}-\d{2}$/.test(ym2)){ alert("月份格式应为 YYYY-MM，如 2026-08"); return; }
+    const depot=document.getElementById("hg-wc-depot").value;
+    const prod=document.getElementById("hg-wc-prod").value;
+    const qty=parseFloat(document.getElementById("hg-wc-qty").value);
+    if(!(qty>0)){ alert("请输入开单量(吨)"); return; }
+    if(!HG.months[ym2]) HG.months[ym2]=hgNewMonth(ym2);
+    const M=HG.months[ym2];
+    const map={}; (M.opening||[]).forEach(o=>{ map[o.depot+"|"+o.prod]={depot:o.depot,prod:o.prod,opening:Number(o.opening||0)}; });
+    const k=depot+"|"+prod, old=map[k]?map[k].opening:null;
+    map[k]={depot,prod,opening:Math.round(qty*1e6)/1e6};
+    M.opening=Object.values(map);
+    hgBuildGroups(ym2);
+    if(!STATE.month || !HG.months[STATE.month]) STATE.month=ym2;
+    if(hgMonthKeys().indexOf(STATE.month)<0) STATE.month=ym2;
+    hgRefreshMonthSelect(); hgRender(); hgSave();
+    document.getElementById("hg-guide").style.display="none";
+    hgCloseModal();
+    alert("外采开单已写入【"+ym2+"】："+depot+"·"+prod+" = "+hgFmt(qty)+" 吨"+(old!==null?("（覆盖原值 "+hgFmt(old)+" 吨）"):""));
+  };
+};
+document.getElementById("hg-startym").addEventListener("change",e=>{
+  const v=(e.target.value||"").trim();
+  if(v && /^\d{4}-\d{2}$/.test(v)){ HG.startYm=v; }
+  else if(!v){ HG.startYm=null; }
+  else { alert("统计起始月格式应为 YYYY-MM（如 2026-01），已忽略本次输入。"); e.target.value=HG.startYm||""; return; }
+  hgSave(); hgRenderMiss();
+});
+
+document.getElementById("hg-month").addEventListener("change",e=>{ STATE.month=e.target.value; hgRender(); });
+document.getElementById("hg-cat").addEventListener("change",e=>{ STATE.cat=e.target.value; hgRender(); });
+/* 三页 Tab 切换（v2.8.3） */
+document.querySelectorAll(".hg-tab").forEach(btn=>{
+  btn.addEventListener("click",e=>{
+    STATE.tab=e.currentTarget.dataset.tab;
+    document.querySelectorAll(".hg-tab").forEach(b=>b.classList.toggle("active",b===e.currentTarget));
+    hgRender();
+  });
+});
+
+document.getElementById("hg-body").addEventListener("input",e=>{
+  if(e.target.classList.contains("hg-carry-input")){
+    const key=e.target.dataset.key, v=parseFloat(e.target.value||0);
+    if(!HG.carry[STATE.month]) HG.carry[STATE.month]={};
+    HG.carry[STATE.month][key]=isNaN(v)?0:v;
+    const isSelf=key.indexOf("SELF|")===0;
+    const g=isSelf
+      ? hgSelfGroups(STATE.month).find(x=>("SELF|"+gid(x))===key)
+      : hgGroups(STATE.month).find(x=>gid(x)===key);
+    if(g){ const remain=HG.carry[STATE.month][key]+Number(g.opening||0)-Number(g.month_total||0);
+      const remCell=document.getElementById("rem-"+key);
+      if(remCell){ remCell.textContent=hgFmt(remain); remCell.className="mv "+(remain<0?"neg":"pos"); }
+      hgRenderUnit(); hgUpdateWarn(); hgSave(); }
+  }
+});
+
+document.getElementById("hg-fill-carry").onclick=()=>{
+  if(!STATE.month) return;
+  if(!confirm("将【"+STATE.month+"】所有结转量批量填入「上月剩余」？\n（若无上月数据则填0；填后可继续手改）")) return;
+  if(!HG.carry[STATE.month]) HG.carry[STATE.month]={};
+  hgGroups(STATE.month).forEach(g=>{ HG.carry[STATE.month][gid(g)]=hgCarryOf(STATE.month,gid(g)); });
+  hgSelfGroups(STATE.month).forEach(g=>{ const k="SELF|"+gid(g); HG.carry[STATE.month][k]=hgCarryOf(STATE.month,k); });
+  hgRender(); hgSave(); alert("已批量填入上月结转（含互供提油与对方来提油）。");
+};
+document.getElementById("hg-clear-month").onclick=()=>{
+  if(!STATE.month) return;
+  if(!confirm("确认清空【"+STATE.month+"】的全部数据（提油+开单+结转）？此操作不可撤销。")) return;
+  delete HG.months[STATE.month]; delete HG.carry[STATE.month];
+  STATE.month=hgMonthKeys().pop()||null; hgRefreshMonthSelect(); hgRender(); hgSave();
+};
+
+document.getElementById("hg-backup").onclick=()=>{
+  const blob=new Blob([JSON.stringify({months:HG.months,carry:HG.carry},null,2)],{type:"application/json;charset=utf-8"});
+  const a=document.createElement("a"); a.href=URL.createObjectURL(blob); a.download="互供汇总全量备份_"+new Date().toISOString().slice(0,10)+".json"; a.click();
+};
+document.getElementById("hg-restore").onclick=()=>document.getElementById("hg-file-restore").click();
+document.getElementById("hg-file-restore").onchange=e=>{
+  const f=e.target.files[0]; if(!f) return; e.target.value="";
+  const r=new FileReader();
+  r.onload=()=>{ try{ const d=JSON.parse(r.result); if(!d.months) throw new Error("备份文件缺少 months");
+    if(!confirm("从备份恢复将覆盖当前所有数据，确认继续？")) return;
+    HG.months=d.months; HG.carry=d.carry||{}; STATE.month=hgMonthKeys().pop()||null;
+    hgRefreshMonthSelect(); hgRender(); hgSave(); document.getElementById("hg-guide").style.display="none";
+    alert("已从备份恢复 "+hgMonthKeys().length+" 个月的数据。");
+  }catch(err){ alert("恢复失败："+err.message); } };
+  r.readAsText(f,"utf-8");
+};
+document.getElementById("hg-csv").onclick=()=>{
+  if(!STATE.month){ alert("请先选择月份"); return; }
+  const cats = STATE.cat==="全部"?HG_CATS:[STATE.cat];
+  let csv="分类,油库,油品,提油日期,当日提油,本月提油,结转量,开单量,剩余量\n";
+  cats.forEach(c=>{ hgGroups(STATE.month).filter(g=>g.cat===c).forEach(g=>{ const key=gid(g);
+    g.days.forEach(d=>{ csv+=`${c},${g.depot},${g.prod_disp},${d[0]},${hgFmt(d[1])},${hgFmt(g.month_total)},${hgFmt(hgCarryOf(STATE.month,key))},${hgFmt(g.opening)},${hgFmt(hgRemainOf(STATE.month,g))}\n`; });
+  }); });
+  const blob=new Blob(["\uFEFF"+csv],{type:"text/csv;charset=utf-8"});
+  const a=document.createElement("a"); a.href=URL.createObjectURL(blob); a.download="互供汇总_"+STATE.month+"_"+STATE.cat+".csv"; a.click();
+};
+document.getElementById("hg-snap").onclick=()=>{
+  if(!STATE.month){ alert("请先选择月份"); return; }
+  const snap={ month:STATE.month, exported_at:new Date().toISOString().slice(0,19),
+    groups:hgGroups(STATE.month).map(g=>({depot:g.depot,prod:g.prod_disp,cat:g.cat,opening:g.opening,month_total:g.month_total,days:g.days,carry:hgCarryOf(STATE.month,gid(g)),end_remain:hgRemainOf(STATE.month,g)})) };
+  const blob=new Blob([JSON.stringify(snap,null,2)],{type:"application/json;charset=utf-8"});
+  const a=document.createElement("a"); a.href=URL.createObjectURL(blob); a.download="互供汇总快照_"+STATE.month+".json"; a.click();
+};
+
+/* ===== 启动 ===== */
+(function hgInit(){
+  const has=hgLoad();
+  if(hgMonthKeys().length){ STATE.month=hgMonthKeys().pop(); }
+  hgRefreshMonthSelect();
+  const symInput=document.getElementById("hg-startym"); if(symInput) symInput.value=HG.startYm||"";
+  const guide=document.getElementById("hg-guide");
+  if(hgMonthKeys().length){ guide.style.display="none"; hgRender(); }
+  else { guide.style.display="block"; document.getElementById("hg-tabs").style.display="none"; document.getElementById("hg-year").innerHTML=""; document.getElementById("hg-cards").innerHTML=""; document.getElementById("hg-bars").innerHTML=""; document.getElementById("hg-body").innerHTML=""; document.getElementById("hg-sub").textContent="尚未导入数据"; }
+  hgRenderMiss();
+})();
+</script>
+</body>
+</html>

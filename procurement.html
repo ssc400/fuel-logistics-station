@@ -1,0 +1,884 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>外采管理</title>
+<script>
+// 尝试加载Tesseract（备用OCR - 简化版，加载失败不影响主流程）
+window._TESS_LOADED=false;
+(function(){
+  var s=document.createElement('script');
+  s.src='https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js';
+  s.onload=function(){
+    window._TESS_LOADED=true;
+    var e=document.getElementById('tessSt');
+    if(e){e.textContent='✅ OCR就绪';e.style.color='#5B7B5F'}
+  };
+  s.onerror=function(){
+    var e=document.getElementById('tessSt');
+    if(e){e.textContent='⚠️ 仅文件名提取';e.style.color='#D4845A'}
+  };
+  document.head.appendChild(s);
+})();
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,'Microsoft YaHei',sans-serif;background:#F2F0EB;color:#2C2A28;padding:10px;font-size:13px}
+.hd{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;flex-wrap:wrap;gap:6px}
+.hd h2{font-size:16px;color:#3A5C4A}
+.btn{display:inline-flex;align-items:center;gap:4px;padding:6px 14px;border:none;border-radius:6px;font-size:12px;cursor:pointer;font-weight:500}
+.btn-p{background:#3A5C4A;color:#fff}.btn-p:hover{background:#2A4A38}
+.btn-o{background:transparent;color:#5A5852;border:1px solid #E8E4DA}.btn-o:hover{border-color:#8DA48E;color:#8DA48E}
+.btn-d{background:#C65D52;color:#fff}.btn-g{background:#3A5C4A;color:#fff}.btn-m{background:#8DA48E;color:#fff}.btn-sm{padding:4px 10px;font-size:11px}
+.fbar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:8px;background:#fff;padding:6px 10px;border-radius:6px;border:1px solid #E8E4DA}
+.fbar input{font-size:12px;padding:4px 8px;border:1px solid #E8E4DA;border-radius:4px}
+.tabBtn{font-size:11px;padding:3px 10px;cursor:pointer;border-radius:10px;color:#888;user-select:none}
+.tabBtn.on{background:#3A5C4A;color:#fff;font-weight:600}
+.tabBtn:hover:not(.on){background:#E8F0E8;color:#3A5C4A}
+.sg{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:8px;margin-bottom:8px}
+.sc{background:#fff;border-radius:6px;padding:10px;box-shadow:0 1px 3px rgba(0,0,0,.05);text-align:center}
+.sc .sl{font-size:10px;color:#888}.sc .sv{font-size:22px;font-weight:700;color:#3A5C4A}
+.dg{margin-bottom:10px}
+.dh{display:flex;align-items:center;gap:6px;padding:6px 12px;background:#E8F0E8;border-radius:6px 6px 0 0;border:1px solid #C0D0C0;cursor:pointer;user-select:none;flex-wrap:wrap}
+.dh .dd{font-size:14px;font-weight:600;color:#3A5C4A}.dh .dc{font-size:11px;color:#888;margin-left:auto}.dh .dt{font-size:10px;color:#888;background:#F2F0EB;padding:1px 8px;border-radius:10px}
+.db{display:none;border:1px solid #E8E4DA;border-top:none;border-radius:0 0 6px 6px;overflow:hidden}
+.db.open{display:block}
+.di{display:flex;gap:6px;padding:6px 8px;border-bottom:1px solid #EDE9E1;align-items:flex-start;flex-wrap:wrap}
+.di:last-child{border-bottom:none}
+.di .thumb{width:50px;height:50px;border-radius:4px;overflow:hidden;flex-shrink:0;cursor:pointer;border:1px solid #E8E4DA;background:#F2F0EB;display:flex;align-items:center;justify-content:center}
+.di .thumb img{width:100%;height:100%;object-fit:cover}
+.di .info{flex:1;min-width:180px}.di .info .r{display:flex;gap:4px;align-items:center;flex-wrap:wrap;margin:1px 0}
+.di .info .r label{font-size:9px;color:#888;min-width:40px}.di .info .r .v{font-size:11px;font-weight:600;color:#2C2A28;background:#F2F0EB;padding:0 4px;border-radius:2px}
+.di .info .r input{font-size:11px;padding:1px 4px;border:1px solid #E8E4DA;border-radius:2px;width:90px}
+.ov{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.7);z-index:9998;display:none;align-items:center;justify-content:center;cursor:pointer}
+.ov.show{display:flex}.ov img{max-width:90vw;max-height:90vh;border-radius:4px}
+.msg{position:fixed;top:20px;right:20px;padding:10px 16px;border-radius:6px;color:#fff;font-size:12px;z-index:99999;max-width:350px;box-shadow:0 2px 8px rgba(0,0,0,.15)}
+.msg-i{background:#3A5C4A}.msg-s{background:#8DA48E}.msg-w{background:#EC935E}.msg-e{background:#C65D52}
+.toast{background:#fff;border-radius:6px;padding:10px 16px;font-size:12px;margin-bottom:6px;box-shadow:0 1px 4px rgba(0,0,0,.1);display:flex;align-items:center;gap:6px}
+.toast .t-icon{font-size:16px}.toast .t-msg{flex:1}.toast .t-del{color:#999;cursor:pointer;font-size:14px}
+</style>
+</head>
+<body>
+
+<div class="hd">
+  <h2>📦 外采管理 <span id="tessSt" style="font-size:10px;font-weight:400;color:#faad14">⏳OCR备用...</span></h2>
+  <div style="display:flex;gap:6px;flex-wrap:wrap">
+    <span class="btn btn-p btn-sm" onclick="showOcrConfig()">⚙️ OCR设置</span>
+    <span class="btn btn-p btn-sm" onclick="pickFiles('ocr')">📸 上传并识别</span>
+    <span class="btn btn-m btn-sm" onclick="pickFiles('raw')">📁 直接存图</span>
+    <input type="file" id="fileInput" accept="image/*" multiple style="display:none">
+    <span class="btn btn-g btn-sm" onclick="batchDownload()">📥 批量下载</span>
+    <span class="btn btn-o btn-sm" onclick="exportExcel()">📊 Excel</span>
+    <span class="btn btn-d btn-sm" onclick="if(confirm('清空所有数据？'))clearAll()">🗑 清空</span>
+  </div>
+</div>
+
+<div class="fbar">
+  <span style="font-size:10px;color:#888">📅 日期</span>
+  <input type="date" id="fltF" onchange="load()"><span>~</span>
+  <input type="date" id="fltT" onchange="load()">
+  <span onclick="document.getElementById('fltF').value='';document.getElementById('fltT').value='';load()" style="font-size:10px;color:#1890ff;cursor:pointer">↻重置</span>
+  <span style="margin:0 6px;color:#ddd">|</span>
+  <span id="tabAll" class="tabBtn on" onclick="setType('')">📋 全部</span>
+  <span id="tabOut" class="tabBtn" onclick="setType('outbound')">📄 出库单</span>
+  <span id="tabSeal" class="tabBtn" onclick="setType('seal')">🔒 铅封照</span>
+  <span style="margin-left:auto;font-size:10px;color:#888" id="dbCnt">数据库: 0条</span>
+</div>
+
+<div class="sg" id="cards"></div>
+<div id="list"><div style="text-align:center;padding:40px;color:#999">暂无数据</div></div>
+
+<div class="ov" id="ov" onclick="this.classList.remove('show')"><img id="ovImg"></div>
+
+<script>
+/* 百度OCR token自动配置 */
+(function(){try{var tk=localStorage.getItem('ocr_bd_tk');if(!tk){localStorage.setItem('ocr_bd_tk',JSON.stringify('24.a6e46890262d32282263854804a6dff8.2592000.1784895024.282335-123811767'));localStorage.setItem('ocr_bd_ak',JSON.stringify('y4Zxd1Nn8dDN0G1FEdH9OfgE'));localStorage.setItem('ocr_bd_sk',JSON.stringify('51FtultcpA7mUYKmTOcsnJYM9v0XPThW'))}}catch(e){}})();
+// ====== IndexedDB（全新库名，避开版本冲突）======
+var DB={_v:null,_r:false,_q:[],
+open:function(cb){var r=indexedDB.open('ProcDB_v2',1);
+r.onupgradeneeded=function(e){var d=e.target.result;if(!d.objectStoreNames.contains('r'))d.createObjectStore('r',{keyPath:'id',autoIncrement:true})};
+r.onsuccess=function(e){DB._v=e.target.result;DB._r=true;DB._q.forEach(function(f){f()});DB._q=[];if(cb)cb()};
+r.onerror=function(e){console.error('DB err',e);toast('error','数据库打开失败，错误: '+(e.target&&e.target.error&&e.target.error.message||'未知'))}},
+_ok:function(fn){if(DB._r)fn();else DB._q.push(fn)},
+all:function(cb){DB._ok(function(){var t=DB._v.transaction('r','readonly').objectStore('r'),r=t.getAll();r.onsuccess=function(){cb(r.result||[])};r.onerror=function(){cb([])}})},
+// 轻量版 - 只获取元数据（不含 img 字段），用于快速列表显示
+allMeta:function(cb){DB._ok(function(){
+  var t=DB._v.transaction('r','readonly').objectStore('r');
+  var r=t.openCursor(),res=[];
+  r.onsuccess=function(e){var c=e.target.result;if(c){
+    var v=c.value;
+    // 只保留非图片字段
+    res.push({id:v.id,date:v.date,vehicle:v.vehicle,sealNo:v.sealNo,oil:v.oil,qty:v.qty,time:v.time,depot:v.depot,type:v.type,fn:v.fn,raw:'',at:v.at});
+    c.continue();
+  }else{cb(res)}};
+  r.onerror=function(){cb([])};
+})},
+add:function(v,cb){DB._ok(function(){var r=DB._v.transaction('r','readwrite').objectStore('r').add(v);r.onsuccess=function(){if(cb)cb(r.result)};r.onerror=function(e){console.error('add err',e);if(cb)cb(null)}})},
+put:function(v,cb){DB._ok(function(){var r=DB._v.transaction('r','readwrite').objectStore('r').put(v);r.onsuccess=function(){if(cb)cb()};r.onerror=function(e){console.error('put err',e)}})},
+del:function(id,cb){DB._ok(function(){var r=DB._v.transaction('r','readwrite').objectStore('r').delete(id);r.onsuccess=function(){if(cb)cb()}})},
+clr:function(){DB._ok(function(){DB._v.transaction('r','readwrite').objectStore('r').clear()})}};
+var _typeFilter='';
+DB.open(function(){load()});
+
+// ====== 去重检查（按文件名）======
+function isDup(fn,cb){DB.allMeta(function(r){for(var i=0;i<r.length;i++){if(r[i].fn===fn){cb(true);return}}cb(false)})}
+
+// ====== Tesseract 识别（按需创建，简化版）======
+var _tessWorker=null;
+function ensureTessWorker(cb){
+  if(_tessWorker){cb(true);return}
+  if(!window.Tesseract){
+    // 等1秒看Tesseract是否加载完成
+    var tries=0;
+    var iv=setInterval(function(){
+      tries++;
+      if(window.Tesseract){
+        clearInterval(iv);
+        createWorker(cb);
+      }else if(tries>30){ // 3秒超时
+        clearInterval(iv);
+        cb(false);
+      }
+    },100);
+    return;
+  }
+  createWorker(cb);
+}
+function createWorker(cb){
+  if(_tessWorker){cb(true);return}
+  Tesseract.createWorker('chi_sim',1,{
+    langPath:'https://unpkg.com/tesseract.js@5.1.1/lang/',
+    logger:function(m){
+      var s=document.getElementById('tessSt');
+      if(!s)return;
+      if(m.status==='loading tesseract core')s.textContent='⏳ 加载OCR核心...';
+      else if(m.status==='initializing tesseract')s.textContent='⏳ 初始化OCR...';
+      else if(m.status==='loading language traineddata')s.textContent='⏳ 下载中文包 '+(m.progress?Math.round(m.progress*100)+'%':'');
+      else if(m.status==='initializing api')s.textContent='⏳ 初始化API...';
+      else if(m.status==='ready'){s.textContent='✅ OCR就绪';s.style.color='#5B7B5F'}
+    }
+  }).then(function(w){_tessWorker=w;cb(true)}).catch(function(){cb(false)});
+}
+
+function tessRecognize(imgData,cb){
+  preprocess(imgData).then(function(bin){
+    ensureTessWorker(function(ok){
+      if(!ok||!_tessWorker){cb(null);return}
+      try{
+        _tessWorker.recognize(bin).then(function(r){
+          if(r&&r.data&&r.data.text)cb(r.data.text);
+          else cb(null);
+        }).catch(function(){cb(null)});
+      }catch(e){cb(null)}
+    });
+  }).catch(function(){cb(null)});
+}
+
+// ====== 从文件名提取 ======
+function fromFname(n){
+  var r={plate:'',date:'',type:'unknown',depot:''};
+  var m=n.match(/([京津沪渝冀豫云辽黑湘皖鲁新苏浙赣鄂桂甘晋蒙陕吉闽贵粤川青藏琼宁][A-Z0-9]{5,8})/);if(m)r.plate=m[1];
+  var m2=n.match(/(\d{4})[-]?(\d{2})[-]?(\d{2})/);if(m2){var y=+m2[1];if(y>2020&&y<2030)r.date=m2[1]+'-'+m2[2]+'-'+m2[3]}
+  if(!r.date){var m3=n.match(/(\d{1,2})月(\d{1,2})日/);if(m3)r.date=new Date().getFullYear()+'-'+m3[1].padStart(2,'0')+'-'+m3[2].padStart(2,'0')}
+  if(n.indexOf('铅封')>=0||n.indexOf('封')>=0)r.type='seal';else if(n.indexOf('出库')>=0||n.indexOf('配送')>=0||n.indexOf('验收')>=0||n.indexOf('提油')>=0)r.type='outbound';
+  return r;
+}
+
+// ====== OCR解析 ======
+// 铅封照 -> 日期、车号、油品、铅封号
+// 出库单 -> 车号、日期、油品、吨数
+function parseOCR(txt,fname){
+  var r={plate:'',date:'',sealNo:'',oil:'',qty:0,type:'unknown'};
+  
+  // ======== 自动分类 ========
+  var isSeal=false,isOut=false;
+  // 铅封照特征：有黄色铅封特写或水印标记
+  if(txt.indexOf('铅封')>=0||txt.indexOf('物流配送水印')>=0||txt.indexOf('水印相机')>=0)isSeal=true;
+  // 出库单特征：有明显表格/数字/金额
+  if(txt.indexOf('出库单')>=0||txt.indexOf('出库通知')>=0||txt.indexOf('油品出库')>=0||txt.indexOf('提油')>=0)isOut=true;
+  // 文件名辅助判断
+  if(!isSeal&&!isOut){
+    if(fname.indexOf('铅封')>=0||fname.indexOf('封')>=0)isSeal=true;
+    else if(fname.indexOf('出库')>=0||fname.indexOf('配送')>=0||fname.indexOf('验收')>=0||fname.indexOf('提油')>=0)isOut=true;
+  }
+  r.type=isSeal?'seal':(isOut?'outbound':'unknown');
+  
+  // ======== 车号（通用） ========
+  var plates=[];
+  var rx=/([京津沪渝冀豫云辽黑湘皖鲁新苏浙赣鄂桂甘晋蒙陕吉闽贵粤川青藏琼宁])[\s\-_]*([A-Z])[\s\-_]*([A-Z0-9]{4,6})/g;
+  var m;while((m=rx.exec(txt))!==null){var p=m[1]+m[2]+m[3].replace(/[^A-Z0-9]/g,'');if(p.length>=6&&p.length<=9&&plates.indexOf(p)<0)plates.push(p)}
+  if(!plates.length){var rx2=/([京津沪渝冀豫云辽黑湘皖鲁新苏浙赣鄂桂甘晋蒙陕吉闽贵粤川青藏琼宁])[\s\-_]*([A-Z0-9]{5,8})/g;while((m=rx2.exec(txt))!==null){var p2=m[1]+m[2];if(p2.length>=6&&plates.indexOf(p2)<0)plates.push(p2)}}
+  r.plate=plates.length?plates[0]:'';
+  
+  // ======== 日期（通用） ========
+  var mD=txt.match(/(\d{4})\s*年\s*(\d{1,2})\s*月\s*(\d{1,2})\s*日/);
+  if(!mD)mD=txt.match(/(\d{4})\s*[\/\-\.]\s*(\d{1,2})\s*[\/\-\.]\s*(\d{1,2})/);
+  if(mD)r.date=mD[1]+'-'+mD[2].padStart(2,'0')+'-'+mD[3].padStart(2,'0');
+  
+  // ======== 油品（铅封照和出库单都需要提取） ========
+  ['92号','95号','98号','0号','92#','95#','98#','0#','92','95','98','柴油','汽油','乙醇'].forEach(function(o){
+    if(txt.indexOf(o)>=0){r.oil=o;return}
+  });
+  
+  // ======== 铅封照专用：铅封号（黄色铅封上的数字） ========
+  if(isSeal){
+    var mS=txt.match(/铅封[号\s：:]*(\d{4,12})/i);
+    if(!mS)mS=txt.match(/封[号\s：:]*(\d{4,12})/i);
+    if(!mS)mS=txt.match(/(\d{6,12})/); // 尝试直接匹配6-12位数字（可能是铅封号）
+    if(mS)r.sealNo=mS[1];
+  }
+  
+  // ======== 出库单专用：提油数量（吨数） ========
+  if(isOut){
+    var mQ=txt.match(/提油数量[：:\s]*(\d+\.?\d*)/);
+    if(!mQ)mQ=txt.match(/数量[：:\s]*(\d+\.?\d*)/);
+    if(!mQ)mQ=txt.match(/(\d+\.\d+)\s*吨/);
+    if(mQ)r.qty=parseFloat(mQ[1]);
+  }
+  
+  return r;
+}
+
+// ====== 图片压缩 ======
+function compress(d,mw){return new Promise(function(r){var img=new Image();img.onload=function(){var w=img.width,h=img.height;if(w<=mw){r(d);return}var ra=mw/w;var c=document.createElement('canvas');c.width=mw;c.height=h*ra;c.getContext('2d').drawImage(img,0,0,c.width,c.height);r(c.toDataURL('image/jpeg',0.7))};img.src=d})}
+
+// ====== 预处理（OCR用 - 增强二值化）======
+function preprocess(d){return new Promise(function(r){var img=new Image();img.onload=function(){var mw=2000,w=img.width,h=img.height;if(w>mw){var ra=mw/w;w=mw;h=Math.round(h*ra)}var c=document.createElement('canvas');c.width=w;c.height=h;var ctx=c.getContext('2d');ctx.drawImage(img,0,0,w,h);var id=ctx.getImageData(0,0,w,h),da=id.data;for(var i=0;i<da.length;i+=4){var g=0.299*da[i]+0.587*da[i+1]+0.114*da[i+2];da[i]=da[i+1]=da[i+2]=g<128?0:255}ctx.putImageData(id,0,0);r(c.toDataURL('image/jpeg',0.9))};img.src=d})}
+
+// ====== 百度OCR配置（兼容CORS限制，支持手动输入token）======
+var _baiduToken='',_baiduExpire=0;
+function showOcrConfig(){
+  var ak=S('bd_ak',''),sk=S('bd_sk',''),tk=S('bd_tk','');
+  var h='<div id="ocrCfgOverlay" style="position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.4);z-index:9999;display:flex;align-items:center;justify-content:center" onclick="if(event.target===this)closeOcrCfg()">'+
+    '<div style="background:#fff;border-radius:8px;padding:20px;max-width:420px;width:90%">'+
+    '<div style="font-size:14px;font-weight:600;margin-bottom:4px">⚙️ 百度OCR设置</div>'+
+    '<div style="font-size:11px;color:#888;margin-bottom:10px">前往 <a href="https://console.bce.baidu.com/ai/#/ai/ocr/overview/index" target="_blank" style="color:#1890ff">百度AI控制台</a> 创建应用获取</div>'+
+    '<div style="margin-bottom:6px"><label style="font-size:11px;color:#555">API Key</label><input id="cfgAk" value="'+ak+'" style="width:100%;margin-top:2px;padding:6px 8px;border:1px solid #d9d9d9;border-radius:4px;font-size:12px"></div>'+
+    '<div style="margin-bottom:6px"><label style="font-size:11px;color:#555">Secret Key</label><input id="cfgSk" value="'+sk+'" style="width:100%;margin-top:2px;padding:6px 8px;border:1px solid #d9d9d9;border-radius:4px;font-size:12px" type="password"></div>'+
+    '<div style="margin-bottom:8px"><label style="font-size:11px;color:#555;display:flex;justify-content:space-between">'+
+    '<span>Access Token <span style="color:#f5222d;font-weight:400">(如果自动获取失败可手动填写)</span></span></label>'+
+    '<input id="cfgTk" value="'+tk+'" style="width:100%;margin-top:2px;padding:6px 8px;border:1px solid #d9d9d9;border-radius:4px;font-size:11px;font-family:monospace" placeholder="留空则自动获取"></div>'+
+    '<div style="text-align:center;margin-top:12px;display:flex;gap:8px;justify-content:center">'+
+    '<span class="btn btn-p" onclick="testOcr()">🔌 连接测试</span>'+
+    '<span class="btn btn-o" onclick="saveOcrCfg()">💾 保存</span>'+
+    '<span class="btn btn-o" onclick="closeOcrCfg()">关闭</span></div>'+
+    '<div id="ocrTestResult" style="margin-top:8px;font-size:11px;text-align:center"></div>'+
+    '<div style="margin-top:8px;padding:8px;background:#fffbe6;border:1px solid #ffe58f;border-radius:4px;font-size:10px;color:#ad8b00">'+
+    '⚠️ 浏览器跨域限制，自动获取失败。<br>'+
+    '<b>方法一（推荐手机用户）</b>：复制下方链接到手机浏览器打开，复制返回的 access_token 值：<br>'+
+    '<code id="tokenUrl" style="display:block;margin:4px 0;padding:4px;background:#f5f5f5;border-radius:3px;word-break:break-all;font-size:10px"></code>'+
+    '<span class="btn btn-o btn-sm" onclick="copyTokenUrl()" style="padding:2px 8px;font-size:10px;margin-top:2px">📋 复制链接</span>'+
+    '<br><br><b>方法二（电脑用户）</b>：打开终端/命令行运行：<br>'+
+    '<code style="display:block;margin:4px 0;padding:4px;background:#f5f5f5;border-radius:3px;word-break:break-all;font-size:10px">'+
+    'curl -s "https://aip.baidubce.com/oauth/2.0/token?grant_type=client_credentials&amp;client_id=您的APIKey&amp;client_secret=您的SecretKey"</code>'+
+    '返回JSON中的 <b>access_token</b> 值粘贴到上方Access Token框</div></div></div>';
+  document.body.insertAdjacentHTML('beforeend',h);
+  // 动态更新token获取链接
+  updateTokenUrl();
+  document.getElementById('cfgAk').addEventListener('input',updateTokenUrl);
+  document.getElementById('cfgSk').addEventListener('input',updateTokenUrl);
+}
+function updateTokenUrl(){
+  var el=document.getElementById('tokenUrl');
+  if(!el)return;
+  var ak=document.getElementById('cfgAk').value.trim(),sk=document.getElementById('cfgSk').value.trim();
+  if(ak&&sk)el.textContent='https://aip.baidubce.com/oauth/2.0/token?grant_type=client_credentials&client_id='+ak+'&client_secret='+sk;
+  else el.textContent='请先填写API Key和Secret Key';
+}
+function copyTokenUrl(){
+  var el=document.getElementById('tokenUrl');
+  if(!el||!el.textContent||el.textContent.indexOf('aip.baidubce.com')<0){toast('warn','请先填写API Key和Secret Key');return}
+  if(navigator.clipboard){navigator.clipboard.writeText(el.textContent).then(function(){toast('success','已复制链接，打开浏览器访问即可获取token')}).catch(function(){fallbackCopy(el.textContent)})}
+  else{fallbackCopy(el.textContent)}
+}
+function fallbackCopy(t){
+  var inp=document.createElement('textarea');inp.value=t;inp.style.position='fixed';inp.style.left='-9999px';document.body.appendChild(inp);inp.select();document.execCommand('copy');document.body.removeChild(inp);
+  toast('success','已复制链接');
+}
+function closeOcrCfg(){var el=document.getElementById('ocrCfgOverlay');if(el)el.remove()}
+function S(k,d){try{return JSON.parse(localStorage.getItem('ocr_'+k))||d}catch(e){return d}}
+function W(k,v){try{localStorage.setItem('ocr_'+k,JSON.stringify(v))}catch(e){}}
+function saveOcrCfg(){
+  var ak=document.getElementById('cfgAk').value.trim(),sk=document.getElementById('cfgSk').value.trim(),tk=document.getElementById('cfgTk').value.trim();
+  if(!ak&&!sk&&!tk){toast('warn','请填写API Key和Secret Key，或直接填写Access Token');return}
+  W('bd_ak',ak);W('bd_sk',sk);W('bd_tk',tk);
+  if(tk){_baiduToken=tk;_baiduExpire=Date.now()+86400000*6} // 手动token假设6天有效
+  toast('success','已保存OCR配置');
+  closeOcrCfg();
+}
+function testOcr(){
+  var ak=document.getElementById('cfgAk').value.trim(),sk=document.getElementById('cfgSk').value.trim(),tk=document.getElementById('cfgTk').value.trim();
+  var el=document.getElementById('ocrTestResult');
+  // 优先验证手动输入的token
+  if(tk){
+    if(tk.length<20){el.innerHTML='❌ Access Token格式不正确，长度至少20位';return}
+    _baiduToken=tk;
+    _baiduExpire=Date.now()+86400000*6;
+    el.innerHTML='✅ 手动Token已保存（有效期约6天，过期需重新获取）';
+    W('bd_tk',tk);
+    return
+  }
+  if(!ak||!sk){el.innerHTML='❌ 请填写API Key和Secret Key，或直接填写Access Token';return}
+  getTokenAuto(ak,sk,el);
+}
+function getTokenAuto(ak,sk,el){
+  if(!el)el=document.getElementById('ocrTestResult');
+  if(!el){return}
+  el.innerHTML='⏳ 自动获取token中（受浏览器跨域限制可能失败）...';
+  // 方法1：标准fetch
+  fetch('https://aip.baidubce.com/oauth/2.0/token?grant_type=client_credentials&client_id='+ak+'&client_secret='+sk)
+  .then(function(r){return r.json()}).then(function(d){
+    if(d.access_token){el.innerHTML='✅ 自动获取成功！OCR已就绪';_baiduToken=d.access_token;_baiduExpire=Date.now()+d.expires_in*1000-60000;W('bd_tk',d.access_token)}
+    else{el.innerHTML='❌ 连接失败：'+(d.error_description||'未知错误')}
+  }).catch(function(e){
+    el.innerHTML='❌ 浏览器跨域限制自动获取失败（'+e.message+'）<br>'+
+      '<div style="margin-top:6px;font-size:11px;color:#fa8c16">请按上方提示手动获取Access Token后填入</div>';
+  });
+}
+function getBaiduToken(cb){
+  if(_baiduToken&&Date.now()<_baiduExpire){cb(_baiduToken);return}
+  var ak=S('bd_ak',''),sk=S('bd_sk',''),tk=S('bd_tk','');
+  // 优先使用手动token
+  if(tk){_baiduToken=tk;_baiduExpire=Date.now()+86400000*6;cb(tk);return}
+  if(!ak||!sk){cb(null);return}
+  fetch('https://aip.baidubce.com/oauth/2.0/token?grant_type=client_credentials&client_id='+ak+'&client_secret='+sk)
+  .then(function(r){return r.json()}).then(function(d){
+    if(d.access_token){_baiduToken=d.access_token;_baiduExpire=Date.now()+d.expires_in*1000-60000;cb(_baiduToken)}
+    else{cb(null)}
+  }).catch(function(){cb(null)});
+}
+function baiduOCR(imgData,cb){
+  getBaiduToken(function(token){
+    if(!token){cb(null);return}
+    var b64=imgData.split(',')[1];
+    var params='image='+encodeURIComponent(b64)+'&language_type=CHN_ENG';
+    // 添加超时控制（15秒无响应则放弃）
+    var timed=false,timer=setTimeout(function(){timed=true;console.warn('百度OCR超时');cb(null)},15000);
+    var ac=new AbortController();
+    fetch('https://aip.baidubce.com/rest/2.0/ocr/v1/general_basic?access_token='+token,{
+      method:'POST',
+      headers:{'Content-Type':'application/x-www-form-urlencoded'},
+      body:params,
+      signal:ac.signal
+    })
+    .then(function(r){if(timed)return;clearTimeout(timer);return r.json()})
+    .then(function(d){
+      if(timed||!d)return;
+      if(d.words_result){cb(d.words_result.map(function(w){return w.words}).join('\n'));clearTimeout(timer)}
+      else if(d.error_code){
+        if(d.error_code===110||d.error_code===111){console.warn('token过期，清除',d);try{localStorage.removeItem('ocr_bd_tk')}catch(e){}}
+        console.warn('百度OCR错误',d);cb(null)
+      }
+      else{cb(null)}
+    }).catch(function(e){
+      if(timed)return;
+      clearTimeout(timer);
+      // 超时/网络错误，降级到Tesseract
+      console.warn('百度OCR请求失败',e);
+      cb(null);
+    });
+  });
+}
+
+// ====== 上传主入口（使用弹窗模式）+ 全新弹窗式上传交互 ======
+function pickFiles(mode){
+  showUploadModal(mode);
+}
+function showUploadModal(mode){
+  var ov=document.getElementById('uploadModal');
+  if(ov)ov.remove();
+  var html=
+    '<div id="uploadModal" style="position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.5);z-index:99998;display:flex;align-items:center;justify-content:center" onclick="if(event.target===this)closeUploadModal()">'+
+    '<div style="background:#fff;border-radius:12px;padding:24px;max-width:480px;width:92%;box-shadow:0 8px 40px rgba(0,0,0,.15);position:relative">'+
+
+    // 标签切换
+    '<div style="display:flex;align-items:center;gap:8px;margin-bottom:14px;border-bottom:2px solid #C8C4BA;padding-bottom:0">'+
+    '<div id="uploadTabUpload" class="uploadTab" onclick="switchUploadTab(\'upload\',\''+mode+'\')" style="padding:8px 14px;cursor:pointer;font-size:13px;font-weight:500;color:#00666C;border-bottom:2px solid #00666C;margin-bottom:-2px">📸 上传图片</div>'+
+    '<div id="uploadTabDb" class="uploadTab" onclick="switchUploadTab(\'db\',\''+mode+'\')" style="padding:8px 14px;cursor:pointer;font-size:13px;font-weight:400;color:#888;border-bottom:2px solid transparent;margin-bottom:-2px">🗄️ 从数据库引用</div>'+
+    '</div>'+
+
+    // 上传面板
+    '<div id="uploadPanelUpload">'+
+    '<div style="font-size:12px;color:#888;margin-bottom:12px;line-height:1.5">'+
+    (mode==='ocr'?'支持 jpg/png 格式，自动提取车号、日期、油品等信息':'不上传OCR识别，仅保存图片用于手动标注')+'</div>'+
+    '<div id="uploadDropZone" style="border:2px dashed #C8C4BA;border-radius:10px;padding:28px 16px;text-align:center;cursor:pointer;background:#FCF9F6;transition:all .2s" '+
+    'onclick="document.getElementById(\'uploadFileInput\').click()" '+
+    'ondragover="event.preventDefault();this.style.borderColor=\'#00666C\';this.style.background=\'#E8F4F4\'" '+
+    'ondragleave="this.style.borderColor=\'#C8C4BA\';this.style.background=\'#FCF9F6\'" '+
+    'ondrop="event.preventDefault();handleDrop(event)">'+
+    '<div style="font-size:36px;margin-bottom:6px">📂</div>'+
+    '<div style="font-size:13px;font-weight:500;color:#2C2C2A;margin-bottom:4px">点击选择图片或拖拽到此处</div>'+
+    '<div style="font-size:11px;color:#B4B2A9">支持多张同时选择</div>'+
+    '</div>'+
+    '<input type="file" id="uploadFileInput" accept="image/*" multiple style="display:none" onchange="handleUploadFiles(this, \''+mode+'\')">'+
+    '<div id="uploadFileList" style="display:none;margin-top:10px;max-height:160px;overflow-y:auto"></div>'+
+    '<div id="uploadProgressBar" style="display:none;margin-top:10px">'+
+    '<div style="display:flex;justify-content:space-between;font-size:11px;color:#888;margin-bottom:4px"><span id="uploadProgressText">处理中...</span><span id="uploadProgressPct">0%</span></div>'+
+    '<div style="height:6px;background:#F1EFE8;border-radius:3px;overflow:hidden"><div id="uploadProgressFill" style="height:100%;width:0%;background:linear-gradient(90deg,#00666C,#3A8A8F);border-radius:3px;transition:width .3s"></div></div>'+
+    '</div>'+
+    '</div>'+ // 关闭upload面板
+
+    // 引用数据库面板（初始隐藏）
+    '<div id="uploadPanelDb" style="display:none">'+
+    '<div style="font-size:12px;color:#888;margin-bottom:12px;line-height:1.5">选择已有数据记录引用到当前列表</div>'+
+    '<div id="dbRefList" style="max-height:280px;overflow-y:auto;margin-bottom:8px"></div>'+
+    '</div>'+ // 关闭db面板
+
+    '<div style="display:flex;gap:8px;justify-content:flex-end;margin-top:12px">'+
+    '<span class="btn btn-o btn-sm" onclick="closeUploadModal()">取消</span>'+
+    '<span class="btn btn-p btn-sm" id="uploadConfirmBtn" style="background:#00666C;display:none" onclick="startUpload(\''+mode+'\')">✅ 开始处理</span>'+
+    '<span class="btn btn-p btn-sm" id="dbRefConfirmBtn" style="background:#00666C;display:none" onclick="importDbRefs()">📥 引用到当前</span>'+
+    '</div>'+
+    '<div id="uploadStatus" style="margin-top:8px;font-size:11px;color:#888;text-align:center;min-height:18px"></div>'+
+    '</div></div>';
+  document.body.insertAdjacentHTML('beforeend',html);
+}
+function switchUploadTab(tab,mode){
+  var tabs=document.querySelectorAll('.uploadTab');
+  tabs.forEach(function(t){t.style.color='#888';t.style.fontWeight='400';t.style.borderBottomColor='transparent'});
+  var panU=document.getElementById('uploadPanelUpload');
+  var panD=document.getElementById('uploadPanelDb');
+  var btnU=document.getElementById('uploadConfirmBtn');
+  var btnD=document.getElementById('dbRefConfirmBtn');
+  if(tab==='upload'){
+    document.getElementById('uploadTabUpload').style.color='#00666C';
+    document.getElementById('uploadTabUpload').style.fontWeight='500';
+    document.getElementById('uploadTabUpload').style.borderBottomColor='#00666C';
+    panU.style.display='block';panD.style.display='none';
+    btnU.style.display=(_pendingUploadFiles&&_pendingUploadFiles.length?'inline-flex':'none');
+    btnD.style.display='none';
+  }else{
+    document.getElementById('uploadTabDb').style.color='#00666C';
+    document.getElementById('uploadTabDb').style.fontWeight='500';
+    document.getElementById('uploadTabDb').style.borderBottomColor='#00666C';
+    panU.style.display='none';panD.style.display='block';
+    btnU.style.display='none';
+    loadDbRefs();
+  }
+}
+var _selectedDbRefs=[];
+function loadDbRefs(){
+  var el=document.getElementById('dbRefList');
+  if(!el)return;
+  el.innerHTML='<div style="text-align:center;padding:20px;color:#888;font-size:12px">⏳ 加载中...</div>';
+  DB.allMeta(function(recs){
+    if(!recs.length){
+      el.innerHTML='<div style="text-align:center;padding:30px;color:#B4B2A9;font-size:12px">📭 暂无数据，请先上传图片</div>';
+      document.getElementById('dbRefConfirmBtn').style.display='none';
+      return;
+    }
+    var grp={};
+    recs.forEach(function(r){var d=r.date||'未知日期';if(!grp[d])grp[d]=[];grp[d].push(r)});
+    var ds=Object.keys(grp).sort(function(a,b){if(a==='未知日期')return 1;if(b==='未知日期')return -1;return a>b?-1:1});
+    var html='';
+    _selectedDbRefs=[];
+    ds.forEach(function(d){
+      var items=grp[d];
+      html+='<div style="margin-bottom:6px;border:1px solid #EDE9E1;border-radius:6px;overflow:hidden">'+
+        '<div style="background:#E8F4F4;padding:6px 10px;font-size:12px;font-weight:500;color:#00666C">'+
+        (d==='未知日期'?'❓ 未知日期':d)+' <span style="font-weight:400;color:#888;font-size:11px">'+items.length+'条</span></div>';
+      items.forEach(function(r){
+        _selectedDbRefs.push(r.id);
+        html+='<div style="display:flex;align-items:center;gap:6px;padding:5px 10px;border-bottom:1px solid #F5F0EB;font-size:11px">'+
+          '<input type="checkbox" id="dbchk'+r.id+'" checked onclick="toggleDbRef('+r.id+')" style="cursor:pointer;accent-color:#00666C">'+
+          '<span style="color:'+(r.type==='seal'?'#00666C':'#3A8A8F')+';font-weight:500">'+(r.type==='seal'?'🔒铅封':'📄出库')+'</span>'+
+          '<span>📅'+(r.date||'-')+'</span>'+
+          '<span>🚛'+(r.vehicle||'-')+'</span>'+
+          (r.sealNo?'<span>🔑'+r.sealNo+'</span>':'')+
+          (r.oil?'<span>🛢️'+r.oil+'</span>':'')+
+          (r.qty?'<span>⚖️'+r.qty+'t</span>':'')+
+          '</div>';
+      });
+      html+='</div>';
+    });
+    el.innerHTML=html;
+    document.getElementById('dbRefConfirmBtn').style.display='inline-flex';
+    document.getElementById('uploadStatus').textContent='已选择 '+_selectedDbRefs.length+' 条记录';
+  });
+}
+function toggleDbRef(id){
+  var idx=_selectedDbRefs.indexOf(id);
+  if(idx>=0)_selectedDbRefs.splice(idx,1);
+  else _selectedDbRefs.push(id);
+  document.getElementById('uploadStatus').textContent='已选择 '+_selectedDbRefs.length+' 条记录';
+}
+function importDbRefs(){
+  if(!_selectedDbRefs||!_selectedDbRefs.length){toast('warn','请先选择需要引用的记录');return}
+  closeUploadModal();
+  toast('success','已引用 '+_selectedDbRefs.length+' 条记录');
+  load();
+  _selectedDbRefs=[];
+}
+function closeUploadModal(){
+  var el=document.getElementById('uploadModal');
+  if(el)el.remove();
+}
+var _pendingUploadFiles=null;
+var _pendingUploadMode='';
+function handleUploadFiles(inp,mode){
+  if(!inp.files||!inp.files.length)return;
+  _pendingUploadMode=mode;
+  _pendingUploadFiles=inp.files;
+  var list=[];
+  for(var i=0;i<inp.files.length;i++)list.push(inp.files[i].name);
+  var fl=document.getElementById('uploadFileList');
+  fl.style.display='block';
+  fl.innerHTML='<div style="font-size:11px;font-weight:500;color:#2C2C2A;margin-bottom:6px">已选择 '+list.length+' 个文件：</div>'+
+    list.map(function(n){return '<div style="font-size:11px;color:#5F5E5A;padding:2px 0;border-bottom:1px solid #F1EFE8"><span style="color:#5085C3">●</span> '+n+'</div>'}).join('');
+  document.getElementById('uploadConfirmBtn').style.display='inline-flex';
+  document.getElementById('uploadStatus').textContent='已准备 '+(mode==='ocr'?'OCR识别':'直接存图')+' '+list.length+' 个文件';
+}
+function handleDrop(e){
+  var files=e.dataTransfer.files;
+  if(!files||!files.length)return;
+  _pendingUploadMode=document.querySelector('#uploadModal') ? 'ocr' : 'ocr';
+  _pendingUploadFiles=files;
+  var fl=document.getElementById('uploadFileList');
+  fl.style.display='block';
+  var list=[];
+  for(var i=0;i<files.length;i++){if(files[i].type.indexOf('image')>=0)list.push(files[i].name)}
+  fl.innerHTML='<div style="font-size:11px;font-weight:500;color:#2C2C2A;margin-bottom:6px">已拖放 '+list.length+' 个文件：</div>'+
+    list.map(function(n){return '<div style="font-size:11px;color:#5F5E5A;padding:2px 0;border-bottom:1px solid #F1EFE8"><span style="color:#5085C3">●</span> '+n+'</div>'}).join('');
+  document.getElementById('uploadConfirmBtn').style.display='inline-flex';
+  document.getElementById('uploadStatus').textContent='已准备处理 '+list.length+' 个文件';
+}
+
+function startUpload(mode){
+  closeUploadModal();
+  if(!_pendingUploadFiles||!_pendingUploadFiles.length){
+    toast('warn','没有文件');
+    return;
+  }
+  if(mode==='raw')saveRaw(_pendingUploadFiles);
+  else saveOCR(_pendingUploadFiles);
+  _pendingUploadFiles=null;
+  _pendingUploadMode='';
+}
+
+// ====== 直接存图（最简化，不OCR）======
+function saveRaw(files){
+  var t=files.length,d=0,err=0,skip=0;
+  toast('info','处理 '+t+' 张...');
+  for(var i=0;i<t;i++)(function(f){
+    isDup(f.name,function(dup){
+      if(dup){skip++;d++;if(d+err>=t)fin();return}
+      var rd=new FileReader();
+      rd.onload=function(e){
+        compress(e.target.result,1200).then(function(c){
+          try{
+            var info=fromFname(f.name);
+            DB.add({
+              date:info.date||'',vehicle:info.plate||'',orderNo:'',sealNo:'',oil:'',qty:0,time:'',depot:'',
+              type:info.type||'unknown',img:c,fn:f.name,raw:'',at:new Date().toISOString()
+            },function(){d++;if(d+err>=t)fin()});
+          }catch(ex){console.error('save err',ex);err++;if(d+err>=t)fin()}
+        });
+      };
+      rd.onerror=function(){err++;if(d+err>=t)fin()};
+      rd.readAsDataURL(f);
+    });
+  })(files[i]);
+  function fin(){toast('success','已保存 '+(d-skip)+' 张'+(skip?'，跳过 '+skip+' 张重复':'')+(err?'，'+err+' 张失败':''));load()}
+}
+
+// ====== OCR识别+保存（增加超时容错，每个文件处理不卡死）======
+var _ocrProgress=0;
+function saveOCR(files){
+  var t=files.length;
+  _ocrProgress=0;
+  showProgress('正在压缩图片... 0/'+t,0);
+  var saved=[];var done=0;var skipped=0;
+  
+  // 用Promise包装的压缩
+  function doCompress(f,cb){
+    isDup(f.name,function(dup){
+      if(dup){skipped++;done++;if(done>=t)finishCompress();else showProgress('正在压缩图片... '+(done+1)+'/'+t,Math.round((done+1)/t*100));return}
+      var rd=new FileReader();
+      rd.onload=function(e){
+        compress(e.target.result,1200).then(function(c){
+          saved.push({data:c,name:f.name});
+          done++;
+          if(done>=t)finishCompress();
+          else showProgress('正在压缩图片... '+(done+1)+'/'+t,Math.round((done+1)/t*100));
+        }).catch(function(){done++;if(done>=t)finishCompress()});
+      };
+      rd.onerror=function(){done++;if(done>=t)finishCompress()};
+      rd.readAsDataURL(f);
+    });
+  }
+  
+  for(var i=0;i<t;i++)doCompress(files[i]);
+  
+  function finishCompress(){
+    var valid=saved.filter(function(s){return s});
+    var n=valid.length;
+    if(!n){hideProgress();toast('warn','全部重复，跳过'+(skipped?' '+skipped+' 张':''));load();return}
+    
+    showProgress('准备OCR引擎...',5);
+    
+    // 快速检测OCR可用性（3秒超时）
+    var _locTk=(function(){try{return JSON.parse(localStorage.getItem('ocr_bd_tk'))}catch(e){return null}})();
+    var hasBaiduReady=!!(_baiduToken||_locTk);
+    
+    // 检查Tesseract是否可用（最多等3秒）
+    var tessReady=false,tessChecked=false;
+    if(window._TESS_LOADED&&!_tessWorker){
+      var tessTimer=setTimeout(function(){
+        tessChecked=true;
+        continueAfterCheck();
+      },3000);
+      // 同时尝试快速创建worker
+      ensureTessWorker(function(ok){
+        tessReady=ok;
+        tessChecked=true;
+        clearTimeout(tessTimer);
+        continueAfterCheck();
+      });
+    }else if(_tessWorker){
+      tessReady=true;
+      tessChecked=true;
+      continueAfterCheck();
+    }else{
+      tessChecked=true;
+      continueAfterCheck();
+    }
+    
+    function continueAfterCheck(){
+      if(!tessChecked)return;
+      var hasOcr=hasBaiduReady||tessReady;
+      
+      if(!hasOcr){
+        showProgress('⚠️ OCR引擎不可用，使用文件名提取...',50);
+        setTimeout(function(){
+          for(var i=0;i<n;i++){
+            var s=valid[i];
+            var inf=fromFname(s.name);
+            DB.add({date:inf.date||'',vehicle:inf.plate||'',sealNo:'',oil:'',qty:0,type:inf.type||'unknown',img:s.data,fn:s.name,raw:'',at:new Date().toISOString()});
+          }
+          hideProgress();
+          toast('info','已保存 '+n+' 张（文件名提取）'+(skipped?'，跳过 '+skipped+' 张':''));
+          load();
+        },300);
+        return;
+      }
+      
+      showProgress('开始OCR识别（0/'+n+'）',10);
+      
+      function next(idx){
+        if(idx>=n){
+          hideProgress();
+          toast('success','识别完成！共处理 '+n+' 张'+(skipped?'，跳过 '+skipped+' 张':''));
+          load();
+          return;
+        }
+        var s=valid[idx];
+        var pct=10+Math.round((idx)/n*80);
+        showProgress('OCR识别中 ('+(idx+1)+'/'+n+')：'+s.name.substring(0,18),pct);
+        
+        var timedOut=false;
+        var timer=setTimeout(function(){
+          timedOut=true;
+          var inf=fromFname(s.name);
+          DB.add({date:inf.date||'',vehicle:inf.plate||'',sealNo:'',oil:'',qty:0,type:inf.type||'unknown',img:s.data,fn:s.name,raw:'',at:new Date().toISOString()});
+          next(idx+1);
+        },25000);
+        
+        if(hasBaiduReady){
+          baiduOCR(s.data,function(text){
+            if(timedOut)return;
+            clearTimeout(timer);
+            var inf;
+            if(text&&text.trim().length>5){inf=parseOCR(text,s.name)}
+            else{inf=fromFname(s.name)}
+            DB.add({date:inf.date||'',vehicle:inf.plate||'',sealNo:inf.sealNo||'',oil:inf.oil||'',qty:inf.qty||0,type:inf.type||'unknown',img:s.data,fn:s.name,raw:text?text.substring(0,1000):'',at:new Date().toISOString()});
+            next(idx+1);
+          });
+        }else if(tessReady){
+          tessRecognize(s.data,function(text){
+            if(timedOut)return;
+            clearTimeout(timer);
+            var inf;
+            if(text&&text.trim().length>5){inf=parseOCR(text,s.name)}
+            else{inf=fromFname(s.name)}
+            DB.add({date:inf.date||'',vehicle:inf.plate||'',sealNo:inf.sealNo||'',oil:inf.oil||'',qty:inf.qty||0,type:inf.type||'unknown',img:s.data,fn:s.name,raw:text?text.substring(0,1000):'',at:new Date().toISOString()});
+            next(idx+1);
+          });
+        }
+      }
+      
+      next(0);
+    }
+  }
+}
+
+// ====== 按类型筛选 ======
+function setType(t){
+  _typeFilter=t;
+  document.querySelectorAll('.tabBtn').forEach(function(e){e.classList.toggle('on',e.id==='tabAll'&&!t||e.id==='tabOut'&&t==='outbound'||e.id==='tabSeal'&&t==='seal')});
+  load();
+}
+
+// ====== 加载列表（优化版：先加载元数据，图片懒加载）======
+var _imgCache={};
+function load(){
+  DB.allMeta(function(recs){
+    document.getElementById('dbCnt').textContent='数据库: '+recs.length+'条';
+    var f=document.getElementById('fltF').value,t=document.getElementById('fltT').value;
+    if(f)recs=recs.filter(function(r){return (r.date||'')>=f});
+    if(t)recs=recs.filter(function(r){return (r.date||'')<=t});
+    if(_typeFilter)recs=recs.filter(function(r){return r.type===_typeFilter});
+    var grp={};recs.forEach(function(r){var d=r.date||'未知日期';if(!grp[d])grp[d]=[];grp[d].push(r)});
+    var ds=Object.keys(grp).sort(function(a,b){if(a==='未知日期')return 1;if(b==='未知日期')return -1;if(a===b)return 0;return a>b?-1:1});
+    var tr=recs.length,pt=recs.filter(function(r){return r.vehicle}).length,st=recs.filter(function(r){return r.sealNo}).length,ic=recs.filter(function(r){return r.img}).length;
+    var sc=recs.filter(function(r){return r.type==='seal'}).length,oc=recs.filter(function(r){return r.type==='outbound'}).length;
+    document.getElementById('cards').innerHTML=
+      '<div class="sc"><div class="sl">总记录</div><div class="sv">'+tr+'</div></div>'+
+      '<div class="sc"><div class="sl">📄出库单</div><div class="sv" style="color:#1890ff">'+oc+'</div></div>'+
+      '<div class="sc"><div class="sl">🔒铅封</div><div class="sv" style="color:#722ed1">'+sc+'</div></div>'+
+      '<div class="sc"><div class="sl">有车号</div><div class="sv" style="color:'+(pt?'#52c41a':'#888')+'">'+pt+'</div></div>'+
+      '<div class="sc"><div class="sl">图片</div><div class="sv" style="color:#e67e22">'+ic+'</div></div>';
+    if(!ds.length){document.getElementById('list').innerHTML='<div style="text-align:center;padding:40px;color:#999">暂无数据</div>';return}
+    var html='';
+    ds.forEach(function(d){
+      var recs=grp[d];var v=[];recs.forEach(function(r){if(r.vehicle&&v.indexOf(r.vehicle)<0)v.push(r.vehicle)});var ic2=recs.filter(function(r){return r.img}).length;
+      html+='<div class="dg"><div class="dh" onclick="this.nextElementSibling.classList.toggle(\'open\')">'+
+        '<span class="dd">'+(d==='未知日期'?'❓ 未知日期':d)+'</span><span class="dt">'+recs.length+'条</span><span class="dt">'+ic2+'张图</span>'+
+        '<span class="dc">'+(v.length?'🚛 '+v.join('、'):'')+'</span></div><div class="db open">';
+      recs.forEach(function(r){
+        var ti=r.type==='seal'?'🔒':(r.type==='outbound'?'📄':'❓'),tn=r.type==='seal'?'铅封照':(r.type==='outbound'?'出库单':'未分类');
+        html+='<div class="di" id="r'+r.id+'" style="border-left:3px solid '+(r.type==='seal'?'#00666C':r.type==='outbound'?'#3A8A8F':'#C8C4BA')+';background:#fafafa;border-radius:4px;margin-bottom:4px">'+
+          '<div class="thumb" id="thumbload'+r.id+'" onclick="lazyLoadImg('+r.id+')"><span style="font-size:18px">📷</span>'+
+          '</div><div class="info">'+
+          '<div class="r"><span class="v" style="background:'+(r.type==='seal'?'#E8F4F4':r.type==='outbound'?'#E8F4F4':'#F5F0EB')+';color:'+(r.type==='seal'?'#00666C':r.type==='outbound'?'#3A8A8F':'#888')+';font-size:10px">'+ti+' '+tn+'</span>'+
+          '<span class="v" style="font-size:9px;font-weight:400;color:#888;background:none">'+(r.fn||'')+'</span></div>';
+          // 字段颜色（按类型）
+          var isOut=r.type==='outbound',isSeal=r.type==='seal';
+          // 出库单: 车号(橙) 日期(绿) 油品(黄) 吨数(紫)
+          // 铅封照: 日期(蓝) 车号(绿) 油品(黄) 铅封号(黄)
+          var cDate=isOut?'#52c41a':(isSeal?'#1890ff':'#888');
+          var cVehicle=isOut?'#fa8c16':(isSeal?'#52c41a':'#888');
+          var cOil=isOut?'#faad14':(isSeal?'#faad14':'#888');
+          var cQty=isOut?'#722ed1':'#888';
+          var cSeal=isSeal?'#faad14':'#888';
+          html+=
+          '<div class="r">'+
+          '<span class="v" style="border:2px solid '+cDate+';padding:1px 6px;background:#fff">📅 日期:<span id="dt'+r.id+'">'+(r.date||'-')+'</span></span>'+
+          '<span class="v" style="border:2px solid '+cVehicle+';padding:1px 6px;background:#fff">🚛 车号:<span id="v'+r.id+'">'+(r.vehicle||'-')+'</span></span>'+
+          '<span class="v" style="border:2px solid '+cOil+';padding:1px 6px;background:#fff">🛢️ 油品:<span id="l'+r.id+'">'+(r.oil||'-')+'</span></span>'+
+          (isOut?'<span class="v" style="border:2px solid '+cQty+';padding:1px 6px;background:#fff">⚖️ 吨数:<span id="q'+r.id+'">'+(r.qty?r.qty:'-')+'</span></span>':'')+
+          (isSeal&&r.sealNo?'<span class="v" style="border:2px solid '+cSeal+';padding:1px 6px;background:#fff">🔒 铅封号:<span id="o'+r.id+'">'+r.sealNo+'</span></span>':'')+
+          '</div>'+
+          '<div class="r">'+
+          '<span style="font-size:9px;color:#999;cursor:pointer" onclick="showRaw('+r.id+')">📝 OCR原文</span>'+
+          (r.raw?'<span style="font-size:9px;color:#888;margin-left:6px">片段: '+r.raw.substring(0,30)+(r.raw.length>30?'...':'')+'</span>':'')+
+          '</div>'+
+          '</div>'+
+          '<div><span class="btn btn-o btn-sm" onclick="edit('+r.id+')" style="padding:2px 6px;font-size:9px">✏️</span>'+
+          '<span class="btn btn-o btn-sm" onclick="del('+r.id+')" style="padding:2px 6px;font-size:9px;color:#f5222d;border-color:#f5222d">✕</span></div></div>'
+      });
+      html+='</div></div>';
+    });
+    document.getElementById('list').innerHTML=html;
+  });
+}
+
+function showRaw(id){
+  DB.all(function(recs){for(var i=0;i<recs.length;i++){if(recs[i].id===id){toast('info','OCR原文：\n'+(recs[i].raw||'无'),5000);return}}});
+}
+
+// ====== 编辑 ======
+function edit(id){
+  var fm={v:'vehicle',o:'sealNo',l:'oil',q:'qty',dt:'date'};
+  for(var f in fm){var el=document.getElementById(f+id);if(!el)continue;var cur=el.textContent;if(cur==='-')cur='';var inp=document.createElement('input');inp.value=cur;inp.id=f+'i'+id;inp.style.width=f==='q'?'60px':'80px';el.parentNode.replaceChild(inp,el)}
+  var a=document.querySelector('#r'+id+' .di>div:last-child');if(a)a.innerHTML='<span class="btn btn-o btn-sm" onclick="save('+id+')" style="padding:2px 6px;font-size:9px;color:#52c41a;border-color:#52c41a">✓</span><span class="btn btn-o btn-sm" onclick="load()" style="padding:2px 6px;font-size:9px">取消</span>'
+}
+function save(id){
+  var fm={v:'vehicle',o:'sealNo',l:'oil',q:'qty',dt:'date'},vals={};
+  for(var f in fm){var inp=document.getElementById(f+'i'+id);if(inp)vals[fm[f]]=f==='q'?(parseFloat(inp.value)||0):inp.value.trim()}
+  DB.all(function(recs){for(var i=0;i<recs.length;i++){if(recs[i].id===id){for(var k in vals)recs[i][k]=vals[k];DB.put(recs[i],function(){toast('success','已更新');load()});return}}});
+}
+function del(id){if(!confirm('确定删除？'))return;DB.del(id,function(){load()})}
+function clearAll(){DB.clr();load()}
+// ====== 图片懒加载（点击缩略图才从DB读取全尺寸图）======
+var _lazyLoading=false;
+function lazyLoadImg(id){
+  var el=document.getElementById('thumbload'+id);
+  if(!el)return;
+  if(_imgCache[id]){
+    el.innerHTML='<img src="'+_imgCache[id]+'" style="width:100%;height:100%;object-fit:cover">';
+    el.onclick=function(){preview(id)};
+    return;
+  }
+  el.innerHTML='<span style="font-size:12px;color:#00666C">⏳</span>';
+  // 从DB读取该条记录的图片
+  DB._ok(function(){
+    var t=DB._v.transaction('r','readonly').objectStore('r');
+    var r=t.get(id);
+    r.onsuccess=function(){
+      if(r.result&&r.result.img){
+        _imgCache[id]=r.result.img;
+        el.innerHTML='<img src="'+r.result.img+'" style="width:100%;height:100%;object-fit:cover">';
+        el.onclick=function(){preview(id)};
+      }else{el.innerHTML='<span style="font-size:18px">📷</span>';}
+    };
+    r.onerror=function(){el.innerHTML='<span style="font-size:18px">📷</span>';};
+  });
+}
+// 点击缩略图立即预览（如果图片已加载）
+function preview(id){DB.all(function(recs){for(var i=0;i<recs.length;i++){if(recs[i].id===id&&recs[i].img){document.getElementById('ovImg').src=recs[i].img;document.getElementById('ov').classList.add('show');return}}})}
+
+// ====== 批量下载 ======
+function batchDownload(){DB.all(function(recs){var imgs=recs.filter(function(r){return r.img});if(!imgs.length){toast('warn','没有图片');return}
+  toast('info','打包 '+imgs.length+' 张...');var zip=new JSZip(),f=zip.folder('外采图');
+  imgs.forEach(function(r){var d=(r.date||'未知').replace(/[:\/\\]/g,'-'),t=r.type==='seal'?'铅封':'出库单',v=r.vehicle?'_'+r.vehicle:'';var ext='.jpg';var m=r.img.match(/^data:image\/(\w+)/);if(m&&m[1]==='png')ext='.png';f.file(d+'_'+t+v+'_'+r.id+ext,dataURLtoBlob(r.img))});
+  zip.generateAsync({type:'blob'}).then(function(c){var a=document.createElement('a');a.href=URL.createObjectURL(c);a.download='外采图片_'+new Date().toISOString().slice(0,10)+'.zip';a.click();URL.revokeObjectURL(a.href);toast('success','下载完成')})});
+}
+function dataURLtoBlob(d){var p=d.split(','),m=p[0].match(/:(.*?);/)[1],b=atob(p[1]),u=new Uint8Array(b.length);for(var i=0;i<b.length;i++)u[i]=b.charCodeAt(i);return new Blob([u],{type:m})}
+
+// ====== 导出Excel ======
+function exportExcel(){DB.all(function(recs){if(!recs.length){toast('warn','无数据');return}
+  var r=recs.map(function(x){return{'日期':x.date||'','车号':x.vehicle||'','铅封号':x.sealNo||'','油品':x.oil||'','数量(吨)':x.qty||0,'图片类型':x.type==='seal'?'铅封照':(x.type==='outbound'?'出库单':'未分类'),'文件名':x.fn||'','上传时间':x.at?x.at.slice(0,16):''}});
+  var ws=XLSX.utils.json_to_sheet(r),wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,'外采数据');XLSX.writeFile(wb,'外采数据_'+new Date().toISOString().slice(0,10)+'.xlsx');toast('success','导出成功 '+r.length+' 条')});
+}
+
+// ====== 处理进度条（改造成居中弹窗模式） ======
+var _prgEl=null;
+var _prgFill=null;
+function showProgress(msg,pct){
+  if(!_prgEl){
+    _prgEl=document.createElement('div');
+    _prgEl.id='prgBar';
+    _prgEl.style.cssText='position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.45);z-index:99999;display:flex;align-items:center;justify-content:center';
+    _prgEl.innerHTML='<div style="background:#fff;border-radius:12px;padding:28px 32px;max-width:360px;width:85%;text-align:center;box-shadow:0 8px 40px rgba(0,0,0,.15)">'+
+      '<div style="font-size:32px;margin-bottom:12px">⏳</div>'+
+      '<div style="font-size:13px;font-weight:500;color:#2C2C2A;margin-bottom:8px" id="prgMsg">处理中...</div>'+
+      '<div style="height:6px;background:#F1EFE8;border-radius:3px;overflow:hidden;margin-bottom:6px"><div id="prgFill" style="height:100%;width:0%;background:linear-gradient(90deg,#00666C,#3A8A8F);border-radius:3px;transition:width .3s"></div></div>'+
+      '<div style="font-size:11px;color:#B4B2A9" id="prgPct"></div>'+
+      '</div>';
+    document.body.appendChild(_prgEl);
+    _prgFill=document.getElementById('prgFill');
+  }
+  var pm=document.getElementById('prgMsg');
+  if(pm)pm.textContent=msg||'处理中...';
+  _prgEl.style.display='flex';
+  if(_prgFill&&pct!==undefined){_prgFill.style.width=pct+'%';var pp=document.getElementById('prgPct');if(pp)pp.textContent=pct+'%'}
+}
+function hideProgress(){if(_prgEl){_prgEl.style.display='none';_prgFill=null}}
+
+// ====== Toast提示（更醒目）======
+function toast(type,msg,dur){
+  var t=document.createElement('div');t.className='toast';
+  var icons={info:'ℹ️',success:'✅',warn:'⚠️',error:'❌'};
+  t.innerHTML='<span class="t-icon">'+(icons[type]||'ℹ️')+'</span><span class="t-msg">'+msg+'</span><span class="t-del" onclick="this.parentElement.remove()">✕</span>';
+  t.style.borderLeft='3px solid '+(type==='success'?'#52c41a':type==='warn'?'#faad14':type==='error'?'#f5222d':'#1890ff');
+  var c=document.getElementById('toastContainer')||function(){var d=document.createElement('div');d.id='toastContainer';d.style.position='fixed';d.style.bottom='20px';d.style.left='50%';d.style.transform='translateX(-50%)';d.style.zIndex='99999';d.style.maxWidth='500px';d.style.width='90%';document.body.appendChild(d);return d}();
+  c.appendChild(t);setTimeout(function(){if(t.parentElement)t.remove()},dur||4000);
+}
+
+// ====== 初始加载时显示OCR状态 ======
+setTimeout(function(){var e=document.getElementById('tessSt');if(!window._TESS_LOADED&&e){e.textContent='⚠️ OCR不可用（仅文件名提取）';e.style.color='#D4845A'}},8000);
+</script>
+</body>
+</html>

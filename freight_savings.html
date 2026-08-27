@@ -1,0 +1,669 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>互供运费节约分析</title>
+<script src="https://webapi.amap.com/maps?v=2.0&key="></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,'Microsoft YaHei',sans-serif;background:#F5F0EB;color:#333;padding:20px}
+.cd{background:#fff;border-radius:10px;box-shadow:0 2px 8px rgba(0,0,0,.06);margin-bottom:20px;overflow:hidden}
+.cd-h{display:flex;align-items:center;justify-content:space-between;padding:16px 20px;border-bottom:1px solid #e8e8e8;flex-wrap:wrap;gap:8px}
+.cd-t{font-size:1rem;font-weight:600}
+.btn{display:inline-flex;align-items:center;gap:6px;padding:8px 18px;border:none;border-radius:6px;font-size:.88rem;cursor:pointer;font-weight:500}
+.btn-p{background:#7B1F1F;color:#fff}.btn-s{background:#52c41a;color:#fff}.btn-w{background:#faad14;color:#fff}.btn-d{background:#f5222d;color:#fff}.btn-o{background:transparent;color:#333;border:1px solid #e8e8e8}.btn-sm{padding:5px 12px;font-size:.82rem}
+.sg{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px;margin-bottom:20px}
+.sc{background:#fff;border-radius:10px;padding:20px;display:flex;align-items:center;gap:16px;box-shadow:0 2px 8px rgba(0,0,0,.06)}
+.si{width:48px;height:48px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:1.3rem}
+.si-b{background:#FBF0ED;color:#7B1F1F}.si-g{background:#f6ffed;color:#52c41a}.si-r{background:#fff1f0;color:#f5222d}.si-o{background:#fff7e6;color:#faad14}.si-p{background:#f9f0ff;color:#722ed1}
+.sc h3{font-size:1.5rem;font-weight:700}.sc p{font-size:.82rem;color:#888}
+.tc{overflow-x:auto}table{width:100%;border-collapse:collapse;font-size:.85rem}
+th{background:#fafafa;padding:10px 12px;text-align:left;font-weight:600;font-size:.82rem;color:#666;border-bottom:2px solid #e8e8e8}td{padding:9px 12px;border-bottom:1px solid #f0f0f0}tr:hover td{background:#fafafa}
+.uz{border:2px dashed #e8e8e8;border-radius:10px;padding:30px 20px;text-align:center;cursor:pointer;transition:all .2s;background:#fff}
+.uz:hover{border-color:#7B1F1F;background:#FBF0ED}
+select{padding:6px 10px;border:1px solid #e8e8e8;border-radius:6px;font-size:.88rem;background:#fff;outline:none}
+select:focus{border-color:#7B1F1F}
+input[type=date],input[type=number]{padding:6px 10px;border:1px solid #e8e8e8;border-radius:6px;font-size:.88rem;outline:none}
+input[type=date]:focus,input[type=number]:focus{border-color:#7B1F1F}
+.msg{position:fixed;top:20px;right:20px;padding:12px 20px;border-radius:8px;color:#fff;font-size:.88rem;z-index:9999;max-width:400px}
+.msg-i{background:#7B1F1F}.msg-s{background:#52c41a}.msg-w{background:#faad14}.msg-e{background:#f5222d}
+.tag{display:inline-block;padding:2px 8px;border-radius:4px;font-size:.78rem;font-weight:500}
+.tag-g{background:#f6ffed;color:#52c41a}.tag-r{background:#fff1f0;color:#f5222d}.tag-b{background:#FBF0ED;color:#7B1F1F}
+.chart-row{display:grid;grid-template-columns:1fr 1fr;gap:16px}@media(max-width:800px){.chart-row{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+
+<div id="app"></div>
+
+<script>
+// ===== 油库分类 =====
+var DEPOT_CLASS = [
+  // 自有库
+  {k:['南宁油库','广西南宁油库'],t:'自有库'},
+  {k:['柳江油库','广西柳江油库'],t:'自有库'},
+  {k:['柳州油库','广西柳州油库'],t:'自有库'},
+  {k:['兴业油库','广西兴业油库'],t:'自有库'},
+  {k:['百色油库','广西百色油库'],t:'自有库'},
+  {k:['桂林油库','广西桂林油库'],t:'自有库'},
+  {k:['新恒丰油库','广西梧州新恒丰油库'],t:'自有库'},
+  {k:['广明油库','广西钦州广明'],t:'自有库'},
+  {k:['钦州东油库','广西钦州东油'],t:'自有库'},
+  {k:['北海宏远油库','宏远油库'],t:'自有库'},
+  {k:['贺州城西油库','城西油库','城西库'],t:'自有库'},
+  {k:['三江古宜油库','古宜油库'],t:'自有库'},
+  {k:['河池金沙库','金沙库'],t:'自有库'},
+  // 中石化互供库
+  {k:['中石化玉林油库','玉林油库'],t:'中石化互供库'},
+  {k:['中石化火山油库','火山油库'],t:'外采库'},
+  {k:['中石化鹧鸪江油库','鹧鸪江油库'],t:'中石化互供库'},
+  {k:['中石化南瑶油库','南瑶油库'],t:'外采库'},
+  {k:['南宁石化油库'],t:'中石化互供库'},
+  {k:['百色石化油库','百色石化'],t:'中石化互供库'},
+  {k:['桂林羊角山石化油库','羊角山石化'],t:'中石化互供库'},
+  {k:['河池石化油库','河池石化'],t:'中石化互供库'},
+  {k:['贵港石化油库','贵港石化'],t:'中石化互供库'},
+  {k:['北海石化油库','北海石化'],t:'中石化互供库'},
+  {k:['崇左石化油库','崇左石化'],t:'中石化互供库'},
+  // 中海油互供库
+  {k:['中海油广西油库','中海油'],t:'中海油互供库'},
+  // 外省互供
+  {k:['顺德库','佛山华创','开平江门','东莞东洲'],t:'中石化互供库'},
+];
+
+// ===== 自有库坐标（用于近似距离计算） =====
+var OWN_DEPOTS = {
+  '南宁油库':{lat:22.85,lon:108.44,city:'南宁'},
+  '柳江油库':{lat:24.219,lon:109.34,city:'柳江'},
+  '柳州油库':{lat:24.049704,lon:109.258845,city:'柳州'},
+  '桂林油库':{lat:25.608124,lon:110.5324,city:'桂林'},
+  '兴业油库':{lat:22.742547,lon:109.861499,city:'玉林'},
+  '百色油库':{lat:23.83,lon:106.69,city:'百色'},
+  '新恒丰油库':{lat:23.474713,lon:111.392186,city:'梧州'},
+  '贺州城西油库':{lat:24.421345,lon:111.525414,city:'贺州'},
+  '三江古宜油库':{lat:25.78,lon:109.6,city:'三江'},
+  '河池金沙库':{lat:24.55,lon:108.03,city:'河池'},
+  '广明油库':{lat:21.95,lon:108.62,city:'钦州'},
+  '钦州东油库':{lat:21.96,lon:108.66,city:'钦州'},
+  '北海宏远油库':{lat:21.47,lon:109.12,city:'北海'},
+};
+
+// 互供库坐标（也需要知道互供库位置来算实际运费）
+var SUPPLY_DEPOTS = {
+  '中石化鹧鸪江油库':{lat:24.38,lon:109.42,name:'鹧鸪江'},
+  '桂林羊角山石化油库':{lat:25.25,lon:110.28,name:'羊角山'},
+  '中石化玉林油库':{lat:22.63,lon:110.15,name:'玉林'},
+  '百色石化油库':{lat:23.9,lon:106.62,name:'百色'},
+  '河池石化油库':{lat:24.69,lon:108.04,name:'河池'},
+  '贵港石化油库':{lat:23.09,lon:109.6,name:'贵港'},
+  '南宁石化油库':{lat:22.84,lon:108.37,name:'南宁'},
+  '北海石化油库':{lat:21.48,lon:109.11,name:'北海'},
+  '崇左石化油库':{lat:22.41,lon:107.37,name:'崇左'},
+  '中海油广西油库':{lat:21.76,lon:108.6,name:'中海油'},
+};
+
+// ===== 城市到自有库的映射规则 =====
+var CITY_DEPOT_MAP = {
+  '南宁':{depot:'南宁油库',city:'南宁'},
+  '武鸣':{depot:'南宁油库',city:'南宁'},
+  '宾阳':{depot:'南宁油库',city:'南宁'},
+  '横州':{depot:'南宁油库',city:'南宁'},
+  '上林':{depot:'南宁油库',city:'南宁'},
+  '马山':{depot:'南宁油库',city:'南宁'},
+  '隆安':{depot:'南宁油库',city:'南宁'},
+  '柳州':{depot:'柳州油库',city:'柳州'},
+  '柳江':{depot:'柳江油库',city:'柳江'},
+  '柳城':{depot:'柳江油库',city:'柳江'},
+  '鹿寨':{depot:'柳江油库',city:'柳江'},
+  '融安':{depot:'三江古宜油库',city:'三江'},
+  '融水':{depot:'三江古宜油库',city:'三江'},
+  '三江':{depot:'三江古宜油库',city:'三江'},
+  '桂林':{depot:'桂林油库',city:'桂林'},
+  '阳朔':{depot:'桂林油库',city:'桂林'},
+  '临桂':{depot:'桂林油库',city:'桂林'},
+  '灵川':{depot:'桂林油库',city:'桂林'},
+  '全州':{depot:'桂林油库',city:'桂林'},
+  '兴安':{depot:'桂林油库',city:'桂林'},
+  '永福':{depot:'桂林油库',city:'桂林'},
+  '平乐':{depot:'桂林油库',city:'桂林'},
+  '荔浦':{depot:'桂林油库',city:'桂林'},
+  '龙胜':{depot:'桂林油库',city:'桂林'},
+  '资源':{depot:'桂林油库',city:'桂林'},
+  '灌阳':{depot:'桂林油库',city:'桂林'},
+  '恭城':{depot:'桂林油库',city:'桂林'},
+  '梧州':{depot:'新恒丰油库',city:'梧州'},
+  '苍梧':{depot:'新恒丰油库',city:'梧州'},
+  '藤县':{depot:'新恒丰油库',city:'梧州'},
+  '岑溪':{depot:'新恒丰油库',city:'梧州'},
+  '蒙山':{depot:'新恒丰油库',city:'梧州'},
+  '北海':{depot:'北海宏远油库',city:'北海'},
+  '合浦':{depot:'北海宏远油库',city:'北海'},
+  '防城港':{depot:'北海宏远油库',city:'北海'},
+  '东兴':{depot:'北海宏远油库',city:'北海'},
+  '上思':{depot:'北海宏远油库',city:'北海'},
+  '钦州':{depot:'广明油库',city:'钦州'},
+  '灵山':{depot:'广明油库',city:'钦州'},
+  '浦北':{depot:'广明油库',city:'钦州'},
+  '贵港':{depot:'兴业油库',city:'玉林'},
+  '桂平':{depot:'兴业油库',city:'玉林'},
+  '平南':{depot:'兴业油库',city:'玉林'},
+  '玉林':{depot:'兴业油库',city:'玉林'},
+  '兴业':{depot:'兴业油库',city:'玉林'},
+  '容县':{depot:'兴业油库',city:'玉林'},
+  '北流':{depot:'兴业油库',city:'玉林'},
+  '博白':{depot:'兴业油库',city:'玉林'},
+  '陆川':{depot:'兴业油库',city:'玉林'},
+  '百色':{depot:'百色油库',city:'百色'},
+  '田东':{depot:'百色油库',city:'百色'},
+  '田阳':{depot:'百色油库',city:'百色'},
+  '德保':{depot:'百色油库',city:'百色'},
+  '靖西':{depot:'百色油库',city:'百色'},
+  '那坡':{depot:'百色油库',city:'百色'},
+  '凌云':{depot:'百色油库',city:'百色'},
+  '乐业':{depot:'百色油库',city:'百色'},
+  '田林':{depot:'百色油库',city:'百色'},
+  '西林':{depot:'百色油库',city:'百色'},
+  '隆林':{depot:'百色油库',city:'百色'},
+  '平果':{depot:'百色油库',city:'百色'},
+  '贺州':{depot:'贺州城西油库',city:'贺州'},
+  '钟山':{depot:'贺州城西油库',city:'贺州'},
+  '富川':{depot:'贺州城西油库',city:'贺州'},
+  '昭平':{depot:'贺州城西油库',city:'贺州'},
+  '河池':{depot:'河池金沙库',city:'河池'},
+  '宜州':{depot:'河池金沙库',city:'河池'},
+  '环江':{depot:'河池金沙库',city:'河池'},
+  '罗城':{depot:'河池金沙库',city:'河池'},
+  '南丹':{depot:'河池金沙库',city:'河池'},
+  '天峨':{depot:'河池金沙库',city:'河池'},
+  '凤山':{depot:'河池金沙库',city:'河池'},
+  '东兰':{depot:'河池金沙库',city:'河池'},
+  '巴马':{depot:'河池金沙库',city:'河池'},
+  '都安':{depot:'河池金沙库',city:'河池'},
+  '大化':{depot:'河池金沙库',city:'河池'},
+  '来宾':{depot:'柳州油库',city:'柳州'},
+  '合山':{depot:'柳州油库',city:'柳州'},
+  '忻城':{depot:'柳州油库',city:'柳州'},
+  '象州':{depot:'柳州油库',city:'柳州'},
+  '武宣':{depot:'柳州油库',city:'柳州'},
+  '金秀':{depot:'柳州油库',city:'柳州'},
+  '崇左':{depot:'南宁油库',city:'南宁'},
+  '扶绥':{depot:'南宁油库',city:'南宁'},
+  '大新':{depot:'南宁油库',city:'南宁'},
+  '天等':{depot:'南宁油库',city:'南宁'},
+  '凭祥':{depot:'南宁油库',city:'南宁'},
+  '宁明':{depot:'南宁油库',city:'南宁'},
+  '龙州':{depot:'南宁油库',city:'南宁'},
+};
+
+// ===== 高德API工具 =====
+var AMAP_KEY = '';
+function h(a,b){return JSON.stringify(a)===JSON.stringify(b)}
+function msg(type,text){
+  var d=document.createElement('div');
+  d.className='msg msg-'+type;
+  d.textContent=text;
+  document.body.appendChild(d);
+  setTimeout(function(){d.remove()},3000);
+}
+
+// ===== Geo工具 =====
+function toRad(d){return d*Math.PI/180}
+function geoDist(lat1,lon1,lat2,lon2){
+  var R=6371;
+  var dLat=toRad(lat2-lat1),dLon=toRad(lon2-lon1);
+  var a=Math.sin(dLat/2)*Math.sin(dLat/2)+Math.cos(toRad(lat1))*Math.cos(toRad(lat2))*Math.sin(dLon/2)*Math.sin(dLon/2);
+  return R*2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a));
+}
+
+// 估算道路运距（直线×1.3）
+function roadDist(lat1,lon1,lat2,lon2){
+  return Math.round(geoDist(lat1,lon1,lat2,lon2)*1.3);
+}
+
+// ===== 油库分类函数 =====
+function classifyDepot(n){
+  if(!n)return '外采库';
+  for(var i=0;i<DEPOT_CLASS.length;i++){for(var k=0;k<DEPOT_CLASS[i].k.length;k++){if(n.indexOf(DEPOT_CLASS[i].k[k])>=0)return DEPOT_CLASS[i].t;}}
+  if(n.indexOf('石化')>=0)return '中石化互供库';
+  if(n.indexOf('油库')>=0)return '自有库';
+  return '外采库';
+}
+
+// ===== 查找加油站对应的自有库 =====
+function findOwnDepot(siteName, destAddr){
+  var text = (siteName + ' ' + (destAddr||'')).trim();
+  // 先精确匹配城市
+  for(var city in CITY_DEPOT_MAP){
+    if(text.indexOf(city)>=0)return CITY_DEPOT_MAP[city];
+  }
+  // 模糊匹配：取地址中的第一个城市名
+  for(var city in CITY_DEPOT_MAP){
+    if(text.indexOf(city.substring(0,2))>=0)return CITY_DEPOT_MAP[city];
+  }
+  return null;
+}
+
+// ===== 获取油库坐标 =====
+function getDepotCoord(name){
+  if(OWN_DEPOTS[name])return OWN_DEPOTS[name];
+  // 也查互供库
+  if(SUPPLY_DEPOTS[name])return SUPPLY_DEPOTS[name];
+  return null;
+}
+
+// ===== 主逻辑 =====
+var app = document.getElementById('app');
+var data = null; // 存储解析后的数据
+var results = []; // 存储分析结果
+
+function init(){
+  render();
+}
+
+function render(){
+  var html = '';
+  // 标题
+  html += '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:8px">'+
+    '<h2 style="margin:0">💰 互供运费节约分析</h2>'+
+    '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">'+
+      '<label style="font-size:.85rem;color:#888">运费单价(元/吨公里)</label>'+
+      '<input type="number" id="unitPrice" value="0.5" step="0.05" min="0.01" style="width:80px">'+
+      '<label style="font-size:.85rem;color:#888">道路系数</label>'+
+      '<input type="number" id="roadFactor" value="1.3" step="0.1" min="1" style="width:70px">'+
+    '</div></div>';
+
+  // 说明
+  html += '<div class="cd" style="background:#fffbe6;border:1px solid #ffe58f">'+
+    '<div style="padding:12px 20px;font-size:.85rem;color:#ad8b00">'+
+      '📌 <b>业务逻辑</b>：互供场景下，我们的加油站去中石化/中海油的油库提油（内部调拨/移库）。'+
+      '本模块将每个互供记录"还原"到最近的自有库出库，对比两种方案的运费差异。'+
+      '运距为直线距离×道路系数（默认1.3）的估算值，结果仅供参考。'+
+    '</div></div>';
+
+  // 上传区域
+  html += '<div class="cd">'+
+    '<div class="cd-h"><span class="cd-t">📥 上传出库数据</span></div>'+
+    '<div style="padding:20px;">'+
+      '<div class="uz" onclick="document.getElementById(\'csvFile\').click()">'+
+        '<div style="font-size:2rem;">📊</div>'+
+        '<div style="font-weight:700;color:#7B1F1F;margin:8px 0 4px;">点击上传出库记录CSV</div>'+
+        '<div style="font-size:.82rem;color:#888;">支持 export(262).csv 格式 / 自动识别 UTF-16编码</div>'+
+        '<button class="btn btn-p" style="margin-top:12px">选择文件</button>'+
+      '</div>'+
+      '<input type="file" id="csvFile" accept=".csv" style="display:none" onchange="handleCSV(this)">'+
+    '</div></div>';
+
+  // 如果已有数据，渲染结果
+  if(data && data.records && data.records.length){
+    html += renderFilters();
+    html += renderResults();
+  } else {
+    html += '<div class="cd"><div style="padding:40px;text-align:center;color:#888;">请上传出库CSV文件开始分析</div></div>';
+  }
+
+  app.innerHTML = html;
+}
+
+// ===== CSV解析 =====
+function handleCSV(input){
+  if(!input.files||!input.files[0])return;
+  var f=input.files[0];
+  msg('i','正在解析：'+f.name);
+  var rd=new FileReader();
+  rd.onload=function(e){
+    try{
+      var buf=e.target.result;
+      var view=new Uint8Array(buf);
+      var txt;
+      if(view[0]===0xFF&&view[1]===0xFE) txt=new TextDecoder('utf-16le').decode(buf);
+      else txt=new TextDecoder('gbk').decode(buf);
+      var lines=txt.split('\n').filter(function(x){return x.trim();});
+      if(lines.length<2){msg('w','文件无数据');return;}
+
+      var header=lines[0].split('\t').map(function(x){return x.trim();});
+      var idxDate=header.indexOf('业务时间');
+      var idxDept=header.indexOf('编制单位');
+      var idxShip=header.indexOf('发货单位');
+      var idxSite=header.indexOf('提货单位');
+      var idxDest=header.indexOf('到货地点');
+      var idxOil=header.indexOf('油品名称');
+      var idxTon=header.indexOf('实际记账量(吨)');
+      var idxOutType=header.indexOf('出库类型');
+      var idxPickup=header.indexOf('提货方式');
+
+      if(idxShip<0||idxTon<0||idxOutType<0){msg('e','缺少关键列(发货单位/实际记账量/出库类型)');return;}
+
+      var records=[];
+      for(var i=1;i<lines.length;i++){
+        var cols=lines[i].split('\t');
+        if(cols.length<=idxTon)continue;
+        var ton=parseFloat((cols[idxTon]||'').replace(/^=/,'').replace(/\"/g,''))||0;
+        if(ton<=0)continue;
+
+        var ship=(cols[idxShip]||'').replace(/^=/,'').replace(/\"/g,'').trim();
+        var site=(cols[idxSite]||'').replace(/^=/,'').replace(/\"/g,'').trim();
+        var dest=(cols[idxDest]||'').replace(/^=/,'').replace(/\"/g,'').trim();
+        var oil=(cols[idxOil]||'').replace(/^=/,'').replace(/\"/g,'').trim();
+        var outType=(cols[idxOutType]||'').replace(/^=/,'').replace(/\"/g,'').trim();
+        var date=(cols[idxDate]||'').replace(/^=/,'').replace(/\"/g,'').trim().substring(0,10);
+        var dept=(cols[idxDept]||'').replace(/^=/,'').replace(/\"/g,'').trim();
+        var pickup=(cols[idxPickup]||'').replace(/^=/,'').replace(/\"/g,'').trim();
+
+        var cat=classifyDepot(ship);
+        var isMutualSupply = (cat==='中石化互供库'||cat==='中海油互供库') && (outType.indexOf('调拨')>=0||outType.indexOf('移库')>=0);
+
+        records.push({
+          date:date, dept:dept, ship:ship, site:site, dest:dest||site,
+          oil:oil, ton:ton, outType:outType, pickup:pickup,
+          cat:cat, isMutualSupply:isMutualSupply
+        });
+      }
+
+      // 筛选日期范围
+      var minDate='',maxDate='';
+      records.forEach(function(r){
+        if(r.date&&(!minDate||r.date<minDate))minDate=r.date;
+        if(r.date&&(!maxDate||r.date>maxDate))maxDate=r.date;
+      });
+
+      data = {
+        records:records, minDate:minDate, maxDate:maxDate,
+        filterFrom:minDate, filterTo:maxDate,
+        filterCat:'all', // all / 互供 / 非互供
+        fileName:f.name
+      };
+
+      msg('s','解析完成！共 '+records.length+' 条记录，其中互供 '+
+        records.filter(function(r){return r.isMutualSupply;}).length+' 条');
+      render();
+    }catch(er){msg('e','解析失败：'+er.message);}
+  };
+  rd.readAsArrayBuffer(f);
+}
+
+// ===== 筛选器 =====
+function renderFilters(){
+  if(!data||!data.records)return '';
+  var html='<div class="cd"><div class="cd-h">'+
+    '<span class="cd-t">🔍 筛选条件</span>'+
+    '<span style="font-size:.82rem;color:#888;">共 '+data.records.length+' 条记录</span></div>'+
+    '<div style="padding:12px 20px;display:flex;gap:12px;align-items:center;flex-wrap:wrap;">'+
+    '<label>日期</label>'+
+    '<input type="date" id="ff" value="'+data.filterFrom+'" onchange="applyFilter()">'+
+    '<span>~</span>'+
+    '<input type="date" id="ft" value="'+data.filterTo+'" onchange="applyFilter()">'+
+    '<label>类型</label>'+
+    '<select id="fc" onchange="applyFilter()">'+
+      '<option value="all"'+(data.filterCat==='all'?' selected':'')+'>全部</option>'+
+      '<option value="mutual"'+(data.filterCat==='mutual'?' selected':'')+'>仅互供记录</option>'+
+      '<option value="self"'+(data.filterCat==='self'?' selected':'')+'>仅非互供</option>'+
+    '</select>'+
+    '<button class="btn btn-p btn-sm" onclick="applyFilter()">应用</button>'+
+    '</div></div>';
+  return html;
+}
+
+function applyFilter(){
+  if(!data)return;
+  data.filterFrom=document.getElementById('ff')?document.getElementById('ff').value:data.filterFrom;
+  data.filterTo=document.getElementById('ft')?document.getElementById('ft').value:data.filterTo;
+  data.filterCat=document.getElementById('fc')?document.getElementById('fc').value:data.filterCat;
+  render();
+}
+
+// ===== 主分析逻辑 =====
+function analyzeRecords(filteredRecords){
+  var up=parseFloat(document.getElementById('unitPrice').value)||0.5;
+  var rf=parseFloat(document.getElementById('roadFactor').value)||1.3;
+
+  results = [];
+  var mutualRecords = filteredRecords.filter(function(r){return r.isMutualSupply;});
+
+  mutualRecords.forEach(function(r){
+    // 获取互供库坐标
+    var supplyCoord = getDepotCoord(r.ship);
+    if(!supplyCoord)return; // 无法获取互供库坐标，跳过
+
+    // 查找对应的自有库
+    var ownMatch = findOwnDepot(r.site, r.dest);
+    if(!ownMatch)return; // 找不到对应自有库
+
+    var ownCoord = getDepotCoord(ownMatch.depot);
+    if(!ownCoord)return;
+
+    // 估算运距
+    var actualDist = roadDist(supplyCoord.lat, supplyCoord.lon, supplyCoord.lat||0, supplyCoord.lon||0);
+    // 对互供库坐标的修复：需要找加油站的坐标来算实际距离
+    // 用目的地地址模糊估测
+
+    // 但这里我们没有加油站坐标，只能用互供库到自有库的距离比例来做简化
+    // 更准确的做法：用"加油站所在城市"的近似坐标
+
+    // 获取加油站所在城市的近似坐标
+    var siteCity = findOwnDepot(r.site, r.dest);
+    var siteCoord = null;
+    if(siteCity){
+      // 用该城市对应的自有库坐标近似表示加油站位置
+      var depotInfo = getDepotCoord(siteCity.depot);
+      if(depotInfo) siteCoord = depotInfo;
+    }
+
+    var actualDistKm, ownDistKm;
+    if(siteCoord){
+      // 互供库到加油站的距离
+      actualDistKm = roadDist(supplyCoord.lat, supplyCoord.lon, siteCoord.lat, siteCoord.lon);
+      // 自有库到加油站的距离
+      ownDistKm = roadDist(ownCoord.lat, ownCoord.lon, siteCoord.lat, siteCoord.lon);
+    } else {
+      // 无法获取加油站位置，用互供库到自有库距离的一半作为近似
+      var depotDist = roadDist(supplyCoord.lat, supplyCoord.lon, ownCoord.lat, ownCoord.lon);
+      actualDistKm = Math.round(depotDist * 0.6);
+      ownDistKm = Math.round(depotDist * 0.4);
+    }
+
+    if(actualDistKm<=0||ownDistKm<=0)return;
+
+    var actualCost = actualDistKm * r.ton * up;
+    var ownCost = ownDistKm * r.ton * up;
+    var savings = actualCost - ownCost;
+
+    results.push({
+      date:r.date, dept:r.dept, site:r.site, dest:r.dest,
+      oil:r.oil, ton:r.ton,
+      supplyDepot:r.ship, supplyDist:actualDistKm,
+      ownDepot:ownMatch.depot, ownDist:ownDistKm,
+      actualCost:Math.round(actualCost*100)/100,
+      ownCost:Math.round(ownCost*100)/100,
+      savings:Math.round(savings*100)/100,
+      savingsPercent:savings!==0?Math.round(Math.abs(savings)/actualCost*100):0
+    });
+  });
+
+  return results;
+}
+
+// ===== 渲染结果 =====
+function renderResults(){
+  if(!data||!data.records||!data.records.length)return '';
+
+  var records = data.records;
+  // 按筛选条件过滤
+  var filtered = records.filter(function(r){
+    if(data.filterFrom && r.date<data.filterFrom)return false;
+    if(data.filterTo && r.date>data.filterTo)return false;
+    if(data.filterCat==='mutual' && !r.isMutualSupply)return false;
+    if(data.filterCat==='self' && r.isMutualSupply)return false;
+    return true;
+  });
+
+  var html = '';
+  // 统计卡片
+  var totalMutual = filtered.filter(function(r){return r.isMutualSupply;});
+  var totalTon = totalMutual.reduce(function(s,r){return s+r.ton;},0);
+
+  // 运距分析
+  var res = analyzeRecords(filtered);
+  var analyzedRes = res;
+
+  // 汇总统计
+  var totalActualCost = analyzedRes.reduce(function(s,r){return s+r.actualCost;},0);
+  var totalOwnCost = analyzedRes.reduce(function(s,r){return s+r.ownCost;},0);
+  var totalSavings = analyzedRes.reduce(function(s,r){return s+r.savings;},0);
+  var sumActualDist = analyzedRes.reduce(function(s,r){return s+r.supplyDist;},0);
+  var sumOwnDist = analyzedRes.reduce(function(s,r){return s+r.ownDist;},0);
+  var matchedTon = analyzedRes.reduce(function(s,r){return s+r.ton;},0);
+  var unmatchedCount = totalMutual.length - analyzedRes.length;
+
+  html += '<div class="sg">'+
+    '<div class="sc"><div class="si si-b">🔄</div><div><h3>'+totalMutual.length+'</h3><p>互供记录数</p></div></div>'+
+    '<div class="sc"><div class="si si-r">💰</div><div><h3>¥'+totalActualCost.toFixed(0)+'</h3><p>互供实际运费(元)</p></div></div>'+
+    '<div class="sc"><div class="si si-g">🏭</div><div><h3>¥'+totalOwnCost.toFixed(0)+'</h3><p>自有库运费(元)</p></div></div>'+
+    '<div class="sc"><div class="si '+(totalSavings>=0?'si-g':'si-r')+'">'+(totalSavings>=0?'📈':'📉')+'</div><div><h3>'+(totalSavings>=0?'+':'')+'¥'+totalSavings.toFixed(0)+'</h3><p>'+(totalSavings>=0?'节约运费':'增加运费')+'(元)</p></div></div>'+
+  '</div>';
+
+  if(unmatchedCount>0){
+    html += '<div class="cd" style="background:#fffbe6;border:1px solid #ffe58f;">'+
+      '<div style="padding:12px 20px;font-size:.85rem;color:#ad8b00">'+
+        '⚠️ 有 <b>'+unmatchedCount+'</b> 条互供记录无法匹配自有库（可能因加油站名称无法识别所属城市）。'+
+        '这些记录不会出现在运费计算中。'+
+      '</div></div>';
+  }
+
+  // 运费节约分布图
+  if(analyzedRes.length>0){
+    var savingsData = {positive:0,negative:0};
+    analyzedRes.forEach(function(r){
+      if(r.savings>=0)savingsData.positive+=r.savings;
+      else savingsData.negative+=Math.abs(r.savings);
+    });
+
+    html += '<div class="cd"><div class="cd-h"><span class="cd-t">📊 运费对比总览</span></div><div class="chart-row" style="padding:16px 20px;">'+
+      '<div><canvas id="costChart" height="250"></canvas></div>'+
+      '<div><canvas id="savingsChart" height="250"></canvas></div>'+
+    '</div></div>';
+
+    setTimeout(function(){
+      // 运费对比图
+      var c1=document.getElementById('costChart');
+      if(c1&&window.Chart){
+        new Chart(c1,{
+          type:'bar',
+          data:{
+            labels:['互供库运费','自有库运费'],
+            datasets:[{
+              label:'运费(元)',
+              data:[totalActualCost,totalOwnCost],
+              backgroundColor:['#f5222d','#52c41a'],
+              borderRadius:6
+            }]
+          },
+          options:{
+            responsive:true,maintainAspectRatio:true,
+            plugins:{legend:{display:false}},
+            scales:{y:{beginAtZero:true,title:{display:true,text:'元'}}}
+          }
+        });
+      }
+      // 节约/增加分布
+      var c2=document.getElementById('savingsChart');
+      if(c2&&window.Chart){
+        new Chart(c2,{
+          type:'doughnut',
+          data:{
+            labels:['节约运费(元)','增加运费(元)'],
+            datasets:[{
+              data:[savingsData.positive,savingsData.negative],
+              backgroundColor:['#52c41a','#f5222d']
+            }]
+          },
+          options:{
+            responsive:true,maintainAspectRatio:true,
+            plugins:{
+              legend:{position:'bottom'},
+              tooltip:{callbacks:{label:function(ctx){return ctx.label+': ¥'+ctx.parsed.toFixed(0);}}}
+            }
+          }
+        });
+      }
+    }, 100);
+  }
+
+  // 详细表格
+  html += '<div class="cd"><div class="cd-h">'+
+    '<span class="cd-t">📋 互供运费节约明细</span>'+
+    '<span style="font-size:.82rem;color:#888;">已匹配 '+analyzedRes.length+' 条</span></div>'+
+    '<div class="tc" style="padding:12px 16px;"><table>'+
+    '<tr>'+
+      '<th>日期</th><th>加油站</th><th>油品</th><th>吨数</th>'+
+      '<th>互供库</th><th>运距(km)</th>'+
+      '<th>还原自有库</th><th>运距(km)</th>'+
+      '<th>实际运费</th><th>自有运费</th><th>节约/增加</th>'+
+    '</tr>';
+
+  // 按节约金额从大到小排序
+  analyzedRes.sort(function(a,b){return Math.abs(b.savings)-Math.abs(a.savings);});
+
+  analyzedRes.forEach(function(r){
+    var isSavings = r.savings>=0;
+    html += '<tr>'+
+      '<td>'+r.date+'</td>'+
+      '<td><b>'+r.site+'</b></td>'+
+      '<td>'+r.oil+'</td>'+
+      '<td>'+r.ton.toFixed(2)+'</td>'+
+      '<td><span class="tag tag-r">'+r.supplyDepot+'</span></td>'+
+      '<td>'+r.supplyDist+'</td>'+
+      '<td><span class="tag tag-g">'+r.ownDepot+'</span></td>'+
+      '<td>'+r.ownDist+'</td>'+
+      '<td>¥'+r.actualCost.toFixed(0)+'</td>'+
+      '<td>¥'+r.ownCost.toFixed(0)+'</td>'+
+      '<td style="font-weight:700;'+(isSavings?'color:#52c41a':'color:#f5222d')+'">'+
+        (isSavings?'+':'')+'¥'+r.savings.toFixed(0)+' '+(isSavings?'⬆节约':'⬇增加')+
+      '</td>'+
+    '</tr>';
+  });
+  html += '</table></div></div>';
+
+  // 按自有库汇总
+  var depotSummary = {};
+  analyzedRes.forEach(function(r){
+    if(!depotSummary[r.ownDepot])depotSummary[r.ownDepot]={count:0,ton:0,savings:0};
+    depotSummary[r.ownDepot].count++;
+    depotSummary[r.ownDepot].ton+=r.ton;
+    depotSummary[r.ownDepot].savings+=r.savings;
+  });
+  var depotKeys = Object.keys(depotSummary).sort(function(a,b){return depotSummary[b].savings-depotSummary[a].savings;});
+
+  html += '<div class="cd"><div class="cd-h"><span class="cd-t">🏭 按自有库汇总</span></div><div class="tc" style="padding:12px 16px;"><table>'+
+    '<tr><th>自有库</th><th>互供记录数</th><th>总吨数</th><th>运费节约(元)</th></tr>';
+  depotKeys.forEach(function(dk){
+    var s=depotSummary[dk];
+    html += '<tr><td><b>'+dk+'</b></td><td>'+s.count+'</td><td>'+s.ton.toFixed(2)+'</td>'+
+      '<td style="font-weight:700;color:'+(s.savings>=0?'#52c41a':'#f5222d')+'">'+(s.savings>=0?'+':'')+'¥'+s.savings.toFixed(0)+'</td></tr>';
+  });
+  html += '</table></div></div>';
+
+  // 未匹配的互供记录（用于排查）
+  var unmatchedMutual = totalMutual.filter(function(r){
+    return !analyzedRes.some(function(ar){return ar.date===r.date&&ar.site===r.site&&ar.supplyDepot===r.ship&&ar.ton===r.ton;});
+  });
+  if(unmatchedMutual.length>0){
+    html += '<div class="cd"><div class="cd-h"><span class="cd-t">⚠️ 未匹配的互供记录</span><span style="font-size:.82rem;color:#888;">'+unmatchedMutual.length+' 条</span></div><div class="tc" style="padding:12px 16px;">'+
+      '<table><tr><th>日期</th><th>提货单位</th><th>油品</th><th>吨数</th><th>互供库</th><th>可能原因</th></tr>';
+    unmatchedMutual.slice(0,50).forEach(function(r){
+      var reason = '无法识别所属城市/自有库';
+      html += '<tr><td>'+r.date+'</td><td>'+r.site+'</td><td>'+r.oil+'</td><td>'+r.ton.toFixed(2)+'</td><td>'+r.ship+'</td><td style="color:#faad14">'+reason+'</td></tr>';
+    });
+    if(unmatchedMutual.length>50)html += '<tr><td colspan="6" style="text-align:center;color:#888;">...还有 '+(unmatchedMutual.length-50)+' 条</td></tr>';
+    html += '</table></div></div>';
+  }
+
+  return html;
+}
+
+// 启动
+init();
+</script>
+</body>
+</html>

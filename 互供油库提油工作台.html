@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>互供/外采油库提油工作台</title>
+<style>
+/* ===== 互供工作台模块 v1.0 — 可整体复制嵌入主工作台(index.html) ===== */
+:root{
+  --c-zsh:#2563eb; --c-zh:#059669; --c-zhy:#d97706; --c-wc:#7c3aed;
+  --bg:#f4f6f9; --card:#ffffff; --line:#e3e8ef; --ink:#1f2937; --mut:#8a94a6;
+  --val:#cf1322; --tint:#fff7e6;
+}
+*{box-sizing:border-box;}
+body{margin:0;background:var(--bg);color:var(--ink);
+  font-family:-apple-system,"Segoe UI","Microsoft YaHei",sans-serif;font-size:13px;}
+#hg-module{max-width:1480px;margin:0 auto;padding:18px;}
+.hg-h{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;}
+.hg-h h1{font-size:20px;margin:0;color:#0f2a5e;}
+.hg-h .sub{color:var(--mut);font-size:12px;}
+.hg-note{background:#eef4ff;border:1px solid #cfe0ff;color:#274b8a;
+  border-radius:8px;padding:8px 12px;font-size:12px;margin:10px 0;line-height:1.7;}
+.hg-cards{display:flex;gap:12px;flex-wrap:wrap;margin:12px 0;}
+.hg-card{flex:1;min-width:150px;background:var(--card);border-radius:10px;
+  padding:12px 14px;box-shadow:0 1px 3px rgba(0,0,0,.06);border-top:3px solid #ccc;}
+.hg-card .t{font-size:12px;color:var(--mut);}
+.hg-card .n{font-size:22px;font-weight:700;margin-top:4px;}
+.hg-card .u{font-size:11px;color:var(--mut);}
+.hg-toolbar{display:flex;gap:10px;align-items:center;flex-wrap:wrap;
+  background:var(--card);padding:10px 12px;border-radius:10px;box-shadow:0 1px 3px rgba(0,0,0,.04);}
+.hg-toolbar select,.hg-toolbar button{font-size:13px;padding:6px 10px;border-radius:7px;
+  border:1px solid var(--line);background:#fff;cursor:pointer;color:var(--ink);}
+.hg-toolbar button.primary{background:#0f2a5e;color:#fff;border-color:#0f2a5e;}
+.hg-toolbar button:hover{filter:brightness(.97);}
+.hg-seg{display:inline-flex;border:1px solid var(--line);border-radius:7px;overflow:hidden;}
+.hg-seg button{border:none;border-radius:0;background:#fff;}
+.hg-seg button.on{background:#0f2a5e;color:#fff;}
+.hg-spacer{flex:1;}
+.hg-warn{background:#fff4f0;border:1px solid #ffd2c2;color:#b2410a;border-radius:8px;
+  padding:8px 12px;font-size:12px;margin:10px 0;line-height:1.7;display:none;}
+.hg-block{background:var(--card);border-radius:10px;box-shadow:0 1px 3px rgba(0,0,0,.05);
+  margin:12px 0;overflow:hidden;}
+.hg-block .bh{padding:9px 12px;font-weight:600;border-bottom:1px solid var(--line);
+  display:flex;align-items:center;gap:8px;}
+.hg-tag{font-size:11px;padding:1px 8px;border-radius:10px;color:#fff;font-weight:600;}
+.hg-scroll{overflow-x:auto;}
+table.hg{border-collapse:collapse;width:100%;font-size:12px;white-space:nowrap;}
+table.hg th,table.hg td{border:1px solid var(--line);padding:5px 7px;text-align:center;}
+table.hg thead th{background:#f0f3f8;position:sticky;top:0;z-index:2;font-weight:600;color:#33415c;}
+table.hg td.fix,table.hg th.fix{position:sticky;left:0;background:#fafbfc;z-index:3;
+  text-align:left;min-width:160px;font-weight:600;}
+table.hg thead th.fix{background:#eef2f8;z-index:4;}
+table.hg td.tot{background:#f7f9fc;font-weight:700;color:#0f2a5e;}
+.c-zero{color:#c4ccd8;}
+.c-val{background:var(--tint);color:var(--val);font-weight:700;}
+.hg-mut{color:var(--mut);padding:10px 12px;font-size:12px;}
+.hg-foot{color:var(--mut);font-size:11px;margin-top:14px;text-align:center;}
+.hg-cat-ZSH{color:#fff;background:var(--c-zsh);}
+.hg-cat-ZH{color:#fff;background:var(--c-zh);}
+.hg-cat-ZHY{color:#fff;background:var(--c-zhy);}
+.hg-cat-WC{color:#fff;background:var(--c-wc);}
+.hg-accent-ZSH{border-left:4px solid var(--c-zsh);}
+.hg-accent-ZH{border-left:4px solid var(--c-zh);}
+.hg-accent-ZHY{border-left:4px solid var(--c-zhy);}
+.hg-accent-WC{border-left:4px solid var(--c-wc);}
+</style>
+</head>
+<body>
+<div id="hg-module">
+  <div class="hg-h">
+    <h1>互供 / 外采油库提油工作台</h1>
+    <span class="sub" id="hg-sub"></span>
+  </div>
+  <div class="hg-note">数据口径：仅统计计划状态为「复核通过 / 已下发」的提油记录；按油库位置表(油库类型)归类为
+    <b>中石化 / 中化 / 中海油 互供</b> 与 <b>外采</b> 四大类，三类互供分开计数、外采单列；
+    自动剔除自有库、以站代库、船运库(中化东莞东洲)；无提油的日期显示空白。分类清单来自油库位置.xlsx，可随表更新。</div>
+  <div class="hg-warn" id="hg-warn"></div>
+
+  <div class="hg-cards" id="hg-cards"></div>
+
+  <div class="hg-toolbar">
+    <div class="hg-seg" id="hg-viewseg">
+      <button data-v="depot" class="on">油库明细</button>
+      <button data-v="product">油品汇总</button>
+    </div>
+    <label>分类
+      <select id="hg-cat">
+        <option value="全部">全部</option>
+        <option value="中石化">中石化</option>
+        <option value="中化">中化</option>
+        <option value="中海油">中海油</option>
+        <option value="外采">外采</option>
+      </select>
+    </label>
+    <span class="hg-spacer"></span>
+    <button id="hg-import">重新导入日报CSV</button>
+    <button id="hg-csv">导出当前视图CSV</button>
+    <button id="hg-json">导出JSON备份</button>
+    <input type="file" id="hg-file" accept=".csv" style="display:none">
+  </div>
+
+  <div id="hg-body"></div>
+
+  <div class="hg-foot">互供工作台模块 v1.0 · 单文件模块，可整体复制嵌入主工作台(index.html)</div>
+</div>
+
+<script>
+/* ===== 互供工作台模块 v1.0 — 可整体复制嵌入主工作台 ===== */
+const HG_CLASSIFICATION = {"中石化玉林油库": "中石化", "中石化火山油库": "中石化", "中石化鹧鸪江油库": "中石化", "南宁石化油库": "中石化", "百色石化油库": "中石化", "桂林羊角山石化油库": "中石化", "河池石化油库": "中石化", "贵港石化油库": "中石化", "北海石化油库": "中石化", "广西全州油库": "中石化", "中石化黎塘油库": "中石化", "中石化广西钦州油气库": "中石化", "中海油广西油库": "中海油", "中化开平江门油库": "中化", "中化佛山华创油库": "中化", "广东肇庆中寰油库": "外采", "永州油库": "外采", "中石化南瑶油库": "外采"};          // 油库名 -> 业务分类(中石化/中化/中海油/外采)
+const HG_TYPE_MAP = {"广西南宁油库": "自有库", "广西柳江油库": "自有库", "广西柳州油库": "自有库", "广西兴业油库": "自有库", "广西百色油库": "自有库", "广西桂林油库": "自有库", "广西梧州新恒丰油库": "自有库", "广西石化直发库": "自有库", "广西钦州广明油库": "自有库", "广西钦州东油库": "自有库", "中石化玉林油库": "中石化互供库", "中石化火山油库": "中石化互供库", "中石化鹧鸪江油库": "中石化互供库", "南宁石化油库": "中石化互供库", "百色石化油库": "中石化互供库", "桂林羊角山石化油库": "中石化互供库", "河池石化油库": "中石化互供库", "贵港石化油库": "中石化互供库", "北海石化油库": "中石化互供库", "广西全州油库": "中石化互供库", "中石化黎塘油库": "中石化互供库", "中石化广西钦州油气库": "中石化互供库", "中海油广西油库": "中海油互供库", "中化开平江门油库": "中化互供库", "中化佛山华创油库": "中化互供库", "中化东莞东洲油库": "中化互供库", "广西北海宏远油库": "以站代库", "广西贺州城西油库": "以站代库", "柳州三江古宜油库": "以站代库", "河池金沙库": "以站代库", "广东肇庆中寰油库": "外采库", "永州油库": "外采库", "中石化南瑶油库": "外采库"};                 // 油库名 -> xlsx油库类型(完整,用于导入区分内部/未知)
+const HG_EXCLUDE_SHIP = ["中化东莞东洲油库"];
+const HG_VALID_STATUS = ["复核通过","已下发"];
+const HG_SAMPLE = {"meta": {"source": "广西销售分公司油品日报20260825170651.csv", "valid_status": ["复核通过", "已下发"], "excluded_ship": ["中化东莞东洲油库"], "category_map": {"中石化互供库": "中石化", "中化互供库": "中化", "中海油互供库": "中海油", "外采库": "外采"}, "date_min": "2026-08-01 00:00:00", "date_max": "2026-08-25 00:00:00", "gen_time": "2026-08-25"}, "classification": {"中石化玉林油库": "中石化", "中石化火山油库": "中石化", "中石化鹧鸪江油库": "中石化", "南宁石化油库": "中石化", "百色石化油库": "中石化", "桂林羊角山石化油库": "中石化", "河池石化油库": "中石化", "贵港石化油库": "中石化", "北海石化油库": "中石化", "广西全州油库": "中石化", "中石化黎塘油库": "中石化", "中石化广西钦州油气库": "中石化", "中海油广西油库": "中海油", "中化开平江门油库": "中化", "中化佛山华创油库": "中化", "广东肇庆中寰油库": "外采", "永州油库": "外采", "中石化南瑶油库": "外采"}, "dates": ["2026-08-01", "2026-08-02", "2026-08-03", "2026-08-04", "2026-08-05", "2026-08-06", "2026-08-07", "2026-08-08", "2026-08-09", "2026-08-10", "2026-08-11", "2026-08-12", "2026-08-13", "2026-08-14", "2026-08-15", "2026-08-16", "2026-08-17", "2026-08-18", "2026-08-19", "2026-08-20", "2026-08-21", "2026-08-22", "2026-08-23", "2026-08-24", "2026-08-25"], "products": ["0号 车用柴油(Ⅵ)", "92号 车用乙醇汽油(E10)(ⅥB)", "92号 车用汽油(ⅥB)", "95号 车用汽油(ⅥB)"], "unknown_depots": {"崇左顺风油库": 61, "钦州水上油库": 10}, "internal_depots": ["广西兴业油库", "广西北海宏远油库", "广西南宁油库", "广西柳州油库", "广西柳江油库", "广西桂林油库", "广西梧州新恒丰油库", "广西百色油库", "广西石化直发库", "广西贺州城西油库", "河池金沙库"], "agg": {"中石化玉林油库|0号 车用柴油(Ⅵ)|2026-08-01": 20.0, "中石化玉林油库|0号 车用柴油(Ⅵ)|2026-08-09": 90.0, "广东肇庆中寰油库|95号 车用汽油(ⅥB)|2026-08-09": 28.0, "广东肇庆中寰油库|92号 车用汽油(ⅥB)|2026-08-09": 28.0, "贵港石化油库|0号 车用柴油(Ⅵ)|2026-08-09": 66.0, "中石化玉林油库|0号 车用柴油(Ⅵ)|2026-08-10": 30.0, "广东肇庆中寰油库|92号 车用汽油(ⅥB)|2026-08-10": 70.0, "广东肇庆中寰油库|95号 车用汽油(ⅥB)|2026-08-10": 14.0, "贵港石化油库|0号 车用柴油(Ⅵ)|2026-08-11": 30.0, "广东肇庆中寰油库|92号 车用汽油(ⅥB)|2026-08-11": 56.0, "中石化玉林油库|0号 车用柴油(Ⅵ)|2026-08-11": 30.0, "中石化玉林油库|0号 车用柴油(Ⅵ)|2026-08-12": 60.0, "中石化玉林油库|0号 车用柴油(Ⅵ)|2026-08-13": 90.0, "贵港石化油库|0号 车用柴油(Ⅵ)|2026-08-13": 60.0, "河池石化油库|92号 车用乙醇汽油(E10)(ⅥB)|2026-08-13": 27.0, "中石化玉林油库|0号 车用柴油(Ⅵ)|2026-08-14": 150.0, "河池石化油库|92号 车用乙醇汽油(E10)(ⅥB)|2026-08-14": 25.5, "贵港石化油库|0号 车用柴油(Ⅵ)|2026-08-14": 30.0, "广东肇庆中寰油库|92号 车用汽油(ⅥB)|2026-08-14": 28.0, "中石化玉林油库|0号 车用柴油(Ⅵ)|2026-08-15": 60.0, "中石化玉林油库|95号 车用汽油(ⅥB)|2026-08-15": 32.5, "广东肇庆中寰油库|92号 车用汽油(ⅥB)|2026-08-15": 28.0, "河池石化油库|92号 车用乙醇汽油(E10)(ⅥB)|2026-08-15": 27.0, "贵港石化油库|0号 车用柴油(Ⅵ)|2026-08-16": 33.0, "中石化玉林油库|0号 车用柴油(Ⅵ)|2026-08-16": 152.0, "中石化玉林油库|95号 车用汽油(ⅥB)|2026-08-16": 32.5, "河池石化油库|92号 车用乙醇汽油(E10)(ⅥB)|2026-08-16": 78.0, "广东肇庆中寰油库|92号 车用汽油(ⅥB)|2026-08-16": 28.0, "中石化玉林油库|0号 车用柴油(Ⅵ)|2026-08-17": 121.0, "贵港石化油库|0号 车用柴油(Ⅵ)|2026-08-17": 33.0, "中化佛山华创油库|92号 车用汽油(ⅥB)|2026-08-17": 20.0, "中化佛山华创油库|95号 车用汽油(ⅥB)|2026-08-17": 10.0, "广东肇庆中寰油库|95号 车用汽油(ⅥB)|2026-08-17": 28.0, "广东肇庆中寰油库|92号 车用汽油(ⅥB)|2026-08-17": 28.0, "中石化玉林油库|0号 车用柴油(Ⅵ)|2026-08-18": 182.0, "贵港石化油库|0号 车用柴油(Ⅵ)|2026-08-18": 30.0, "广东肇庆中寰油库|95号 车用汽油(ⅥB)|2026-08-18": 28.0, "广东肇庆中寰油库|92号 车用汽油(ⅥB)|2026-08-18": 28.0, "中石化玉林油库|0号 车用柴油(Ⅵ)|2026-08-19": 182.0, "河池石化油库|92号 车用乙醇汽油(E10)(ⅥB)|2026-08-19": 25.5, "广东肇庆中寰油库|95号 车用汽油(ⅥB)|2026-08-19": 28.0, "贵港石化油库|0号 车用柴油(Ⅵ)|2026-08-20": 26.5, "中石化玉林油库|0号 车用柴油(Ⅵ)|2026-08-20": 92.0, "河池石化油库|92号 车用乙醇汽油(E10)(ⅥB)|2026-08-20": 25.5, "中石化玉林油库|0号 车用柴油(Ⅵ)|2026-08-21": 61.0, "河池石化油库|92号 车用乙醇汽油(E10)(ⅥB)|2026-08-21": 25.5, "广东肇庆中寰油库|92号 车用汽油(ⅥB)|2026-08-22": 28.0, "中石化玉林油库|0号 车用柴油(Ⅵ)|2026-08-22": 91.0, "河池石化油库|92号 车用乙醇汽油(E10)(ⅥB)|2026-08-22": 51.0, "中石化玉林油库|0号 车用柴油(Ⅵ)|2026-08-23": 60.0, "河池石化油库|92号 车用乙醇汽油(E10)(ⅥB)|2026-08-23": 51.0, "广东肇庆中寰油库|92号 车用汽油(ⅥB)|2026-08-23": 28.0, "河池石化油库|92号 车用乙醇汽油(E10)(ⅥB)|2026-08-24": 25.5, "广东肇庆中寰油库|92号 车用汽油(ⅥB)|2026-08-24": 27.8, "中石化玉林油库|0号 车用柴油(Ⅵ)|2026-08-24": 61.0, "中石化玉林油库|95号 车用汽油(ⅥB)|2026-08-24": 32.5, "中石化玉林油库|95号 车用汽油(ⅥB)|2026-08-25": 32.5, "中石化玉林油库|0号 车用柴油(Ⅵ)|2026-08-25": 121.0, "河池石化油库|92号 车用乙醇汽油(E10)(ⅥB)|2026-08-25": 23.5}};                   // 本月样例聚合数据
+const HG_CATS = ["中石化","中化","中海油","外采"];
+const HG_CAT_COLOR = {"中石化":"var(--c-zsh)","中化":"var(--c-zh)","中海油":"var(--c-zhy)","外采":"var(--c-wc)"};
+const HG_CAT_CLASS = {"中石化":"ZSH","中化":"ZH","中海油":"ZHY","外采":"WC"};
+
+let HG_STATE = { data:null, view:"depot", cat:"全部" };
+
+function hgNormDate(s){ return (s||"").slice(0,10); }
+function hgExpand(min,max){
+  const out=[]; let d=new Date(min+"T00:00:00"); const e=new Date(max+"T00:00:00");
+  while(d<=e){ const y=d.getFullYear(),m=("0"+(d.getMonth()+1)).slice(-2),dd=("0"+d.getDate()).slice(-2);
+    out.push(y+"-"+m+"-"+dd); d.setDate(d.getDate()+1); }
+  return out;
+}
+function hgFmt(n){ return (n==null)?"":(Math.abs(n)<1e-9?"":n.toFixed(2)); }
+
+/* ---- 解析导入的日报CSV文本(已GBK解码) ---- */
+function hgCSVToRows(text){
+  const rows=[]; let row=[],cur="",q=false;
+  for(let i=0;i<text.length;i++){ const c=text[i];
+    if(q){ if(c==='"'){ if(text[i+1]==='"'){cur+='"';i++;} else q=false; } else cur+=c; }
+    else { if(c==='"') q=true; else if(c===','){ row.push(cur);cur=""; }
+      else if(c==='\n'){ row.push(cur);rows.push(row);row=[];cur=""; }
+      else if(c==='\r'){} else cur+=c; } }
+  if(cur.length||row.length){ row.push(cur); rows.push(row); }
+  return rows;
+}
+function hgParse(text){
+  const lines=hgCSVToRows(text);
+  const header=lines[2]||[];
+  const find=keys=>header.findIndex(h=>{const s=(h||"").trim();return keys.some(k=>s.includes(k));});
+  const iDate=find(["配送日期"]),iDepot=find(["提油机构"]),iProd=find(["油品名称"]),
+        iOut=find(["出库"]),iStat=find(["计划状态"]);
+  if([iDate,iDepot,iProd,iOut,iStat].some(x=>x<0)) throw new Error("列定位失败，请确认日报格式(需含配送日期/提油机构/油品名称/出库/计划状态)");
+  const agg={}; const dates=new Set(); const prods=new Set();
+  const unknown={}; const internal=new Set();
+  for(let i=3;i<lines.length;i++){ const r=lines[i];
+    if(!r||r.length<=Math.max(iDate,iDepot,iProd,iOut,iStat)) continue;
+    const depot=(r[iDepot]||"").trim(); if(!depot) continue;
+    const status=(r[iStat]||"").trim(); if(!HG_VALID_STATUS.includes(status)) continue;
+    if(!(depot in HG_CLASSIFICATION)){ const t=HG_TYPE_MAP[depot];
+      if(t==="自有库"||t==="以站代库") internal.add(depot);
+      else unknown[depot]=(unknown[depot]||0)+1; continue; }
+    let tons=parseFloat((r[iOut]||"").trim()); if(isNaN(tons)) tons=0;
+    const dt=hgNormDate(r[iDate]); const p=(r[iProd]||"").trim();
+    if(!dt||!p) continue;
+    dates.add(dt); prods.add(p);
+    const k=depot+"|"+p+"|"+dt; agg[k]=(agg[k]||0)+tons;
+  }
+  for(const k in agg) if(agg[k]<=0) delete agg[k];
+  const dl=[...dates].sort(); const dlist=dl.length?hgExpand(dl[0],dl[dl.length-1]):[];
+  return { meta:{source:"(导入文件)",date_min:dlist[0]||"",date_max:dlist[dlist.length-1]||""},
+    classification:HG_CLASSIFICATION, dates:dlist, products:[...prods].sort(),
+    unknown_depots:unknown, internal_depots:[...internal], agg };
+}
+
+/* ---- 聚合辅助 ---- */
+function hgVal(data,depot,prod,date){ return data.agg[depot+"|"+prod+"|"+date]||0; }
+function hgDepotTotal(data,depot){
+  let s=0; for(const k in data.agg){ if(k.indexOf(depot+"|")===0) s+=data.agg[k]; } return s;
+}
+function hgCatTotal(data,cat){
+  let s=0; for(const k in data.agg){ const dep=k.split("|")[0]; if(HG_CLASSIFICATION[dep]===cat) s+=data.agg[k]; } return s;
+}
+function hgProdCatTotal(data,prod,cat){
+  let s=0; for(const k in data.agg){ const parts=k.split("|");
+    if(parts[1]===prod && HG_CLASSIFICATION[parts[0]]===cat) s+=data.agg[k]; } return s;
+}
+
+/* ---- 渲染 ---- */
+function hgRenderCards(data){
+  const tot=HG_CATS.reduce((a,c)=>a+hgCatTotal(data,c),0);
+  let h="";
+  HG_CATS.forEach(c=>{ const v=hgCatTotal(data,c);
+    h+='<div class="hg-card" style="border-top-color:'+HG_CAT_COLOR[c]+'">'+
+      '<div class="t">'+c+' 互供/外采</div><div class="n" style="color:'+HG_CAT_COLOR[c]+'">'+hgFmt(v)+'</div>'+
+      '<div class="u">吨 · 本月累计</div></div>'; });
+  h+='<div class="hg-card" style="border-top-color:#0f2a5e">'+
+      '<div class="t">合计</div><div class="n" style="color:#0f2a5e">'+hgFmt(tot)+'</div>'+
+      '<div class="u">吨 · 去对方油库提油总量</div></div>';
+  document.getElementById("hg-cards").innerHTML=h;
+}
+function hgDepotView(data){
+  const cat=HG_STATE.cat; const cats=cat==="全部"?HG_CATS:[cat];
+  const dates=data.dates; let body="";
+  cats.forEach(c=>{
+    Object.keys(HG_CLASSIFICATION).filter(d=>HG_CLASSIFICATION[d]===c).forEach(dep=>{
+      const dtot=hgDepotTotal(data,dep);
+      const prods=data.products.filter(p=>dates.some(dt=>hgVal(data,dep,p,dt)>0));
+      const accent="hg-accent-"+HG_CAT_CLASS[c];
+      const tag='<span class="hg-tag hg-cat-'+HG_CAT_CLASS[c]+'">'+c+'</span>';
+      let inner="";
+      if(prods.length===0){
+        inner='<div class="hg-mut">本月无「复核通过/已下发」的实际提油记录（合计 '+hgFmt(dtot)+' 吨）。</div>';
+      } else {
+        let head='<tr><th class="fix">油品 \\ 日期</th>';
+        dates.forEach(dt=>{ const md=dt.slice(5).replace("-","/"); head+='<th title="'+dt+'">'+md+'</th>'; });
+        head+='<th class="tot">全月合计</th></tr>';
+        let rows="";
+        prods.forEach(p=>{ let cells=""; let rowTot=0;
+          dates.forEach(dt=>{ const v=hgVal(data,dep,p,dt); rowTot+=v;
+            cells+= v>0?'<td class="c-val">'+hgFmt(v)+'</td>':'<td class="c-zero"></td>'; });
+          rows+='<tr><td class="fix">'+p+'</td>'+cells+'<td class="tot">'+hgFmt(rowTot)+'</td></tr>'; });
+        inner='<div class="hg-scroll"><table class="hg"><thead>'+head+'</thead><tbody>'+rows+'</tbody></table></div>';
+      }
+      body+='<div class="hg-block '+accent+'"><div class="bh">'+tag+' '+dep+
+        ' <span style="color:var(--mut);font-weight:400;font-size:12px">· 本月合计 '+hgFmt(dtot)+' 吨</span></div>'+inner+'</div>';
+    });
+  });
+  return body;
+}
+function hgProductView(data){
+  const cat=HG_STATE.cat;
+  const cols = cat==="全部"?HG_CATS:HG_CATS.filter(c=>c===cat);
+  const prods=data.products;
+  let head='<tr><th class="fix">油品 \\ 分类</th>';
+  cols.forEach(c=>head+='<th>'+c+'</th>'); head+='<th class="tot">合计</th></tr>';
+  let rows="";
+  prods.forEach(p=>{ let cells=""; let rt=0;
+    cols.forEach(c=>{ const v=hgProdCatTotal(data,p,c); rt+=v;
+      cells+= v>0?'<td class="c-val">'+hgFmt(v)+'</td>':'<td class="c-zero"></td>'; });
+    rows+='<tr><td class="fix">'+p+'</td>'+cells+'<td class="tot">'+hgFmt(rt)+'</td></tr>'; });
+  return '<div class="hg-block"><div class="hg-scroll"><table class="hg"><thead>'+head+'</thead><tbody>'+rows+'</tbody></table></div></div>';
+}
+function hgRender(){
+  const data=HG_STATE.data; if(!data) return;
+  document.getElementById("hg-sub").textContent=
+    "数据区间 "+ (data.meta.date_min||"-") +" ~ "+ (data.meta.date_max||"-") +" · 口径：复核通过/已下发";
+  hgRenderCards(data);
+  document.getElementById("hg-body").innerHTML = HG_STATE.view==="depot"?hgDepotView(data):hgProductView(data);
+  const w=document.getElementById("hg-warn");
+  const unk=data.unknown_depots||{}; const keys=Object.keys(unk);
+  if(keys.length){ w.style.display="block";
+    w.innerHTML="⚠️ 以下油库在日报中存在「复核通过/已下发」记录，但未在互供分类表(xlsx)中归类，已<b>排除</b>未计入："+
+      keys.map(k=>k+"("+unk[k]+"条)").join("、")+"。如需计入，请先在该分类表中补录其类型。"; }
+  else w.style.display="none";
+}
+function hgLoad(d){ HG_STATE.data=d; hgRender(); }
+
+/* ---- 交互 ---- */
+document.getElementById("hg-viewseg").addEventListener("click",function(e){
+  if(e.target.tagName!=="BUTTON")return;
+  HG_STATE.view=e.target.dataset.v;
+  document.querySelectorAll("#hg-viewseg button").forEach(function(b){ b.classList.remove("on"); });
+  e.target.classList.add("on"); hgRender();
+});
+document.getElementById("hg-cat").addEventListener("change",function(e){ HG_STATE.cat=e.target.value; hgRender(); });
+document.getElementById("hg-import").addEventListener("click",function(){ document.getElementById("hg-file").click(); });
+document.getElementById("hg-file").addEventListener("change",function(e){
+  const f=e.target.files[0]; if(!f)return;
+  f.arrayBuffer().then(function(buf){ const text=new TextDecoder("gbk").decode(buf);
+    try{ const d=hgParse(text); d.meta.source=f.name; hgLoad(d);
+      alert("导入成功："+f.name+"\n区间 "+d.meta.date_min+"~"+d.meta.date_max+
+        "\n纳入油库数 "+Object.keys(HG_CLASSIFICATION).length); }
+    catch(err){ alert("解析失败："+err.message); } });
+});
+document.getElementById("hg-csv").addEventListener("click",function(){
+  const data=HG_STATE.data; if(!data)return; let csv="";
+  if(HG_STATE.view==="depot"){
+    csv="油库分类,油库,油品,"+data.dates.join(",")+",全月合计\n";
+    const cat=HG_STATE.cat;
+    Object.keys(HG_CLASSIFICATION).filter(function(d){return cat==="全部"||HG_CLASSIFICATION[d]===cat;}).forEach(function(dep){
+      const prods=data.products.filter(function(p){return data.dates.some(function(dt){return hgVal(data,dep,p,dt)>0;});});
+      if(prods.length===0){ csv+=HG_CLASSIFICATION[dep]+","+dep+",(无提油),,,,\n"; return; }
+      prods.forEach(function(p){ let rt=0;
+        const vals=data.dates.map(function(dt){const v=hgVal(data,dep,p,dt);rt+=v;return v>0?v.toFixed(2):"";});
+        csv+=HG_CLASSIFICATION[dep]+","+dep+","+p+","+vals.join(",")+","+(rt>0?rt.toFixed(2):"")+"\n"; });
+    });
+  } else {
+    const cols=HG_STATE.cat==="全部"?HG_CATS:[HG_STATE.cat];
+    csv="油品,"+cols.join(",")+",合计\n";
+    data.products.forEach(function(p){ let rt=0;
+      const vals=cols.map(function(c){const v=hgProdCatTotal(data,p,c);rt+=v;return v>0?v.toFixed(2):"";});
+      csv+=p+","+vals.join(",")+","+(rt>0?rt.toFixed(2):"")+"\n"; });
+  }
+  hgDownload(csv,"互供提油_"+HG_STATE.view+"_"+Date.now()+".csv","text/csv");
+});
+document.getElementById("hg-json").addEventListener("click",function(){
+  const data=HG_STATE.data; if(!data)return;
+  hgDownload(JSON.stringify(data,null,2),"互供提油备份_"+Date.now()+".json","application/json");
+});
+function hgDownload(content,name,type){
+  const blob=new Blob([content],{type:type+";charset=utf-8"});
+  const a=document.createElement("a"); a.href=URL.createObjectURL(blob); a.download=name; a.click();
+  URL.revokeObjectURL(a.href);
+}
+
+/* 初始载入样例 */
+hgLoad(HG_SAMPLE);
+</script>
+</body>
+</html>

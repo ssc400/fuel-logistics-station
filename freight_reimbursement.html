@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>互供运费补差</title>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,'Microsoft YaHei',sans-serif;background:#F5F0EB;color:#333;padding:12px;font-size:13px}
+.hd{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;flex-wrap:wrap;gap:6px}
+.hd h2{font-size:16px;display:flex;align-items:center;gap:6px}
+.btn{display:inline-flex;align-items:center;gap:4px;padding:6px 16px;border:none;border-radius:6px;font-size:12px;cursor:pointer;font-weight:500}
+.btn-p{background:#7B1F1F;color:#fff}.btn-o{background:transparent;color:#333;border:1px solid #ddd}.btn-g{background:#52c41a;color:#fff}.btn-sm{padding:4px 10px;font-size:11px}
+.cd{background:#fff;border-radius:8px;box-shadow:0 1px 4px rgba(0,0,0,.06);margin-bottom:12px;overflow:hidden}
+.cdh{display:flex;align-items:center;justify-content:space-between;padding:12px 16px;border-bottom:1px solid #e8e8e8;flex-wrap:wrap;gap:6px}
+.cdt{font-size:14px;font-weight:600}
+.fm{display:grid;grid-template-columns:1fr 1fr;gap:10px;padding:16px}
+.fg{display:flex;flex-direction:column;gap:3px}
+.fg label{font-size:11px;color:#888;font-weight:500}
+.fg input,.fg select{padding:6px 8px;border:1px solid #d9d9d9;border-radius:4px;font-size:12px;outline:none}
+.fg input:focus,.fg select:focus{border-color:#7B1F1F;box-shadow:0 0 0 2px rgba(24,144,255,.1)}
+.fg.full{grid-column:1/-1}
+.tw{overflow-x:auto;padding:12px 16px}
+table{width:100%;border-collapse:collapse;font-size:12px}
+th{padding:8px 10px;background:#f5f7fa;border-bottom:2px solid #E0D5C8;font-weight:600;font-size:11px;color:#555;text-align:center;white-space:nowrap}
+td{padding:6px 10px;border-bottom:1px solid #f0f0f0;text-align:center}
+tr:hover td{background:#fafbfc}
+td.r{text-align:right;font-weight:600}
+td.l{text-align:left}
+.sg{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:8px;margin-bottom:12px}
+.sc{background:#fff;border-radius:6px;padding:12px;box-shadow:0 1px 3px rgba(0,0,0,.05);text-align:center}
+.sc .sl{font-size:10px;color:#888}.sc .sv{font-size:24px;font-weight:700;color:#7B1F1F}.sc .sv.gn{color:#52c41a}.sc .sv.rd{color:#f5222d}
+.msg{position:fixed;top:20px;right:20px;padding:10px 16px;border-radius:6px;color:#fff;font-size:12px;z-index:99999;max-width:350px;box-shadow:0 2px 8px rgba(0,0,0,.15)}
+.msg-i{background:#7B1F1F}.msg-s{background:#52c41a}.msg-w{background:#faad14}.msg-e{background:#f5222d}
+.tabs{display:flex;gap:0;margin-bottom:10px;border-bottom:2px solid #e8e8e8}
+.tab{padding:8px 16px;cursor:pointer;font-size:12px;color:#888;border-bottom:2px solid transparent;margin-bottom:-2px;user-select:none}
+.tab.on{color:#7B1F1F;border-bottom-color:#7B1F1F;font-weight:600}
+.hint{font-size:11px;color:#999;padding:4px 16px 0}
+</style>
+</head>
+<body>
+
+<div class="hd">
+  <h2>🧮 互供运费补差</h2>
+  <div style="display:flex;gap:6px;flex-wrap:wrap">
+    <span class="btn btn-p btn-sm" onclick="addRow()">➕ 添加记录</span>
+    <span class="btn btn-g btn-sm" onclick="exportExcel()">📊 导出Excel</span>
+    <span class="btn btn-o btn-sm" onclick="calcAll()">🧮 重新计算</span>
+    <span class="btn btn-o btn-sm" onclick="clearAll()">🗑 清空</span>
+  </div>
+</div>
+
+<div class="sg" id="statsCards">
+  <div class="sc"><div class="sl">总记录</div><div class="sv" id="totalRecs">0</div></div>
+  <div class="sc"><div class="sl">配送总量(吨)</div><div class="sv gn" id="totalTon">0</div></div>
+  <div class="sc"><div class="sl">总补差金额(元)</div><div class="sv rd" id="totalAmt">0</div></div>
+</div>
+
+<div class="cd">
+  <div class="cdh"><span class="cdt">📋 补差计算表</span>
+    <span style="font-size:11px;color:#888">补差 = 运距(km) × 配送量(吨) × 单价(元/吨/km)</span>
+  </div>
+  <div class="tw">
+    <table>
+      <thead><tr>
+        <th>互供单位</th>
+        <th>出库点</th>
+        <th>加油站</th>
+        <th>运距(km)</th>
+        <th>配送量(吨)</th>
+        <th>运价(元/吨·km)</th>
+        <th>补差金额(元)</th>
+        <th>油品</th>
+        <th>日期</th>
+        <th>操作</th>
+      </tr></thead>
+      <tbody id="dataBody"></tbody>
+    </table>
+  </div>
+</div>
+
+<div class="hint">
+  💡 <b>计算逻辑说明</b>：互供单位（如中石化/中海油等）让我们的车队帮他们配送油品时，产生的运费需要他们补给我们。<br>
+  <b>补差金额 = 运距 × 配送量 × 运价单价</b>。<br>
+  · 运价可设为统一单价（如0.5元/吨·公里），或按不同互供单位、不同区域设置不同单价。<br>
+  · 后续可从数据库自动导入运距和配送量数据。
+</div>
+
+<script>
+// ====== IndexedDB ======
+var DB={
+  _v:null,_r:false,_q:[],
+  open:function(cb){
+    var r=indexedDB.open('FuelStationDB',1);
+    r.onupgradeneeded=function(e){
+      var d=e.target.result;
+      if(!d.objectStoreNames.contains('freightReimb'))d.createObjectStore('freightReimb',{keyPath:'id',autoIncrement:true});
+    };
+    r.onsuccess=function(e){DB._v=e.target.result;DB._r=true;DB._q.forEach(function(f){f()});DB._q=[];if(cb)cb()};
+    r.onerror=function(){setTimeout(function(){if(!DB._r){DB._r=true;if(cb)cb()}},500)};
+  },
+  _ok:function(fn){if(DB._r)fn();else DB._q.push(fn)},
+  getAll:function(st,cb){DB._ok(function(){var t=DB._v.transaction(st,'readonly').objectStore(st),r=t.getAll();r.onsuccess=function(){cb(r.result||[])}})},
+  put:function(st,val){DB._ok(function(){var t=DB._v.transaction(st,'readwrite').objectStore(st);t.add(val)})},
+  upd:function(st,val){DB._ok(function(){DB._v.transaction(st,'readwrite').objectStore(st).put(val)})},
+  del:function(st,id){DB._ok(function(){DB._v.transaction(st,'readwrite').objectStore(st).delete(id)})},
+  clear:function(st){DB._ok(function(){DB._v.transaction(st,'readwrite').objectStore(st).clear()})}
+};
+DB.open(function(){renderTable()});
+
+// 常见互供单位列表
+var SUPPLIERS=['中石化','中海油','中化','广西百祥石油有限公司','广西通祥石油有限公司','广西中油海祥石油有限公司',
+  '广西然祥石油有限公司','广西中油宁祥石油有限公司','广西中油垦祥石油有限公司','广西中油钦祥石油有限公司',
+  '广西盛祥石油有限公司','广西中油铁祥能源有限公司','广西百色茂祥石油有限公司','广西旅祥石油有限公司',
+  '广西北投鑫祥石油有限公司','广西昇祥石油有限公司','广西铜州石油有限公司','广西西江石油有限公司'];
+
+// 默认运价（按互供单位可单独设置）
+var DEFAULT_RATE=0.5;
+
+function addRow(data){
+  var defaults={supplier:'',depot:'',station:'',dist:0,ton:0,rate:DEFAULT_RATE,oil:'',date:new Date().toISOString().slice(0,10)};
+  if(data)for(var k in data)defaults[k]=data[k];
+  DB.put('freightReimb',defaults);
+  renderTable();
+  msg('s','已添加');
+}
+
+function renderTable(){
+  DB.getAll('freightReimb',function(rows){
+    var html='';
+    if(!rows.length){document.getElementById('dataBody').innerHTML='<tr><td colspan="10" style="padding:30px;color:#999;text-align:center">暂无数据，点击"添加记录"开始</td></tr>';updateStats([]);return}
+    rows.forEach(function(r){
+      var amt=calcAmt(r.dist||0,r.ton||0,r.rate||DEFAULT_RATE);
+      html+='<tr id="r'+r.id+'">'+
+        '<td><select id="s_sup_'+r.id+'" onchange="upd('+r.id+',\'supplier\',this.value)" style="width:100%;padding:2px 4px;font-size:11px;border:1px solid #ddd;border-radius:3px">'+
+          '<option value="">--选择--</option>'+SUPPLIERS.map(function(x){return '<option value="'+x+'"'+(r.supplier===x?' selected':'')+'>'+x+'</option>'}).join('')+
+          '<option value="__other__">其他...</option></select>'+
+        (SUPPLIERS.indexOf(r.supplier)<0&&r.supplier?'<input style="width:100%;margin-top:2px;font-size:11px" value="'+r.supplier+'" onchange="upd('+r.id+',\'supplier\',this.value)" placeholder="输入单位名称">':'')+'</td>'+
+        '<td><input value="'+(r.depot||'')+'" onchange="upd('+r.id+',\'depot\',this.value)" style="width:80px;font-size:11px;border:1px solid #ddd;border-radius:3px;padding:2px 4px"></td>'+
+        '<td><input value="'+(r.station||'')+'" onchange="upd('+r.id+',\'station\',this.value)" style="width:80px;font-size:11px;border:1px solid #ddd;border-radius:3px;padding:2px 4px"></td>'+
+        '<td><input type="number" value="'+(r.dist||'')+'" onchange="upd('+r.id+',\'dist\',parseFloat(this.value)||0)" style="width:60px;font-size:11px;border:1px solid #ddd;border-radius:3px;padding:2px 4px;text-align:right"></td>'+
+        '<td><input type="number" value="'+(r.ton||'')+'" onchange="upd('+r.id+',\'ton\',parseFloat(this.value)||0)" style="width:60px;font-size:11px;border:1px solid #ddd;border-radius:3px;padding:2px 4px;text-align:right"></td>'+
+        '<td><input type="number" value="'+(r.rate||DEFAULT_RATE)+'" onchange="upd('+r.id+',\'rate\',parseFloat(this.value)||0)" style="width:60px;font-size:11px;border:1px solid #ddd;border-radius:3px;padding:2px 4px;text-align:right" step="0.01"></td>'+
+        '<td class="r" style="color:#f5222d">'+amt.toFixed(2)+'</td>'+
+        '<td><input value="'+(r.oil||'')+'" onchange="upd('+r.id+',\'oil\',this.value)" style="width:60px;font-size:11px;border:1px solid #ddd;border-radius:3px;padding:2px 4px"></td>'+
+        '<td><input type="date" value="'+(r.date||'')+'" onchange="upd('+r.id+',\'date\',this.value)" style="width:100px;font-size:11px;border:1px solid #ddd;border-radius:3px;padding:2px 4px"></td>'+
+        '<td><span class="btn btn-o btn-sm" onclick="delRow('+r.id+')" style="padding:2px 8px;font-size:10px;color:#f5222d;border-color:#f5222d">✕</span></td></tr>';
+    });
+    document.getElementById('dataBody').innerHTML=html;
+    updateStats(rows);
+  });
+}
+
+function calcAmt(dist,ton,rate){return dist*ton*rate}
+
+function upd(id,field,val){
+  DB.getAll('freightReimb',function(rows){
+    for(var i=0;i<rows.length;i++){if(rows[i].id===id){rows[i][field]=val;DB.upd('freightReimb',rows[i]);renderTable();return}}
+  });
+}
+
+function delRow(id){if(!confirm('确定删除？'))return;DB.del('freightReimb',id);renderTable()}
+
+function clearAll(){if(!confirm('清空所有记录？'))return;DB.clear('freightReimb');renderTable()}
+
+function calcAll(){renderTable();msg('s','已重新计算')}
+
+function updateStats(rows){
+  var totalRecs=rows.length,totalTon=0,totalAmt=0;
+  rows.forEach(function(r){
+    var t=r.ton||0;totalTon+=t;
+    totalAmt+=calcAmt(r.dist||0,t,r.rate||DEFAULT_RATE);
+  });
+  document.getElementById('totalRecs').textContent=totalRecs;
+  document.getElementById('totalTon').textContent=totalTon.toFixed(2);
+  document.getElementById('totalAmt').textContent=totalAmt.toFixed(2);
+}
+
+function exportExcel(){
+  DB.getAll('freightReimb',function(rows){
+    if(!rows.length){msg('w','无数据');return}
+    var data=rows.map(function(r){return{
+      '互供单位':r.supplier||'',
+      '出库点':r.depot||'',
+      '加油站':r.station||'',
+      '运距(km)':r.dist||0,
+      '配送量(吨)':r.ton||0,
+      '运价(元/吨·km)':r.rate||DEFAULT_RATE,
+      '补差金额(元)':calcAmt(r.dist||0,r.ton||0,r.rate||DEFAULT_RATE),
+      '油品':r.oil||'',
+      '日期':r.date||''
+    }});
+    var ws=XLSX.utils.json_to_sheet(data),wb=XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb,ws,'运费补差');
+    XLSX.writeFile(wb,'互供运费补差_'+new Date().toISOString().slice(0,10)+'.xlsx');
+    msg('s','导出成功：共 '+data.length+' 条');
+  });
+}
+
+function msg(t,s){var d=document.createElement('div');d.className='msg msg-'+t;d.textContent=s;document.body.appendChild(d);setTimeout(function(){d.remove()},3000)}
+</script>
+</body>
+</html>

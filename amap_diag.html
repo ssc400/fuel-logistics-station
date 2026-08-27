@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>高德API诊断 - 运距复核</title>
+<style>
+body{font-family:Microsoft YaHei,sans-serif;padding:20px;background:#f5f5f5;color:#333}
+.card{background:#fff;border-radius:8px;padding:16px;margin:12px 0;box-shadow:0 1px 3px rgba(0,0,0,.1)}
+h1{font-size:18px;border-bottom:2px solid #3A5C4A;padding-bottom:8px}
+.btn{display:inline-block;padding:10px 24px;border:none;border-radius:6px;font-size:14px;font-weight:600;cursor:pointer;margin:4px}
+.btn-p{background:#2563eb;color:#fff}.btn-p:hover{background:#1d4ed8}
+.btn-s{background:#16a34a;color:#fff}.btn-s:hover{background:#15803d}
+.result{margin-top:12px;padding:12px;border-radius:6px;font-size:13px;line-height:1.6;white-space:pre-wrap;word-break:break-all;font-family:Consolas,monospace}
+.ok{background:#f0fdf4;border:1 solid #86efac;color:#166534}
+.err{background:#fef2f2;border:1 solid #fca5a5;color:#991b1b}
+.warn{background:#fffbeb;border:1 solid #fde68a;color:#92400e}
+table{width:100%;border-collapse:collapse;font-size:13px;margin-top:8px}
+th,td{border:1px solid #e5e7eb;padding:6px 10px;text-align:left}
+th{background:#f9fafb;font-weight:600}
+.pass{color:#16a34a}.fail{color:#dc2626}
+#log{max-height:400px;overflow-y:auto}
+</style>
+</head>
+<body>
+<h1>🔧 高德驾车导航 API 浏览器端诊断</h1>
+
+<div class="card">
+  <strong>当前环境检测</strong>
+  <div id="env"></div>
+</div>
+
+<div class="card">
+  <button class="btn btn-p" onclick="testAll()">▶ 全部测试（一键跑完4项）</button>
+  <button class="btn btn-s" onclick="testSingle()">📍 单点测试：广西石化直发库→钦州青茂站</button>
+  <div id="log"></div>
+</div>
+
+<div class="card">
+  <strong>测试结果汇总</strong>
+  <table><thead><tr><th>测试项</th><th>状态</th><th>耗时</th><th>结果/错误</th></tr></thead><tbody id="summary"></tbody></table>
+</div>
+
+<script>
+const AMAP_KEY = '';
+const RESULTS = [];
+
+// 环境检测
+(function checkEnv(){
+  const e = document.getElementById('env');
+  const items = [
+    ['页面协议', location.protocol],
+    ['完整URL', location.href],
+    ['User-Agent', navigator.userAgent.substring(0,120)],
+    ['fetch可用', typeof fetch === 'function' ? 'YES' : 'NO'],
+    ['Promise可用', typeof Promise !== 'undefined' ? 'YES' : 'NO'],
+  ];
+  e.innerHTML = '<table>' + items.map(([k,v]) => 
+    '<tr><td style="width:120px">'+k+'</td><td>'+v+'</td></tr>'
+  ).join('') + '</table>';
+})();
+
+function log(msg, cls){
+  const d = document.createElement('div');
+  d.className = 'result ' + (cls||'');
+  d.textContent = msg;
+  document.getElementById('log').prepend(d);
+}
+
+function addRow(name, status, time, detail){
+  const tr = document.createElement('tr');
+  tr.innerHTML = '<td>'+name+'</td><td class="'+(status==='OK'?'pass':'fail')+'">'+status+'</td><td>'+time+'ms</td><td style="max-width:400px;word-break:break-all">'+detail+'</td>';
+  document.getElementById('summary').appendChild(tr);
+}
+
+async function apiTest(name, url, expectPath){
+  const t0 = performance.now();
+  try {
+    const r = await fetch(url);
+    const text = await r.text();
+    const ms = Math.round(performance.now()-t0);
+    let j;
+    try { j = JSON.parse(text); } catch(e) { j = {raw:text.substring(0,500)}; }
+    
+    // Check for AMap error
+    if(j.status === '1' && (expectPath ? (j.route&&j.route.paths) : (j.results&&j.results[0]))){
+      const dist = expectPath 
+        ? parseInt(j.route.paths.reduce((a,b)=>parseInt(a.distance)<parseInt(b.distance)?a:b,j.route.paths[0]).distance)/1000
+        : parseInt(j.results[0].distance)/1000;
+      addRow(name, 'OK', ms, '距离='+dist+'km | info='+j.info);
+      return {ok:true, dist, ms, info:j.info};
+    } else {
+      const err = j.error_info || j.info || JSON.stringify(j).substring(0,300);
+      addRow(name, 'FAIL', ms, err);
+      log('❌ '+name+' 失败: '+err, 'err');
+      return {ok:false, err, ms};
+    }
+  } catch(e) {
+    const ms = Math.round(performance.now()-t0);
+    const errMsg = e.name+': '+e.message;
+    addRow(name, 'ERROR', ms, errMsg);
+    log('💥 '+name+' 异常: '+errMsg, 'err');
+    return {ok:false, err:errMsg, ms};
+  }
+}
+
+async function testSingle(){
+  log('🔍 开始单点测试：广西石化直发库→钦州青茂站...', 'warn');
+  // 广西石化直发库 approx: 108.35,22.82; 钦州 approx: 108.63,21.95
+  const origin = '108.35,22.82';
+  const dest = '108.63,21.95';
+  
+  await apiTest(
+    '小车导航最短(strategy=2)',
+    'https://restapi.amap.com/v3/direction/driving?origin='+origin+'&destination='+dest+'&key='+AMAP_KEY+'&extensions=all&strategy=2',
+    true
+  );
+  
+  await apiTest(
+    '距离矩阵(type=1)',
+    'https://restapi.amap.com/v3/distance?origins='+origin+'&destination='+dest+'&type=1&key='+AMAP_KEY,
+    false
+  );
+  
+  log('✅ 单点测试完成', 'ok');
+}
+
+async function testAll(){
+  document.getElementById('summary').innerHTML = '';
+  document.getElementById('log').innerHTML = '';
+  log('🚀 开始全部诊断测试...', 'warn');
+  
+  // Test 1: direction/driving shortest
+  const r1 = await apiTest(
+    '① 小车导航最短(strategy=2)',
+    'https://restapi.amap.com/v3/direction/driving?origin=108.35,22.82&destination=108.63,21.95&key='+AMAP_KEY+'&extensions=all&strategy=2',
+    true
+  );
+  
+  // Test 2: distance matrix
+  const r2 = await apiTest(
+    '② 距离矩阵(type=1)',
+    'https://restapi.amap.com/v3/distance?origins=108.35,22.82&destination=108.63,21.95&type=1&key='+AMAP_KEY,
+    false
+  );
+  
+  // Test 3: CORS preflight test (OPTIONS)
+  const t3 = performance.now();
+  try {
+    const r3 = await fetch('https://restapi.amap.com/v3/direction/driving?origin=108.35,22.82&destination=108.63,21.95&key='+AMAP_KEY+'&strategy=2', {method:'GET', mode:'cors'});
+    const ms3 = Math.round(performance.now()-t3);
+    const corsOk = r3.type === 'cors' || r3.ok;
+    addRow('③ CORS跨域检测', corsOk?'OK':'WARN', ms3, 'response.type='+r3.type+', ok='+r3.ok+', mode=cors');
+  } catch(e) {
+    addRow('③ CORS跨域检测', 'ERROR', Math.round(performance.now()-t3), e.name+': '+e.message);
+  }
+  
+  // Test 4: invalid key test
+  const r4 = await apiTest(
+    '④ 无效KEY测试(应失败)',
+    'https://restapi.amap.com/v3/direction/driving?origin=108.35,22.82&destination=108.63,21.95&key=INVALID_KEY_12345&strategy=2',
+    true
+  );
+  
+  // Summary
+  const allOk = RESULTS.every(r=>r.ok);
+  log(allOk 
+    ? '🎉 全部通过！浏览器可以正常调用高德API，问题出在运距复核代码本身' 
+    : '⚠️ 有测试失败！请把上方结果截图给我', 
+    allOk ? 'ok' : 'warn'
+  );
+}
+</script>
+</body>
+</html>

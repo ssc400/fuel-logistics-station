@@ -1,0 +1,1698 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>广西路况情报收集</title>
+<style>
+:root{--pri:#3A5C4A;--pri-l:#E8F0E8;--pri-d:#2A4A38;--bg:#F2F0EB;--w:#fff;--bd:#E8E4DA;--t:#2C2A28;--t2:#5A5852;}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,'Microsoft YaHei','PingFang SC','Noto Sans SC',sans-serif;background:var(--bg);color:var(--t);height:100vh;display:flex;flex-direction:column;overflow:hidden}
+.bar{height:54px;background:var(--w);border-bottom:2px solid var(--pri);display:flex;align-items:center;justify-content:space-between;padding:0 18px;flex-shrink:0}
+.bar h1{font-size:1rem;font-weight:700;color:var(--pri);letter-spacing:.5px}
+.bar .meta{font-size:.8rem;color:var(--t2);display:flex;align-items:center;gap:12px}
+.btn{background:var(--pri);color:#fff;border:none;padding:6px 14px;border-radius:5px;cursor:pointer;font-size:.82rem;transition:background .2s}
+.btn:hover{background:var(--pri-d)}
+.btn.alt{background:#9B59B6}
+.btn.alt2{background:#2C6AA0}
+.btn.warn{background:#E67E22}
+.btn.sm{padding:4px 10px;font-size:.74rem}
+.body{flex:1;display:flex;min-height:0;overflow:hidden}
+.map-wrap{flex:1.5;position:relative;min-width:0}
+#map{width:100%;height:100%}
+.legend{position:absolute;left:12px;bottom:12px;background:rgba(255,255,255,.92);padding:8px 12px;border-radius:8px;font-size:.78rem;box-shadow:0 2px 8px rgba(0,0,0,.15);z-index:500;line-height:1.7}
+.legend i{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:5px;vertical-align:middle}
+.legend .sep{margin-top:5px;border-top:1px solid #ddd;padding-top:4px}
+.layer-ctrl{position:absolute;right:12px;top:12px;display:flex;flex-direction:column;gap:6px;z-index:500}
+.layer-ctrl .btn{box-shadow:0 2px 6px rgba(0,0,0,.18);font-size:.76rem;padding:6px 10px;opacity:.55}
+.layer-ctrl .btn.on{opacity:1}
+.panel{flex:1;min-width:340px;max-width:480px;background:var(--bg);border-left:1px solid var(--bd);overflow-y:auto;padding:14px;-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale;text-rendering:optimizeLegibility;-webkit-text-size-adjust:100%;transform:translate3d(0,0,0);-webkit-backface-visibility:hidden;backface-visibility:hidden;will-change:transform}
+.panel *{-webkit-backface-visibility:hidden;backface-visibility:hidden;transform:translateZ(0)}
+#customDepotList{transform:translate3d(0,0,0);-webkit-backface-visibility:hidden;backface-visibility:hidden}
+#customDepotList *{-webkit-backface-visibility:hidden;backface-visibility:hidden;transform:translateZ(0)}
+.sect{margin-bottom:16px}
+.sect-h{font-size:.9rem;font-weight:700;color:var(--pri);margin-bottom:8px;display:flex;align-items:center;gap:6px;border-left:3px solid var(--pri);padding-left:8px}
+.card{background:var(--w);border:1px solid var(--bd);border-radius:8px;padding:11px 13px;margin-bottom:8px;box-shadow:0 1px 3px rgba(58,92,74,.08)}
+.card .t{font-weight:600;font-size:.86rem;margin-bottom:4px;line-height:1.4}
+.card .d{font-size:.8rem;color:var(--t2);line-height:1.55}
+.card .m{font-size:.74rem;color:#999;margin-top:6px;display:flex;justify-content:space-between;gap:8px;align-items:center}
+.tag{display:inline-block;padding:1px 7px;border-radius:10px;font-size:.72rem;font-weight:600;margin-left:4px}
+.tag-green{background:#E8F0E8;color:#3A5C4A}
+.tag-red{background:#F5E4E0;color:#C65D52}
+.tag-gold{background:#E6EDE6;color:#6A8A6E}
+a{color:var(--pri);text-decoration:none}
+a:hover{text-decoration:underline}
+.upd{font-size:.78rem;color:#999}
+.hint{font-size:.76rem;color:#999;background:#fff;border:1px dashed var(--bd);border-radius:8px;padding:10px 12px;line-height:1.6}
+.wgrid{display:grid;grid-template-columns:repeat(2,1fr);gap:6px}
+.wcell{background:var(--w);border:1px solid var(--bd);border-radius:7px;padding:7px 9px}
+.wcell .c{font-size:.8rem;font-weight:600;color:var(--t)}
+.wcell .tp{font-size:.82rem;font-weight:700;color:#C65D52;margin-top:1px}
+.wcell .w{font-size:.73rem;color:var(--t2);margin-top:2px;line-height:1.35}
+.al{display:inline-block;font-size:.66rem;font-weight:700;padding:0 6px;border-radius:8px;margin-top:4px}
+.al-red{background:#F5C6C0;color:#B23A2E}
+.al-orange{background:#FAD9B8;color:#C65D52}
+.al-yellow{background:#FBF0B8;color:#9A7B20}
+.al-blue{background:#C6DCF5;color:#2C6AA0}
+.al-none{background:#E8F0E8;color:#3A5C4A}
+.route-row{display:flex;gap:6px;margin-bottom:6px;align-items:center}
+.route-row input{flex:1;padding:6px 8px;border:1px solid var(--bd);border-radius:5px;font-size:.78rem}
+.route-row .lbl{width:34px;font-size:.78rem;color:var(--t2);flex-shrink:0}
+.depot-pick{font-size:.76rem;color:var(--pri);margin:4px 0;min-height:18px}
+.start-search{display:flex;gap:6px;margin:6px 0}
+.start-search input{flex:1;padding:6px 8px;border:1px dashed #3A5C4A;border-radius:5px;font-size:.76rem;background:#f4f8f5}
+.start-search input:focus{outline:none;border-style:solid}
+.start-marker{font-size:1.5rem;line-height:1}
+.end-marker{font-size:1.5rem;line-height:1}
+.depot-icon{font-size:18px;filter:drop-shadow(0 1px 1px rgba(0,0,0,.3))}
+.station-icon{font-size:13px;filter:drop-shadow(0 1px 1px rgba(0,0,0,.3))}
+.city-label{font-size:11px;color:#333;white-space:nowrap}
+.road-card{background:var(--w);border:1px solid var(--bd);border-radius:8px;padding:10px 11px;margin-bottom:10px}
+.road-top{display:flex;justify-content:space-between;align-items:center;gap:8px}
+.road-name{font-size:.85rem;font-weight:700;color:var(--t)}
+.road-st{font-size:.72rem;font-weight:600;white-space:nowrap}
+.road-cities{font-size:.73rem;color:var(--t2);margin:3px 0}
+.road-dist{display:flex;gap:12px;flex-wrap:wrap;font-size:.78rem;margin-top:4px}
+.road-dist b{color:#C65D52}
+.road-desc{font-size:.72rem;color:var(--t2);margin-top:4px;line-height:1.5}
+.road-detail{margin-top:6px}
+.impact-tb{width:100%;border-collapse:collapse;font-size:.72rem;margin-top:6px}
+.impact-tb th,.impact-tb td{border:1px solid var(--bd);padding:4px 5px;text-align:center}
+.impact-tb th{background:#f3f6f3;color:var(--t);font-weight:600}
+.impact-tb td:nth-child(1){text-align:left;max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.impact-tb td:nth-child(2){text-align:left;max-width:80px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+</style>
+<!-- 地图：高德地图 AMap JSAPI 2.0（底图 + 测距统一，原生无白框，无需本地库） -->
+<script src="https://webapi.amap.com/maps?v=2.0&key="></script>
+<script src="my_depots.js"></script>
+<script src="my_stations.js"></script>
+<script src="https://beacon.cdn.qq.com/sdk/4.5.9/beacon_web.min.js"></script>
+<script>
+(function(){
+  try{
+    var beacon=new BeaconAction({
+      appkey:'0WEB06U85YBSLJNL',
+      versionCode:'1.0.0',
+      channelID:'share',
+      delay:1000,
+      sessionDuration:30*60*1000,
+      isOversea:false,
+      needReportRqdEvent:false
+    });
+    beacon.onDirectUserAction('preview_page_view',{
+      'url':location.href,
+      'referrer':document.referrer,
+      'title':document.title,
+      'sandbox_id':'e80826d6ce4f4458b06932eda2f2bf69'
+    });
+  }catch(e){}
+})();
+</script></head>
+<body>
+<div class="bar">
+  <h1>🛰️ 广西路况情报收集</h1>
+  <div class="meta">
+    <span id="mapStat" style="color:#3A5C4A">🟢 地图加载中…</span>
+    <span id="updTime" class="upd"></span>
+    <span id="refreshTime" class="upd" style="color:#3A5C4A"></span>
+    <span id="autoStat" class="upd" style="color:#1B9E3E">🟢 自动更新已开启</span>
+    <span id="dataStat" class="upd" style="color:#1B9E3E;font-size:.68rem" title="天气=Open-Meteo免费API自动刷新（每10分钟）；路况/通报=数据文件（由AI更新或编辑器修改）">📡 天气实时 · 数据文件</span>
+    <span id="syncStat" class="upd" style="color:#E67E22">🟡 本机存储</span>
+    <span class="upd" style="color:#3A5C4A">v1.997 · 坐标版</span>
+    <button id="btnRefresh" class="btn sm" style="background:#3A5C4A;color:#fff;margin-left:6px" onclick="refreshAll()">🔄 手动刷新</button>
+    <button class="btn sm" style="background:#9B59B6;color:#fff;margin-left:6px" onclick="openEditor()">✏️ 编辑情报</button>
+    <button class="btn sm" style="background:#2C6AA0;color:#fff;margin-left:6px" onclick="openSync()">⚙️ 同步</button>
+  </div>
+</div>
+<div class="body">
+  <div class="map-wrap">
+    <div id="map"></div>
+    <div class="layer-ctrl">
+      <button class="btn alt2 on" id="btnDepot" onclick="toggleLayer('depot')">🏭 油库</button>
+      <button class="btn warn on" id="btnStation" onclick="toggleLayer('station')">⛽ 加油站</button>
+      <button class="btn on" id="btnCity" onclick="toggleLayer('city')">🏙 城市</button>
+      <button class="btn sm" id="btnSat" onclick="toggleSatellite()" title="切换卫星/标准地图">🛰️ 卫星</button>
+      <button class="btn sm on" id="btnMark" onclick="toggleUserMarkLayer()" title="显示/隐藏我的标注">📍 标注</button>
+      <button class="btn sm alt" id="btnMarkAdd" onclick="toggleUserMarkMode()" title="进入后点击地图即可添加标注">✏️ 标</button>
+      <button class="btn sm warn" id="btnDrag" onclick="toggleDepotDrag()" title="切换后可直接拖动🏭标记到油罐精确位置（建议先切卫星图）">✋ 拖拽定位</button>
+      <button class="btn sm alt2" id="btnRuler" onclick="toggleMeasureMode()" title="进入后点击地图选起点和终点，自动算运距与70km/h行驶时长">📏 测距</button>
+    </div>
+    <div class="legend">
+      <div><i style="background:#C0392B"></i>🏭 自有油库</div>
+      <div><i style="background:#E67E22">🏭 互供油源</div>
+      <div><i style="background:#8E44AD">📦 外采库</div>
+      <div><i style="background:#2C6AA0">⛽ 以站代库</div>
+      <div><i style="background:#3A5C4A"></i>驾车路线</div>
+      <div><i style="background:#777"></i>城市</div>
+    </div>
+  </div>
+  <div class="panel" id="panel">
+    <div id="alertBox" style="display:none"></div>
+    <div class="sect"><div class="sect-h">📊 加油站概况（全区）</div>
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px">
+        <div style="background:#fff;border:1px solid var(--bd);border-radius:8px;padding:8px 4px;text-align:center"><div style="font-size:1.15rem;font-weight:800;color:#3A5C4A">621</div><div style="font-size:.66rem;color:var(--t2)">加油站总数</div></div>
+        <div style="background:#fff;border:1px solid var(--bd);border-radius:8px;padding:8px 4px;text-align:center"><div style="font-size:1.15rem;font-weight:800;color:#C0392B">473</div><div style="font-size:.66rem;color:var(--t2)">自营站</div></div>
+        <div style="background:#fff;border:1px solid var(--bd);border-radius:8px;padding:8px 4px;text-align:center"><div style="font-size:1.15rem;font-weight:800;color:#E67E22">56</div><div style="font-size:.66rem;color:var(--t2)">控股站</div></div>
+        <div style="background:#fff;border:1px solid var(--bd);border-radius:8px;padding:8px 4px;text-align:center"><div style="font-size:1.15rem;font-weight:800;color:#2C6AA0">92</div><div style="font-size:.66rem;color:var(--t2)">参股站</div></div>
+      </div>
+      <div class="hint" style="margin-top:6px">数据已按你的坐标上图：<b id="mapStationCnt">—</b> 座有坐标已标注；全区共 621 座（含未提供坐标的站点）。油库 <b id="mapDepotCnt">—</b> 座已按坐标标注。</div>
+    </div><div class="sect"><div class="sect-h">🔍 路径规划 & 🏭 油库标记</div>
+
+      <!-- 油库搜索对话框 -->
+      <div style="display:flex;gap:6px;margin-bottom:8px">
+        <input id="depotSearch" placeholder="🔍 搜索油库位置（输入地名/地址，如：南宁市青秀区 / 柳州进德镇）" style="flex:1;font-size:.74rem;padding:5px 7px;border:1px solid var(--bd);border-radius:5px" autocomplete="off" onkeydown="if(event.key==='Enter')searchDepotLocation()">
+        <button class="btn sm alt2" onclick="searchDepotLocation()">搜索</button>
+      </div>
+      <div id="depotSearchResult" style="font-size:.72rem;margin-bottom:6px"></div>
+
+      <!-- 路线规划 -->
+      <div class="route-row"><span class="lbl">起点</span><input id="routeStart" placeholder="输入起点，如：南宁油库 / 柳州市" autocomplete="off" onkeydown="if(event.key==='Enter')doRouteSearch()"></div>
+      <div class="route-row"><span class="lbl">终点</span><input id="routeEnd" placeholder="输入终点，如：桂林 / 北海港" autocomplete="off" onkeydown="if(event.key==='Enter')doRouteSearch()"></div>
+      <div class="depot-pick" id="routePick">提示：点击地图上 🏭 油库可设为起点；或在上方搜索框输入地址定位油库</div>
+      <div class="start-search">
+        <input id="startSearch" placeholder="🟢 在地图搜索起点（地名/地址）" autocomplete="off" onkeydown="if(event.key==='Enter')searchStart()">
+        <button class="btn sm" style="background:#3A5C4A;color:#fff" onclick="searchStart()">搜索</button>
+      </div>
+      <div style="display:flex;gap:6px">
+        <button class="btn" style="flex:1;font-size:.76rem" onclick="doRouteSearch()">🔍 搜索路线</button>
+        <button class="btn" style="flex:1;font-size:.76rem;background:#999" onclick="clearRoute()">清除路线</button>
+      </div>
+      <div id="routeResult" style="margin-top:8px"></div>
+
+      <!-- 地图点选测距 -->
+      <div style="margin-top:10px;padding-top:8px;border-top:1px dashed var(--bd)">
+        <div style="font-size:.76rem;color:#3A5C4A;margin-bottom:6px;display:flex;justify-content:space-between;align-items:center"><b>📏 地图点选测距</b><button class="btn sm alt2" id="btnRuler2" onclick="toggleMeasureMode()">📏 开始测距</button></div>
+        <div style="font-size:.72rem;color:#888;margin-bottom:6px">在地图上先点「起点 A」、再点「终点 B」，自动算道路运距并按最高时速 70km/h 折算行驶时长。</div>
+        <div id="measureResult"></div>
+        <div id="measureStatus" style="font-size:.72rem;margin-top:4px;min-height:18px;display:none"></div>
+      </div>
+
+      <!-- 油罐车模式 -->
+      <div style="display:flex;gap:8px;align-items:center;margin-top:8px;flex-wrap:wrap">
+        <label style="font-size:.76rem;display:flex;align-items:center;gap:4px;cursor:pointer"><input type="checkbox" id="truckChk" onchange="toggleTruck(this.checked)" style="width:13px;height:13px"> 🚛 油罐车模式（估算）</label>
+        <span style="font-size:.72rem;color:#999">（按小车导航距离，不另乘系数）</span>
+      </div>
+
+      <!-- 油库校准 -->
+      <div style="margin-top:10px;padding-top:8px;border-top:1px dashed var(--bd)">
+        <div style="font-size:.78rem;color:var(--t2);margin-bottom:6px;display:flex;justify-content:space-between;align-items:center"><b>🏭 油库管理</b> <button class="btn sm" style="background:#C0392B;color:#fff;font-size:.72rem;padding:4px 10px" onclick="openAddDepotModal()">➕ 添加油库/站</button></div>
+        <div id="customDepotList" style="max-height:120px;overflow-y:auto;margin-bottom:6px;font-size:.74rem"></div>
+        <div style="display:flex;gap:6px">
+          <button class="btn sm warn" id="btnAnno" onclick="toggleAnnotate()">📍 点图校准</button>
+          <button class="btn sm" style="background:#999" onclick="fitDepots()">定位全部</button>
+        </div>
+        <select id="calDepotSel" style="width:100%;font-size:.74rem;padding:5px;border:1px solid var(--bd);border-radius:5px;margin-top:6px"></select>
+        <div style="display:flex;gap:6px;margin-top:6px">
+          <input id="calAddr" placeholder="输入该油库真实地址/地名，如：南宁市江南区壮锦大道…" style="flex:1;font-size:.74rem;padding:5px 7px;border:1px solid var(--bd);border-radius:5px">
+          <button class="btn sm alt2" onclick="calibrateByAddress()">📍 定位预览</button>
+        </div>
+        <div id="calConfirmBox"></div>
+        <div class="hint" style="margin-top:4px">定位后先在地图上查看位置是否准确，再点「确认并保存」。</div>
+      </div>
+
+      <div class="hint" style="margin-top:8px">支持地名模糊搜索（OSM/Nominatim 免费地理编码）；也可手动输入经纬度 <code>经度,纬度</code>。🛰️ 卫星地图切换方便找油库建筑。🚛 油罐车运距＝直接采用小车导航距离。</div>
+    </div>
+
+    <div class="sect"><div class="sect-h">🛣️ 新修订道路对加油站运距影响</div>
+      <div class="hint">基于你上传的「运距映射表」，逐条新路匹配受影响城市的加油站，对比 <b>原运距</b>（表中值）与 <b>修路后运距</b>（高德路线规划），算出缩短里程。点「计算对我加油站影响」逐站核算。</div>
+      <div id="roadImpactBox"><div class="hint">加载中…</div></div>
+    </div>
+
+    <div class="sect"><div class="sect-h">🚧 实时路况 / 交通管制</div>
+      <div id="closureBox"><div class="hint">加载中…</div></div>
+    </div>
+
+    <div class="sect"><div class="sect-h">⛽ 中石油加油站标注</div>
+      <div id="stationBox">
+        <div style="font-size:.78rem;color:var(--t2);margin-bottom:6px">按你的坐标加载加油站（来自《加油站运距_已完善.xlsx》，可多选城市筛选）：</div><div id="cityChecks" style="display:flex;flex-wrap:wrap;gap:4px 10px;font-size:.74rem;margin-bottom:8px"></div>
+        <div style="display:flex;gap:6px">
+          <button class="btn sm" style="flex:1;background:#2C6AA0" onclick="loadStationsByCities()">📍 加载选中城市</button>
+          <button class="btn sm" style="flex:1;background:#999" onclick="clearStationLayer()">清空</button>
+        </div>
+        <div id="stationCount" style="font-size:.74rem;color:#999;margin-top:6px">尚未加载</div>
+      </div>
+    </div>
+
+    <div class="sect"><div class="sect-h">🌤️ 广西各地天气（Open-Meteo 实时）</div><div id="weatherBox"><div class="hint">加载中…</div></div></div>
+
+    <div class="sect"><div class="sect-h">ℹ️ 说明</div><div class="hint">地图采用 <b>高德地图 AMap JSAPI</b>（底图与测距统一，原生无白框）。地理编码、路线规划、POI 搜索使用<b>高德地图 Web 服务 API</b>（需配额 key）；天气使用 <b>Open-Meteo 免费 API</b>（无需 key）。🏭 油库坐标可用「📍校准」点地图定位并保存。「新修订道路」对比基于你上传的运距映射表（数据库管理 → 运距映射表）。</div></div>
+  </div>
+</div>
+<!-- 情报数据在线编辑器（用户自行更新，无需经 AI / 定时任务） -->
+<div id="editorModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:1000;align-items:center;justify-content:center" onclick="if(event.target===this)closeEditor()">
+  <div style="background:#fff;border-radius:12px;width:min(720px,94vw);max-height:90vh;overflow:auto;box-shadow:0 10px 40px rgba(0,0,0,.3)">
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:14px 18px;border-bottom:2px solid var(--pri)">
+      <b style="color:var(--pri);font-size:1rem">✏️ 编辑情报数据（在线更新）</b>
+      <button class="btn sm" style="background:#999" onclick="closeEditor()">✕ 关闭</button>
+    </div>
+    <div style="padding:14px 18px">
+      <div class="hint" style="margin-bottom:8px">可直接修改下方 JSON（紧急通报、实时路况、新路、天气等），保存后<b>立即生效，无需经 AI</b>。若已配置后端（顶栏「⚙️ 同步」或同源服务器），数据集中存到后端，<b>多设备访问同一地址自动同步</b>；否则存本机数据库，刷新仍保留。点「↺ 还原云端数据」可丢弃修改、恢复系统默认。</div>
+      <textarea id="editorTA" spellcheck="false" style="width:100%;height:330px;font-family:Consolas,monospace;font-size:12px;border:1px solid var(--bd);border-radius:8px;padding:10px;resize:vertical;box-sizing:border-box"></textarea>
+      <div id="editorMsg" style="font-size:.78rem;margin:6px 0;min-height:18px"></div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button class="btn" onclick="saveEditor()">💾 保存并应用</button>
+        <button class="btn sm" style="background:#2C6AA0" onclick="exportEditor()">📤 导出 JSON</button>
+        <button class="btn sm" style="background:#9B59B6" onclick="copyEditor()">📋 复制模板</button>
+        <button class="btn sm" style="background:#E67E22" onclick="resetEditor()">↺ 还原云端数据</button>
+      </div>
+    </div>
+  </div>
+</div>
+<div id="syncModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:1000;align-items:center;justify-content:center" onclick="if(event.target===this)closeSync()">
+  <div style="background:#fff;border-radius:12px;width:min(560px,94vw);max-height:90vh;overflow:auto;box-shadow:0 10px 40px rgba(0,0,0,.3)">
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:14px 18px;border-bottom:2px solid #2C6AA0">
+      <b style="color:#2C6AA0;font-size:1rem">⚙️ 后端同步设置</b>
+      <button class="btn sm" style="background:#999" onclick="closeSync()">✕ 关闭</button>
+    </div>
+    <div style="padding:14px 18px">
+      <div class="hint" style="margin-bottom:8px">把情报数据 / 油库校准集中存到后端，<b>多设备、多人访问同一地址即自动同步</b>。若用本工作站自带服务器托管页面，留空即自动生效（同源后端）。</div>
+      <label style="font-size:.8rem">后端地址（留空=同源）</label>
+      <input id="syncUrl" style="width:100%;box-sizing:border-box;padding:7px 9px;border:1px solid var(--bd);border-radius:8px;margin:4px 0 10px" placeholder="如 http://192.168.1.5:8080 或 https://xxx  （留空则同源）">
+      <label style="font-size:.8rem">访问令牌（后端设置了令牌才填）</label>
+      <input id="syncToken" type="password" style="width:100%;box-sizing:border-box;padding:7px 9px;border:1px solid var(--bd);border-radius:8px;margin:4px 0 10px" placeholder="与后端 INTEL_TOKEN 一致，留空=无令牌">
+      <div id="syncMsg" style="font-size:.78rem;margin:6px 0;min-height:18px"></div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button class="btn" onclick="saveSync()">💾 保存设置</button>
+        <button class="btn sm" style="background:#2C6AA0" onclick="testSync()">🔍 测试连接</button>
+      </div>
+    </div>
+  </div>
+</div>
+<!-- 自定义标注弹窗（点击地图添加标记，内容可编辑，本地+后端同步） -->
+<div id="markModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:1100;align-items:center;justify-content:center" onclick="if(event.target===this)closeMarkModal()">
+  <div style="background:#fff;border-radius:12px;width:min(360px,94vw);max-height:90vh;overflow:auto;box-shadow:0 10px 40px rgba(0,0,0,.3)">
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:12px 16px;border-bottom:2px solid #27ae60">
+      <b style="color:#27ae60;font-size:.95rem">📍 添加标注</b>
+      <button class="btn sm" style="background:#999" onclick="closeMarkModal()">✕</button>
+    </div>
+    <div style="padding:14px 16px">
+      <div id="markCoord" style="font-size:.72rem;color:#999;margin-bottom:8px"></div>
+      <input id="markTitle" placeholder="标注标题（如：备选卸油点）" style="width:100%;box-sizing:border-box;padding:7px 9px;border:1px solid var(--bd);border-radius:8px;margin-bottom:8px;font-size:.82rem">
+      <textarea id="markNote" placeholder="标注内容 / 备注…（选填）" style="width:100%;box-sizing:border-box;height:64px;padding:7px 9px;border:1px solid var(--bd);border-radius:8px;resize:none;font-size:.82rem;font-family:inherit"></textarea>
+      <div style="display:flex;gap:8px;margin-top:10px">
+        <button class="btn" style="flex:1;font-size:.8rem" onclick="confirmAddMark()">✅ 保存标注</button>
+        <button class="btn sm" style="flex:1;background:#999" onclick="closeMarkModal()">取消</button>
+      </div>
+    </div>
+  </div>
+</div>
+<!-- 添加油库/加油站弹窗 -->
+<div id="addDepotModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:1100;align-items:center;justify-content:center" onclick="if(event.target===this)closeAddDepotModal()">
+  <div style="background:#fff;border-radius:12px;width:min(420px,94vw);max-height:90vh;overflow:auto;box-shadow:0 10px 40px rgba(0,0,0,.3)">
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:12px 16px;border-bottom:2px solid #C0392B">
+      <b style="color:#C0392B;font-size:.95rem">➕ 添加油库 / 加油站</b>
+      <button class="btn sm" style="background:#999" onclick="closeAddDepotModal()">✕</button>
+    </div>
+    <div style="padding:14px 16px">
+      <div style="margin-bottom:10px">
+        <label style="font-size:.78rem;color:var(--t2);display:block;margin-bottom:4px"><b>类型</b></label>
+        <div style="display:flex;gap:6px;flex-wrap:wrap">
+          <label style="font-size:.78rem;display:flex;align-items:center;gap:4px;cursor:pointer;padding:5px 10px;border:2px solid var(--bd);border-radius:6px;transition:all .15s" id="lblTypeSelf"><input type="radio" name="addDepotType" value="self" checked style="margin:0"> 🏭 自有油库</label>
+          <label style="font-size:.78rem;display:flex;align-items:center;gap:4px;cursor:pointer;padding:5px 10px;border:2px solid var(--bd);border-radius:6px;transition:all .15s" id="lblTypeMutual"><input type="radio" name="addDepotType" value="mutual" style="margin:0"> 🏭 互供油源</label>
+          <label style="font-size:.78rem;display:flex;align-items:center;gap:4px;cursor:pointer;padding:5px 10px;border:2px solid var(--bd);border-radius:6px;transition:all .15s" id="lblTypeExternal"><input type="radio" name="addDepotType" value="external" style="margin:0"> 📦 外采库</label>
+          <label style="font-size:.78rem;display:flex;align-items:center;gap:4px;cursor:pointer;padding:5px 10px;border:2px solid var(--bd);border-radius:6px;transition:all .15s" id="lblTypeStation"><input type="radio" name="addDepotType" value="station" style="margin:0"> ⛽ 以站代库</label>
+        </div>
+      </div>
+      <div style="margin-bottom:10px">
+        <label style="font-size:.78rem;color:var(--t2);display:block;margin-bottom:4px"><b>名称 *</b></label>
+        <input id="addDepotName" placeholder="如：南宁屯里油库 / 北海铁山港油库 / XX加油站" style="width:100%;box-sizing:border-box;padding:7px 9px;border:1px solid var(--bd);border-radius:8px;font-size:.84rem">
+      </div>
+      <div style="margin-bottom:10px">
+        <label style="font-size:.78rem;color:var(--t2);display:block;margin-bottom:4px"><b>所属城市 *</b></label>
+        <select id="addDepotCity" style="width:100%;box-sizing:border-box;padding:7px 9px;border:1px solid var(--bd);border-radius:8px;font-size:.82rem">
+          <option value="">— 选择城市 —</option>
+          <option value="南宁">南宁</option><option value="柳州">柳州</option><option value="桂林">桂林</option>
+          <option value="梧州">梧州</option><option value="北海">北海</option><option value="防城港">防城港</option>
+          <option value="钦州">钦州</option><option value="贵港">贵港</option><option value="玉林">玉林</option>
+          <option value="百色">百色</option><option value="贺州">贺州</option><option value="河池">河池</option>
+          <option value="来宾">来宾</option><option value="崇左">崇左</option><option value="兴业">兴业</option>
+          <option value="江门">江门</option><option value="佛山">佛山</option><option value="东莞">东莞</option><option value="永州">永州</option>
+        </select>
+      </div>
+      <div style="margin-bottom:10px">
+        <label style="font-size:.78rem;color:var(--t2);display:block;margin-bottom:4px"><b>详细地址（选填）</b></label>
+        <input id="addDepotAddr" placeholder="如：南宁市江南区壮锦大道XX号（留空则用城市中心坐标）" style="width:100%;box-sizing:border-box;padding:7px 9px;border:1px solid var(--bd);border-radius:8px;font-size:.8rem">
+        <div style="font-size:.7rem;color:#999;margin-top:3px">填写地址可自动定位到精确位置（高德地图地理编码）</div>
+      </div>
+      <div id="addDepotMsg" style="font-size:.76rem;margin:8px 0;min-height:18px"></div>
+      <div style="display:flex;gap:8px;margin-top:10px">
+        <button class="btn" style="flex:1;font-size:.8rem;background:#C0392B;color:#fff" onclick="confirmAddDepot()">➕ 确认添加</button>
+        <button class="btn sm" style="flex:1;background:#999" onclick="closeAddDepotModal()">取消</button>
+      </div>
+    </div>
+  </div>
+</div>
+<script>
+// ===== 地图初始化（高德 AMap JSAPI 2.0）=====
+var map=null, mapOK=false;
+var rangingReady=false;
+var rangingLoading=false;
+var satLayer=null, isSatellite=false;
+// ===== AMap 封装层（替代 Leaflet，统一 [lat,lng] 业务约定 → 高德 [lng,lat]）=====
+function LL(lng,lat){ return [lat,lng]; }                      // 业务用 [lat,lng]
+function aPos(c){ return [c[1],c[0]]; }                          // [lat,lng] → 高德 [lng,lat]
+function tRemove(o){ if(!mapOK||!o)return; if(Array.isArray(o)){o.forEach(tRemove);return;} try{ o.setMap(null); }catch(e){} }
+// 画折线：path 为 [lat,lng] 数组
+function addLine(path,color,weight,dash){
+  var p=path.map(function(c){return [c[1],c[0]];});
+  var poly=new AMap.Polyline({path:p,strokeColor:color,strokeWeight:weight||4,strokeOpacity:0.9,strokeStyle:dash?'dashed':'solid',zIndex:200});
+  poly.setMap(map);
+  return poly;
+}
+function tFit(coords,maxZoom){
+  if(!mapOK||!coords||coords.length===0)return;
+  try{
+    if(coords.length===1){ map.setZoomAndCenter(maxZoom||12, [coords[0][1],coords[0][0]]); return; }
+    var minLng=180,minLat=90,maxLng=-180,maxLat=-90;
+    coords.forEach(function(c){ var lng=c[1],lat=c[0]; if(lng<minLng)minLng=lng; if(lng>maxLng)maxLng=lng; if(lat<minLat)minLat=lat; if(lat>maxLat)maxLat=lat; });
+    map.setBounds(new AMap.Bounds([minLng,minLat],[maxLng,maxLat]), false, [40,40,40,40]);
+    if(maxZoom && map.getZoom()>maxZoom) map.setZoom(maxZoom);
+  }catch(e){}
+}
+// 创建标记：lat/lng 为业务坐标，html 为自定义 DOM 内容
+function mkA(lat,lng,html,opts){
+  opts=opts||{};
+  var m=new AMap.Marker({
+    position:[lng,lat],
+    content:'<div style="line-height:1">'+html+'</div>',
+    offset: opts.offset || new AMap.Pixel(-9,-9),
+    anchor:'center',
+    zIndex: opts.zIndex||100,
+    draggable: !!opts.draggable,
+    cursor: opts.cursor||''
+  });
+  if(opts.map!==false) m.setMap(map);
+  return m;
+}
+// 绑定点击
+function mkOn(mk,fn){ if(mk&&mk.on) mk.on('click',fn); }
+// 绑定信息窗（点击显示）
+var _infoWin=null;
+function mkPop(mk,html){
+  mkOn(mk,function(){
+    if(!mapOK)return;
+    if(!_infoWin)_infoWin=new AMap.InfoWindow({offset:new AMap.Pixel(0,-12),closeWhenClickMap:true});
+    _infoWin.setContent('<div style="font-size:.8rem;max-width:240px;line-height:1.6">'+html+'</div>');
+    _infoWin.open(map, mk.getPosition());
+  });
+}
+function bindTip(mk,html){ try{ mk.setExtData({tip:html}); }catch(e){} }
+function toggleSatellite(){
+  if(!mapOK||!map)return;
+  if(isSatellite){ if(satLayer){satLayer.setMap(null);satLayer=null;} isSatellite=false; document.getElementById('btnSat').textContent='🛰️ 卫星'; }
+  else { satLayer=new AMap.TileLayer.Satellite(); satLayer.setMap(map); isSatellite=true; document.getElementById('btnSat').textContent='🗺️ 标准'; }
+}
+
+// ===== 后端同步配置（集中存储情报/油库校准，多设备自动同步）=====
+var BACKEND = (function(){try{return (localStorage.getItem('intel_backend')||'').replace(/\/+$/,'');}catch(e){return '';}})();
+var API_TOKEN = (function(){try{return localStorage.getItem('intel_token')||'';}catch(e){return '';}})();
+var BACKEND_OK = false;          // 探测到后端可达则置 true
+var SERVER_INTEL = null;
+function apiUrl(p){ return BACKEND + p; }
+function apiHeaders(){ var h={'Content-Type':'application/json'}; if(API_TOKEN) h['Authorization']='Bearer '+API_TOKEN; return h; }
+function apiFetch(p,opts){ return fetch(apiUrl(p), Object.assign({headers:apiHeaders()}, opts||{})); }
+function updateSyncStat(){
+  var el=document.getElementById('syncStat'); if(!el)return;
+  if(BACKEND_OK){ el.textContent='🟢 后端同步'; el.style.color='#1B9E3E'; }
+  else { el.textContent='🟡 本机存储'; el.style.color='#E67E22'; }
+}
+(function(){
+  try{
+    if(typeof AMap==='undefined') throw new Error('高德地图未加载（请检查网络连接或 key 白名单）');
+    map=new AMap.Map('map',{zoom:7,center:[108.62,23.5],viewMode:'2D',zoomEnable:true,dragEnable:true});
+    mapOK=true;
+    document.getElementById('mapStat').textContent='🟢 地图已加载（高德地图）';
+    document.getElementById('mapStat').style.color='#3A5C4A';
+    // 异步加载 RangingTool 测距插件（高德 2.0 仅支持单回调）
+    if(AMap.RangingTool){
+      rangingReady=true;
+      console.log('[intel] RangingTool 已内置就绪');
+    }else if(typeof AMap!=='undefined' && AMap.plugin){
+      AMap.plugin(['AMap.RangingTool'],function(){
+        rangingReady=true;
+        console.log('[intel] RangingTool 插件已加载');
+      });
+      // 兜底：5秒后检查是否真的加载成功
+      setTimeout(function(){
+        if(!rangingReady && typeof AMap!=='undefined' && AMap.RangingTool){
+          rangingReady=true;
+          console.log('[intel] RangingTool 延迟就绪');
+        }
+      },5000);
+    }
+  }catch(e){
+    console.warn('[intel] 地图初始化失败:',e.message);
+    mapOK=false;
+    document.getElementById('mapStat').textContent='🔴 地图未加载：'+(e.message||'');
+    document.getElementById('mapStat').style.color='#C0392B';
+    var m=document.getElementById('map');
+    if(m)m.innerHTML='<div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;padding:24px;color:#C65D52;font-size:.82rem;line-height:1.9;text-align:center">⚠️ 地图加载失败<br><br>请检查网络连接，或确认高德 key 白名单包含当前域名。错误：'+(e.message||'')+'</div>';
+  }
+})();
+
+// ===== 数据：优先 intel_data.json，失败用内置 =====
+var FALLBACK={
+  "updated":"2026-07-11",
+  "weather":[
+    {"city":"南宁","cond":"多云","temp":"28~35℃","alarm":""},
+    {"city":"柳州","cond":"阵雨","temp":"27~33℃","alarm":""},
+    {"city":"桂林","cond":"多云转阴","temp":"26~34℃","alarm":""},
+    {"city":"梧州","cond":"阴","temp":"26~33℃","alarm":""},
+    {"city":"北海","cond":"多云","temp":"29~34℃","alarm":""},
+    {"city":"防城港","cond":"阵雨","temp":"28~32℃","alarm":""},
+    {"city":"钦州","cond":"多云","temp":"28~34℃","alarm":""},
+    {"city":"贵港","cond":"阴","temp":"27~34℃","alarm":""},
+    {"city":"玉林","cond":"多云","temp":"27~35℃","alarm":""},
+    {"city":"百色","cond":"晴","temp":"25~36℃","alarm":""},
+    {"city":"贺州","cond":"阴","temp":"25~33℃","alarm":""},
+    {"city":"河池","cond":"阵雨","temp":"24~32℃","alarm":""},
+    {"city":"来宾","cond":"多云","temp":"26~34℃","alarm":""},
+    {"city":"崇左","cond":"多云","temp":"27~35℃","alarm":""}
+  ],
+  "alert":{"title":"🚨 广西洪灾紧急通报","detail":"截至7月8日，广西因暴雨洪涝灾害造成39人死亡、9人失联，多座水库超汛限水位。各市需密切关注雨情水情变化，做好山洪地质灾害防御和人员转移准备。","source":"广西应急管理厅","url":"https://news.qq.com/rain/a/20260708A06ZSN00"},
+  "newRoads":[
+    {"name":"苍梧至容县高速","status":"✅ 已通车(2026-03)","cities":["梧州","玉林"],"desc":"缩短梧州—玉林行程至1小时内","origKm":210,"newKm":170,"savedKm":-40},
+    {"name":"梧州至玉林高速","status":"✅ 已通车(2026-02-28)","cities":["梧州","玉林"],"desc":"105km，行车时间缩至1小时内","origKm":210,"newKm":105,"savedKm":-105},
+    {"name":"南宁至北海第二高速","status":"🚧 在建(预计2026通车)","cities":["南宁","北海","钦州"],"desc":"分流南钦高速压力","origKm":220,"newKm":198,"savedKm":-22,"planned":true},
+    {"name":"桂林至柳州高速改扩建","status":"🚧 在建","cities":["桂林","柳州"],"desc":"桂柳主通道扩容","origKm":160,"newKm":150,"savedKm":-10,"planned":true},
+    {"name":"巴马至凭祥高速（都巴段）","status":"🚧 在建(受灾)","cities":["河池","崇左","南宁"],"desc":"连接巴马至凭祥，S30来都段受灾封闭中","origKm":380,"newKm":280,"savedKm":-100,"planned":true},
+    {"name":"合浦至湛江高速","status":"📋 规划中","cities":["北海","湛江（广东）"],"desc":"新增出省通道","origKm":400,"newKm":140,"savedKm":-260,"planned":true}
+  ]
+};
+function esc(s){return (s==null?'':String(s)).replace(/[&<>"]/g,function(m){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[m];});}
+
+// ===== 路径搜索 =====
+var startLL=null, endLL=null, routeLine=null, startMarker=null, endMarker=null;
+function parseCoord(str){
+  var m=String(str).match(/^\s*([\d.]+)\s*,\s*([\d.]+)\s*$/);
+  if(m)return [parseFloat(m[1]),parseFloat(m[2])]; // [lng,lat]
+  return null;
+}
+function doRouteSearch(){
+  var sEl=document.getElementById('routeStart').value.trim();
+  var eEl=document.getElementById('routeEnd').value.trim();
+  if(!sEl||!eEl){alert('请填写起点和终点');return;}
+  if(!startLL)startLL=parseCoord(sEl);
+  if(!endLL)endLL=parseCoord(eEl);
+  if(!startLL||!endLL){
+    // 用 OSM/Nominatim 免费地理编码把地名转坐标
+    document.getElementById('routeResult').innerHTML='<div class="hint">地名解析中…</div>';
+    geoBoth(sEl,eEl);
+    return;
+  }
+  runDriving(startLL,endLL);
+}
+// ===== 高德地图 Web 服务 API =====
+var AMAP_KEY='';
+// 高德地理编码：地址 → [lng, lat]
+function geoOne(addr){
+  return new Promise(function(resolve){
+    var url='https://restapi.amap.com/v3/geocode/geo?address='+encodeURIComponent(addr)+'&key='+AMAP_KEY;
+    fetch(url).then(function(r){return r.json();}).then(function(d){
+      if(d&&d.geocodes&&d.geocodes.length){var loc=d.geocodes[0].location.split(',');resolve([parseFloat(loc[0]),parseFloat(loc[1])]);}
+      else resolve(null);
+    }).catch(function(){resolve(null);});
+  });
+}
+function geoBoth(s,e){
+  Promise.all([geoOne(s),geoOne(e)]).then(function(r){
+    startLL=r[0]; endLL=r[1];
+    if(!startLL||!endLL){document.getElementById('routeResult').innerHTML='<div class="card"><div class="d" style="color:#C65D52">地名解析失败，请改用「油库名 + 城市」或输入 经度,纬度</div></div>';return;}
+    runDriving(startLL,endLL);
+  });
+}
+// ===== 高德驾车路线规划 =====
+function decodePolyline(str,precision){
+  var index=0,lat=0,lng=0,coordinates=[],shift=0,result=0,byte=null,latitude_change,longitude_change,factor=Math.pow(10,precision||5);
+  while(index<str.length){shift=result=0;do{byte=str.charCodeAt(index++)-63;result|=(byte&0x1f)<<shift;shift+=5;}while(byte>=0x32);latitude_change=(result&1)?~(result>>1):(result>>1);shift=result=0;do{byte=str.charCodeAt(index++)-63;result|=(byte&0x1f)<<shift;shift+=5;}while(byte>=0x32);longitude_change=(result&1)?~(result>>1):(result>>1);lat+=latitude_change;lng+=longitude_change;coordinates.push([lng/factor,lat/factor]);}
+  return coordinates;
+}
+function amapDrivingRoute(org,dest){
+  return new Promise(function(resolve,reject){
+    var url='https://restapi.amap.com/v3/direction/driving?origin='+org[1]+','+org[0]+'&destination='+dest[1]+','+dest[0]+'&key='+AMAP_KEY+'&extensions=all&strategy=10';
+    fetch(url).then(function(r){return r.json();}).then(function(d){
+      if(d&&d.route&&d.route.paths&&d.route.paths[0]){
+        var p=d.route.paths[0];
+        var pts=[];
+        // 高德 v3 direction API：顶层 polyline 经常不存在，用 steps[].polyline（明文 lng,lat;lng,lat;...）
+        if(p.steps && p.steps.length>0){
+          try{p.steps.forEach(function(s){if(s.polyline){s.polyline.split(';').forEach(function(seg){var pt=seg.trim().split(',');if(pt.length>=2){var lng=parseFloat(pt[0]),lat=parseFloat(pt[1]);if(!isNaN(lng)&&!isNaN(lat))pts.push([lng,lat]);}});}});}catch(e){console.warn('steps解析失败:',e);}
+        }
+        resolve({distance:parseFloat(p.distance),duration:parseInt(p.duration),geometry:pts});
+      } else reject(new Error('no_route'));
+    }).catch(reject);
+  });
+}
+function runDriving(org,dest){
+  document.getElementById('routeResult').innerHTML='<div class="hint">规划中…</div>';
+  // 先画 A→B 直线保底（实线+橙色虚线叠加）
+  tRemove(routeLine);
+  var directPts=[[org[1],org[0]],[dest[1],dest[0]]];
+  routeLine=[addLine(directPts,'#3A5C4A',6,false), addLine(directPts,'#E67E22',2,true)];
+  tFit(directPts,12);
+  amapDrivingRoute(org,dest).then(function(r){
+    var km=(r.distance/1000).toFixed(1),mins=Math.round(r.duration/60),pts=r.geometry;
+    showRouteResult(r.distance,r.duration,[],null);
+    // 高德 polyline 解码成功才替换为真实路径，否则保留直线
+    if(mapOK&&pts&&pts.length>2){
+      try{
+        tRemove(routeLine);
+        var llPts=pts.map(function(a){return [a[1],a[0]];});
+        routeLine=addLine(llPts,'#3A5C4A',6,false);
+        tFit(llPts,13);
+      }catch(e){console.warn('路线画线异常:',e);}
+    }
+  }).catch(function(){showRouteResult(null,null,null,'路线规划失败');});
+}
+function showRouteResult(dist,time,steps,err){
+  var box=document.getElementById('routeResult'); if(!box)return;
+  if(err||dist==null){box.innerHTML='<div class="card"><div class="d" style="color:#C65D52">'+esc(err||'路线规划失败')+'</div></div>';return;}
+  var km=(dist/1000).toFixed(1);
+  // 按 70km/h 折算油罐车时长（不使用导航默认限速时长）
+  var truckMins=Math.round(km/70*60);
+  var truckHrs=Math.floor(truckMins/60),truckRem=truckMins%60;
+  var truckTimeTxt;
+  if(truckHrs>0){truckTimeTxt=truckHrs+'小时'+(truckRem>0?' '+truckRem+'分':'');}
+  else{truckTimeTxt=truckRem+'分';}
+  var navMins=time?Math.round(time/60):null;
+  var html='<div class="card" style="border-left:3px solid #3A5C4A"><div class="t">📏 驾车路线</div>'+
+    '<div class="d">道路运距：<b style="color:#3A5C4A;font-size:1.05rem">'+km+' km</b></div>'+
+    '<div class="d">按最高时速 <b>70 km/h</b> 估算：<b style="color:#C0392B;font-size:1.05rem">'+truckTimeTxt+'</b>（'+truckMins+' 分钟）'+(navMins?'<span style="font-size:.72rem;color:#888">｜ 导航默认 '+navMins+' 分钟</span>':'')+'</div>';
+  html+='</div>';
+  box.innerHTML=html;
+}
+function clearRoute(){
+  startLL=null; endLL=null;
+  document.getElementById('routeStart').value=''; document.getElementById('routeEnd').value='';
+  document.getElementById('startSearch').value='';
+  document.getElementById('routePick').textContent='提示：点击地图上 🏭 油库可设为起点；或在上方搜索框输入地址定位油库';
+  document.getElementById('routeResult').innerHTML='';
+  if(routeLine){tRemove(routeLine);routeLine=null;}
+  if(startMarker){tRemove(startMarker);startMarker=null;}
+  if(endMarker){tRemove(endMarker);endMarker=null;}
+}
+// ===== 🔍 搜索油库位置（通用位置搜索）=====
+function searchDepotLocation(){
+  var v=document.getElementById('depotSearch').value.trim();
+  if(!v){alert('请输入要搜索的位置');return;}
+  var box=document.getElementById('depotSearchResult');
+  box.innerHTML='<span style="color:#E67E22">搜索中…</span>';
+  geoOne(v).then(function(ll){
+    if(!ll){box.innerHTML='<span style="color:#C0392B">✗ 未找到该位置</span>';return;}
+    // 在地图上标记
+    if(mapOK){
+      tRemove(startMarker);
+      startMarker=mkA(ll[1],ll[0],'🔍',{offset:new AMap.Pixel(-13,-13)});
+      mkPop(startMarker,'<b>搜索结果</b><br>'+esc(v)+'<br>'+ll[1].toFixed(4)+', '+ll[0].toFixed(4));
+      map.setZoomAndCenter(14,[ll[0],ll[1]]);
+    }
+    startLL=[ll[0],ll[1]];
+    document.getElementById('routeStart').value=v;
+    box.innerHTML='<span style="color:#3A5C4A">✓ 找到：'+esc(v)+'（'+ll[1].toFixed(4)+', '+ll[0].toFixed(4)+'）— 可直接设为起点或用于校准油库</span>';
+  }).catch(function(){box.innerHTML='<span style="color:#C0392B">✗ 解析失败</span>';});
+}
+// ===== 🟢 在地图搜索起点 =====
+function searchStart(){
+  var v=document.getElementById('startSearch').value.trim();
+  if(!v){alert('请输入要搜索的地点，如：南宁青秀区 / 柳州白莲机场');return;}
+  document.getElementById('routePick').textContent='地名解析中…';
+  geoOne(v).then(function(ll){
+    if(!ll){document.getElementById('routePick').textContent='✗ 未找到该地点，请换个关键词或加城市名';return;}
+    setStartPoint(ll[0],ll[1],v);
+  }).catch(function(){document.getElementById('routePick').textContent='✗ 解析失败，请稍后重试';});
+}
+function setStartPoint(lng,lat,name){
+  startLL=[lng,lat];
+  document.getElementById('routeStart').value=name;
+  document.getElementById('routePick').textContent='✓ 起点已设为：'+name+'（已在地图标记 🟢）';
+  if(mapOK){
+    tRemove(startMarker);
+    startMarker=mkA(lat,lng,'🟢',{offset:new AMap.Pixel(-13,-13)});
+    mkPop(startMarker,'<b>起点</b><br>'+esc(name));
+    map.setZoomAndCenter(11,[lng,lat]);
+  }
+}
+
+// ===== 本地 IndexedDB 读取器（情报页以 iframe 独立作用域运行，无法访问父页 DB，需自带） =====
+var IDB={_v:null,_r:false,_q:[]};
+(function(){
+  if(!('indexedDB' in window)){IDB._r=true;return;}
+  try{
+    var r=indexedDB.open('FuelStationDB',1);
+    r.onupgradeneeded=function(e){var d=e.target.result;if(!d.objectStoreNames.contains('uploads'))d.createObjectStore('uploads',{keyPath:'id',autoIncrement:true});if(!d.objectStoreNames.contains('distMap'))d.createObjectStore('distMap');};
+    r.onsuccess=function(e){IDB._v=e.target.result;IDB._r=true;IDB._q.forEach(function(f){f()});IDB._q=[];};
+    r.onerror=function(){IDB._r=true;IDB._q.forEach(function(f){f()});IDB._q=[];};
+  }catch(e){IDB._r=true;}
+})();
+function idbReady(fn){if(IDB._r)fn();else IDB._q.push(fn);}
+var DB={
+  loadDistMap:function(cb){
+    idbReady(function(){
+      if(!IDB._v){cb({});return;}
+      try{
+        var t=IDB._v.transaction('distMap','readonly').objectStore('distMap').get('data');
+        t.onsuccess=function(){cb(t.result||{})};
+        t.onerror=function(){cb({})};
+      }catch(e){cb({})}
+    });
+  }
+};
+
+// ===== IntelDB：情报数据 & 油库校准 本地持久化（让用户可在线自行更新，无需经 AI / 定时任务）=====
+var IDB2={_v:null,_r:false,_q:[]};
+(function(){
+  if(!('indexedDB' in window)){IDB2._r=true;return;}
+  try{
+    var r=indexedDB.open('IntelDB',1);
+    r.onupgradeneeded=function(e){var d=e.target.result;if(!d.objectStoreNames.contains('kv'))d.createObjectStore('kv');};
+    r.onsuccess=function(e){IDB2._v=e.target.result;IDB2._r=true;IDB2._q.forEach(function(f){f()});IDB2._q=[];};
+    r.onerror=function(){IDB2._r=true;IDB2._q.forEach(function(f){f()});IDB2._q=[];};
+  }catch(e){IDB2._r=true;}
+})();
+function idb2Ready(fn){if(IDB2._r)fn();else IDB2._q.push(fn);}
+function idb2Get(key,cb){idb2Ready(function(){if(!IDB2._v){cb(null);return;}try{var t=IDB2._v.transaction('kv','readonly').objectStore('kv').get(key);t.onsuccess=function(){cb(t.result||null);};t.onerror=function(){cb(null);};}catch(e){cb(null);}});}
+function idb2Put(key,val,cb){idb2Ready(function(){if(!IDB2._v){if(cb)cb();return;}try{var t=IDB2._v.transaction('kv','readwrite').objectStore('kv').put(val,key);t.onsuccess=function(){if(cb)cb();};t.onerror=function(){if(cb)cb();};}catch(e){if(cb)cb();}});}
+
+// ===== 油罐车运距（按小车导航，不乘系数）=====
+var truckMode=false;
+function toggleTruck(on){truckMode=on;if(startLL&&endLL)runDriving(startLL,endLL);}
+
+// ===== 自动更新（每5分钟；天气实时；情报有变化才重渲染，避免假更新）=====
+var autoTimer=null;
+function pad2(n){return ('0'+n).slice(-2);}
+function nowStr(){var t=new Date();return pad2(t.getHours())+':'+pad2(t.getMinutes())+':'+pad2(t.getSeconds());}
+function startAuto(){
+  if(autoTimer)clearInterval(autoTimer);
+  autoTimer=setInterval(autoTick,5*60*1000);
+  var el=document.getElementById('autoStat'); if(el)el.textContent='🟢 自动更新已开启（每5分钟·天气实时）';
+}
+function autoTick(){
+  refreshWeather();
+  if(window.__intelSource!=='local')checkCloudUpdate();
+  var el=document.getElementById('autoStat'); if(el)el.textContent='🟢 自动更新中 · 上次检查 '+nowStr();
+}
+// ===== 中央气象台实时源（自动更新：气象预警）=====
+var NMC_AL='https://www.nmc.cn/rest/findAlarm?pageNo=1&pageSize=20';
+// 后端代理路径（同源，无跨域问题）
+var PROXY_AL='/api/nmc/alarms';
+function fetchNMC(){ fetchAlarms(); }
+function fetchAlarms(){
+  var url=(BACKEND_OK?PROXY_AL:NMC_AL)+'&t='+Date.now();
+  var controller=new AbortController(); var timer=setTimeout(function(){controller.abort();},10000);
+  fetch(url,{signal:controller.signal}).then(function(r){
+    clearTimeout(timer); if(!r.ok)throw new Error('HTTP '+r.status);
+    return r.json();
+  }).then(function(d){
+    var arr=(d&&d.data&&d.data.list)||[];
+    renderAlarms(arr);
+  }).catch(function(e){
+    // 预警失败不阻断，静默
+  });
+}
+function renderAlarms(list){
+  var box=document.getElementById('alertBox'); if(!box)return;
+  var manual=(window.__intel&&window.__intel.alert)||null;
+  var html='';
+  if(manual&&manual.title){
+    html+='<div style="background:linear-gradient(135deg,#c0392b,#e74c3c);color:#fff;padding:14px 18px;border-radius:8px;margin-bottom:12px"><div style="display:flex;align-items:center;gap:8px;margin-bottom:6px"><span style="font-size:1.4rem">🚨</span><b>'+esc(manual.title)+'</b></div><div style="font-size:.85rem;line-height:1.6">'+esc(manual.detail||'')+'</div>'+(manual.url?'<div style="margin-top:6px;font-size:.72rem;opacity:.85"><a href="'+esc(manual.url)+'" target="_blank" style="color:#ffe">查看原文 ↗</a></div>':'')+'</div>';
+  }
+  var keyW=['台风','暴雨','大风','风暴潮','雷电','大雾','寒潮','高温'];
+  var rel=list.filter(function(a){return keyW.some(function(k){return (a.title||'').indexOf(k)>=0;});});
+  var show=rel.length?rel:list.slice(0,8);
+  if(show.length){
+    html+='<div style="background:#EAF4FF;border:1px solid #BBD9F5;border-radius:8px;padding:10px 12px;margin-bottom:12px"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px"><b style="font-size:.82rem;color:#2C6AA0">📡 实时气象预警 · 中央气象台</b><span id="alarmTime" style="font-size:.68rem;color:#999"></span></div>'+show.map(function(a){
+      var hot=/台风|暴雨|大风/.test(a.title||'');
+      return '<div class="card" style="padding:7px 10px;margin-bottom:6px;'+(hot?'border-left:3px solid #C0392B':'')+'"><div class="d" style="font-size:.8rem">'+esc(a.title||'')+'</div><div class="m"><span>⏱ '+(a.issuetime||'')+'</span>'+(a.url?'<a href="https://www.nmc.cn'+esc(a.url)+'" target="_blank">查看 ↗</a>':'')+'</div></div>';
+    }).join('')+'</div>';
+    var t=document.getElementById('alarmTime'); if(t)t.textContent='更新 '+nowStr();
+  }
+  box.style.display=html?'block':'none';
+  box.innerHTML=html;
+}
+
+function fetchIntelRemote(){
+  return new Promise(function(resolve,reject){
+    if(BACKEND || BACKEND_OK){
+      apiFetch('/api/intel').then(function(r){if(!r.ok)throw new Error('http');return r.json();}).then(resolve).catch(reject);
+    } else {
+      fetch('intel_data.json?t='+Date.now()).then(function(r){if(!r.ok)throw new Error('http');return r.json();}).then(resolve).catch(reject);
+    }
+  });
+}
+function checkCloudUpdate(){
+  fetchIntelRemote().then(function(d){
+    var cur=window.__intel?JSON.stringify(window.__intel):'';
+    if(JSON.stringify(d)!==cur){renderIntel(d);var el=document.getElementById('autoStat');if(el)el.textContent='🟢 自动更新于 '+nowStr()+'（情报有变化）';}
+  }).catch(function(){});
+}
+
+// ===== 新修订道路对加油站运距影响（高德路线规划）=====
+function drivingDist(org,dest){
+  return amapDrivingRoute(org,dest).then(function(r){return r.distance;}).catch(function(){return null;});
+}
+function depotCoordOf(name){
+  for(var i=0;i<DEPOTS.length;i++){if(DEPOTS[i].n&&name.indexOf(DEPOTS[i].n)>=0)return [DEPOTS[i].lng,DEPOTS[i].lat];}
+  for(var c in CITY_COORD){if(name.indexOf(c)>=0)return [CITY_COORD[c][0],CITY_COORD[c][1]];}
+  return [108.62,23.5];
+}
+function renderRoadImpact(){
+  var box=document.getElementById('roadImpactBox'); if(!box)return;
+  var roads=(window.__intel&&window.__intel.newRoads)?window.__intel.newRoads:FALLBACK.newRoads;
+  if(!roads||!roads.length){box.innerHTML='<div class="hint">暂无新路数据</div>';return;}
+  var html='';
+  roads.forEach(function(r,idx){
+    var saved=r.savedKm||0;
+    var savedTxt=saved<0?('缩短 '+Math.abs(saved)+' km'):(saved>0?('增加 '+saved+' km'):'—');
+    var savedColor=saved<0?'#1B9E3E':'#999';
+    html+='<div class="road-card">';
+    html+='<div class="road-top"><span class="road-name">'+esc(r.name)+'</span><span class="road-st" style="color:'+(r.planned?'#E6A23C':'#1B9E3E')+'">'+esc(r.status)+'</span></div>';
+    html+='<div class="road-cities">途经：'+r.cities.map(esc).join('、')+'</div>';
+    html+='<div class="road-dist"><span>原运距 <b>'+r.origKm+' km</b></span><span>新运距 <b>'+r.newKm+' km</b></span><span style="color:'+savedColor+'">'+savedTxt+'</span></div>';
+    if(r.desc)html+='<div class="road-desc">'+esc(r.desc)+'</div>';
+    html+='<button class="btn sm" style="background:#2C6AA0;margin-top:6px" onclick="computeStationImpact('+idx+')">📐 计算对我加油站影响</button>';
+    html+='<div id="roadImpactDetail'+idx+'" class="road-detail"></div>';
+    html+='</div>';
+  });
+  box.innerHTML=html;
+}
+function computeStationImpact(idx){
+  var roads=(window.__intel&&window.__intel.newRoads)?window.__intel.newRoads:FALLBACK.newRoads;
+  var road=roads[idx]; if(!road)return;
+  var box=document.getElementById('roadImpactDetail'+idx); if(!box)return;
+  box.innerHTML='<div class="hint">读取运距映射表…</div>';
+  DB.loadDistMap(function(dm){
+    var citySet=road.cities.map(function(c){return c.replace(/（[^）]*）/g,'').replace(/\([^)]*\)/g,'');});
+    var affected=[];
+    for(var key in dm){
+      var parts=String(key).split('||'); var depot=parts[0]||'', station=parts[1]||'';
+      var hit=citySet.some(function(c){return station.indexOf(c)>=0;});
+      if(hit&&dm[key]>0)affected.push({depot:depot,station:station,origKm:dm[key]});
+    }
+    if(!affected.length){box.innerHTML='<div class="hint">你的运距映射表中暂无「'+citySet.join('、')+'」城市的加油站。上传运距映射表（数据库管理）后可查看具体影响。</div>';return;}
+    affected=affected.slice(0,15);
+    box.innerHTML='<div class="hint">正在为 '+affected.length+' 个加油站计算修路后运距（高德路线规划）…</div>';
+    var rows=[],done=0,totalSaved=0;
+    function step(i){
+      if(i>=affected.length){renderImpactTable();return;}
+      var a=affected[i];
+      var dcoord=depotCoordOf(a.depot);
+      geoOne(a.station).then(function(sc){if(!sc)sc=depotCoordOf(a.station);return drivingDist(dcoord,sc);}).then(function(m){
+        var newKm=m?+(m/1000).toFixed(1):null;
+        var saved=(newKm!=null)?+(a.origKm-newKm).toFixed(1):null;
+        if(saved!=null)totalSaved+=saved;
+        rows.push({depot:a.depot,station:a.station,origKm:a.origKm,newKm:newKm,saved:saved});
+        done++;
+        box.innerHTML='<div class="hint">已计算 '+done+'/'+affected.length+' …</div>';
+        setTimeout(function(){step(i+1);},250);
+      }).catch(function(){rows.push({depot:a.depot,station:a.station,origKm:a.origKm,newKm:null,saved:null});done++;box.innerHTML='<div class="hint">已计算 '+done+'/'+affected.length+' …</div>';setTimeout(function(){step(i+1);},250);});
+    }
+    function renderImpactTable(){
+      var html='<table class="impact-tb"><thead><tr><th>加油站</th><th>油库</th><th>原运距</th><th>修路后</th><th>缩短</th></tr></thead><tbody>';
+      rows.forEach(function(r){
+        var sc=(r.saved!=null&&r.saved>0)?'color:#1B9E3E;font-weight:700':'color:#999';
+        html+='<tr><td>'+esc(r.station)+'</td><td>'+esc(r.depot)+'</td><td>'+r.origKm+' km</td><td>'+(r.newKm!=null?r.newKm+' km':'—')+'</td><td style="'+sc+'">'+(r.saved!=null?(r.saved>0?'−'+r.saved:'+'+(-r.saved)):'—')+'</td></tr>';
+      });
+      html+='</tbody></table>';
+      html+='<div style="font-size:.74rem;margin-top:6px;color:#3A5C4A">共 '+rows.length+' 个加油站，按当前路线合计 '+(totalSaved>0?'缩短 ':'增加 ')+Math.abs(totalSaved).toFixed(1)+' km'+(road.planned?'（在建/规划路：通车后实时重算）':'')+(truckMode?' ｜ 🚛 油罐车（按小车导航）':'')+'</div>';
+      box.innerHTML=html;
+    }
+    step(0);
+  });
+}
+
+// ===== 油库标记 =====
+var depotOn=true, annotateOn=false, DEPOTS=[], cityOn=true, depotDragMode=false;
+var CITY_COORD={'南宁':[108.366,22.817],'柳州':[109.416,24.329],'桂林':[110.299,25.274],'梧州':[111.297,23.474],'北海':[109.120,21.481],'防城港':[108.345,21.614],'钦州':[108.653,21.978],'贵港':[109.602,23.093],'玉林':[110.188,22.631],'百色':[106.616,23.897],'贺州':[111.552,24.414],'河池':[108.062,24.697],'来宾':[109.229,23.739],'崇左':[107.353,22.404],'兴业':[109.85,22.68],'江门':[113.095,22.578],'佛山':[113.122,23.028],'东莞':[113.752,23.041],'永州':[111.616,26.458]};
+// ===== 油库数据：来自你的坐标文件（油库位置_已更新.xlsx），由 build_my_data.py 生成 =====
+var DEPOT_PRESET = (typeof MY_DEPOTS!=="undefined" && MY_DEPOTS.length) ? MY_DEPOTS : [];
+// ===== 自定义添加的油库/加油站（用户自行增删，持久化） =====// ===== 自定义添加的油库/加油站（用户自行增删，持久化） =====
+var CUSTOM_DEPOTS=[];
+function loadCustomDepots(){
+  function apply(arr){
+    if(Array.isArray(arr)&&arr.length){CUSTOM_DEPOTS=arr;renderCustomDepotList();}
+    else{try{var a=JSON.parse(localStorage.getItem('intel_custom_depots')||'null');if(Array.isArray(a)&&a.length){CUSTOM_DEPOTS=a;renderCustomDepotList();}}catch(e){}}
+  }
+  if(BACKEND||BACKEND_OK){
+    apiFetch('/api/customDepots').then(function(r){if(!r.ok)throw new Error('http');return r.json();}).then(function(arr){apply(arr);}).catch(function(){idb2Get('customDepots',function(o){if(o&&Array.isArray(o))apply(o);else apply(null);});});
+  } else {
+    idb2Get('customDepots',function(o){if(o&&Array.isArray(o))apply(o);else apply(null);});
+  }
+}
+function saveCustomDepots(){
+  try{localStorage.setItem('intel_custom_depots',JSON.stringify(CUSTOM_DEPOTS));}catch(e){}
+  idb2Put('customDepots',CUSTOM_DEPOTS);
+  if(BACKEND||BACKEND_OK){apiFetch('/api/customDepots',{method:'PUT',body:JSON.stringify(CUSTOM_DEPOTS)}).catch(function(){});}
+  renderCustomDepotList();
+}
+function renderCustomDepotList(){
+  var el=document.getElementById('customDepotList');
+  if(!el)return;
+  if(!CUSTOM_DEPOTS.length){el.innerHTML='<div style="color:#999;font-size:.72rem;padding:2px 0">暂无自建油库/加油站，点上方「➕ 添加」可新增</div>';return;}
+  el.innerHTML=CUSTOM_DEPOTS.map(function(d,i){
+    var typeLabel=d.t==='self'?'🏭自有':d.t==='mutual'?'🏭互供':d.t==='external'?'📦外采':'⛽站';
+    return '<div style="display:flex;justify-content:space-between;align-items:center;padding:3px 6px;border-bottom:1px solid #f0f0f0">'+
+      '<span>'+typeLabel+' <b>'+esc(d.n)+'</b> <span style="color:#999;font-size:.68rem">('+esc(d.c)+')</span></span>'+
+      '<button class="btn sm" style="background:#e74c3c;color:#fff;font-size:.65rem;padding:1px 7px" onclick="removeCustomDepot('+i+')">删除</button>'+
+      '</div>';
+  }).join('');
+}
+function openAddDepotModal(){
+  document.getElementById('addDepotName').value='';
+  document.getElementById('addDepotCity').value='';
+  document.getElementById('addDepotAddr').value='';
+  document.getElementById('addDepotMsg').innerHTML='';
+  document.querySelectorAll('input[name="addDepotType"]').forEach(function(r){r.checked=r.value==='self';});
+  updateAddDepotTypeStyle();
+  document.getElementById('addDepotModal').style.display='flex';
+  setTimeout(function(){document.getElementById('addDepotName').focus();},50);
+}
+function closeAddDepotModal(){document.getElementById('addDepotModal').style.display='none';}
+function updateAddDepotTypeStyle(){
+  document.getElementById('lblTypeSelf').style.borderColor=document.querySelector('input[name="addDepotType"][value="self"]').checked?'#C0392B':'var(--bd)';
+  document.getElementById('lblTypeSelf').style.background=document.querySelector('input[name="addDepotType"][value="self"]').checked?'#fef0f0':'transparent';
+  document.getElementById('lblTypeMutual').style.borderColor=document.querySelector('input[name="addDepotType"][value="mutual"]').checked?'#E67E22':'var(--bd)';
+  document.getElementById('lblTypeMutual').style.background=document.querySelector('input[name="addDepotType"][value="mutual"]').checked?'#fef8f0':'transparent';
+  var extEl=document.getElementById('lblTypeExternal');
+  if(extEl){extEl.borderColor=document.querySelector('input[name="addDepotType"][value="external"]').checked?'#8E44AD':'var(--bd)';extEl.background=document.querySelector('input[name="addDepotType"][value="external"]').checked?'#f5eef8':'transparent';}
+  document.getElementById('lblTypeStation').style.borderColor=document.querySelector('input[name="addDepotType"][value="station"]').checked?'#2C6AA0':'var(--bd)';
+  document.getElementById('lblTypeStation').style.background=document.querySelector('input[name="addDepotType"][value="station"]').checked?'#f0f5fe':'transparent';
+}
+document.addEventListener('DOMContentLoaded',function(){
+  // 监听类型radio变化
+  document.querySelectorAll('input[name="addDepotType"]').forEach(function(r){
+    r.addEventListener('change',updateAddDepotTypeStyle);
+  });
+});
+function confirmAddDepot(){
+  var name=document.getElementById('addDepotName').value.trim();
+  var city=document.getElementById('addDepotCity').value;
+  var addr=document.getElementById('addDepotAddr').value.trim();
+  var type=(document.querySelector('input[name="addDepotType"]:checked')||{}).value||'self';
+  var msgEl=document.getElementById('addDepotMsg');
+  if(!name){msgEl.style.color='#C0392B';msgEl.textContent='❌ 请填写名称';document.getElementById('addDepotName').focus();return;}
+  if(!city){msgEl.style.color='#C0392B';msgEl.textContent='❌ 请选择城市';return;}
+  // 检查重名
+  var allNames=DEPOTS.map(function(d){return d.n;}).concat(CUSTOM_DEPOTS.map(function(d){return d.n;}));
+  if(allNames.indexOf(name)>=0){msgEl.style.color='#C0392B';msgEl.textContent='❌ 已存在同名项：'+name;return;}
+  msgEl.style.color='#2980b9';msgEl.textContent='⏳ 正在解析地址…';
+  function finishAdd(lng,lat){
+    var newItem={n:name,c:city,t:type,lng:lng,lat:lat};
+    CUSTOM_DEPOTS.push(newItem);
+    saveCustomDepots();
+    // 立即合并到DEPOTS并重绘
+    buildDepots(DEPOT_PRESET.concat(CUSTOM_DEPOTS),loadDepotCoords());
+    renderDepots();
+    initCalDepotSel(); // 刷新下拉列表
+    closeAddDepotModal();
+    // 地图定位到新标记
+    if(mapOK){map.setView([lat,lng],13);}
+    var typeLabel=type==='self'?'自有油库':(type==='mutual'?'互供油源':(type==='external'?'外采库':'以站代库'));
+    alert('✅ 已添加：'+name+'\n类型：'+typeLabel+'\n位置：'+lat.toFixed(4)+', '+lng.toFixed(4)+'\n\n数据已保存，刷新不丢失。');
+  }
+  if(addr){
+    geoOne(addr).then(function(ll){
+      if(!ll){msgEl.style.color='#E67E22';msgEl.textContent='⚠️ 地址解析失败，使用城市中心坐标';finishAdd(CITY_COORD[city][0],CITY_COORD[city][1]);return;}
+      finishAdd(ll[0],ll[1]);
+    }).catch(function(){msgEl.style.color='#E67E22';msgEl.textContent='⚠️ 解析异常，使用城市中心坐标';finishAdd(CITY_COORD[city][0],CITY_COORD[city][1]);});
+  } else {
+    if(CITY_COORD[city])finishAdd(CITY_COORD[city][0],CITY_COORD[city][1]);
+    else{msgEl.style.color='#C0392B';msgEl.textContent='❌ 城市坐标缺失';return;}
+  }
+}
+function removeCustomDepot(idx){
+  if(idx<0||idx>=CUSTOM_DEPOTS.length)return;
+  var d=CUSTOM_DEPOTS[idx];
+  if(!confirm('确认删除「'+d.n+'」？\n\n删除后地图上该标记将移除，此操作不可撤销。'))return;
+  CUSTOM_DEPOTS.splice(idx,1);
+  saveCustomDepots();
+  buildDepots(DEPOT_PRESET.concat(CUSTOM_DEPOTS),loadDepotCoords());
+  renderDepots();
+  initCalDepotSel();
+}
+var depotLayer=null, depotMarks=[], cityLayer=null;
+function loadDepotCoords(){try{return JSON.parse(localStorage.getItem('intel_depot_coords')||'{}');}catch(e){return {};}}
+// 油库改名后，将已校准坐标从旧名迁移到新名（避免丢位置）
+var DEPOT_NAME_MIGRATION={'中石化互供库':'南宁屯里油库（中石化互供）','中海油互供库':'北海铁山港油库（中海油互供）'};
+function migrateDepotCoordsNames(){
+  try{
+    var o=JSON.parse(localStorage.getItem('intel_depot_coords')||'{}');
+    var changed=false;
+    Object.keys(DEPOT_NAME_MIGRATION).forEach(function(oldName){
+      var newName=DEPOT_NAME_MIGRATION[oldName];
+      if(o[oldName]&&!o[newName]){o[newName]=o[oldName];delete o[oldName];changed=true;}
+    });
+    if(changed){try{localStorage.setItem('intel_depot_coords',JSON.stringify(o));}catch(e){} idb2Put('depotCoords',o);}
+  }catch(e){}
+}
+function saveDepotCoords(){var o={};DEPOTS.forEach(function(d){o[d.n]={lng:d.lng,lat:d.lat,t:d.t};});try{localStorage.setItem('intel_depot_coords',JSON.stringify(o));}catch(e){} idb2Put('depotCoords',o); if(BACKEND||BACKEND_OK){apiFetch('/api/depotCoords',{method:'PUT',body:JSON.stringify(o)}).catch(function(){});}}
+function syncDepotCoordsFromDB(){
+  function applySaved(o){ if(o&&typeof o==='object'&&Object.keys(o).length){
+    Object.keys(DEPOT_NAME_MIGRATION).forEach(function(oldName){var nw=DEPOT_NAME_MIGRATION[oldName];if(o[oldName]&&!o[nw]){o[nw]=o[oldName];delete o[oldName];}});
+    buildDepots(DEPOT_PRESET.concat(CUSTOM_DEPOTS),o);renderDepots();} }
+  if(BACKEND || BACKEND_OK){
+    apiFetch('/api/depotCoords').then(function(r){if(!r.ok)throw new Error('http');return r.json();}).then(function(o){applySaved(o);}).catch(function(){idb2Get('depotCoords',applySaved);});
+  } else {
+    idb2Get('depotCoords',applySaved);
+  }
+}
+function initCalDepotSel(){
+  var sel=document.getElementById('calDepotSel'); if(!sel)return;
+  sel.innerHTML=DEPOTS.map(function(d){return '<option value="'+esc(d.n)+'">'+esc(d.n)+'</option>';}).join('');
+}
+var calPreviewMarker=null, calPreviewIdx=-1;
+function calibrateByAddress(){
+  var sel=document.getElementById('calDepotSel'); var name=sel?sel.value:'';
+  var addr=document.getElementById('calAddr').value.trim();
+  if(!name){alert('请先选择油库');return;}
+  if(!addr){alert('请输入该油库的真实地址或地名');return;}
+  // 清除上一次预览
+  if(calPreviewMarker&&mapOK){tRemove(calPreviewMarker);calPreviewMarker=null;}
+  document.getElementById('calConfirmBox').innerHTML='<div class="hint" style="color:#E67E22">正在解析地址…</div>';
+  geoOne(addr).then(function(ll){
+    if(!ll){document.getElementById('calConfirmBox').innerHTML='';alert('地址解析失败，请换更具体的地址，如：城市+区+道路名');return;}
+    var idx=-1; for(var i=0;i<DEPOTS.length;i++){if(DEPOTS[i].n===name){idx=i;break;}}
+    if(idx<0){document.getElementById('calConfirmBox').innerHTML='';alert('未找到油库：'+name);return;}
+    calPreviewIdx=idx;
+    // 在地图上显示预览位置（蓝色标记）
+    if(mapOK){
+      calPreviewMarker=mkA(ll[1],ll[0],'<div style="background:#3498db;color:#fff;border-radius:50%;width:22px;height:22px;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:bold;border:2px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,.3)">?</div>',{offset:new AMap.Pixel(-11,-11)});
+      map.setZoomAndCenter(14,[ll[0],ll[1]]);
+    }
+    // 显示确认按钮区域
+    document.getElementById('calConfirmBox').innerHTML=
+      '<div style="margin-top:6px;padding:8px;background:#f0f7ff;border:1px solid #b3d9ff;border-radius:5px">'+
+      '<div style="font-size:.76rem;color:#333;margin-bottom:6px"><b>'+esc(name)+'</b> 预览定位：<span style="color:#2980b9">'+ll[1].toFixed(4)+', '+ll[0].toFixed(4)+'</span></div>'+
+      '<div style="display:flex;gap:6px">'+
+      '<button class="btn sm" style="flex:1;background:#27ae60;color:#fff" onclick="confirmCalibrate()">✅ 确认并保存</button>'+
+      '<button class="btn sm" style="flex:1;background:#e74c3c;color:#fff" onclick="cancelCalibrate()">✗ 取消</button>'+
+      '</div></div>';
+  }).catch(function(){document.getElementById('calConfirmBox').innerHTML='';alert('解析失败，请稍后重试');});
+}
+function confirmCalibrate(){
+  if(calPreviewIdx<0||!calPreviewMarker)return;
+  var d=DEPOTS[calPreviewIdx];
+  var pos=calPreviewMarker.getPosition();
+  d.lng=pos.lng; d.lat=pos.lat;
+  saveDepotCoords(); renderDepots();
+  if(calPreviewMarker&&mapOK){tRemove(calPreviewMarker);calPreviewMarker=null;}
+  calPreviewIdx=-1;
+  document.getElementById('calConfirmBox').innerHTML='<div style="padding:4px 8px;background:#d5f5e3;border-radius:4px;font-size:.76rem;color:#27ae60">✅ 已确认保存：'+esc(d.n)+'</div>';
+}
+function cancelCalibrate(){
+  if(calPreviewMarker&&mapOK){tRemove(calPreviewMarker);calPreviewMarker=null;}
+  calPreviewIdx=-1;
+  document.getElementById('calConfirmBox').innerHTML='';
+}
+function cityOfName(n){if(!n)return '';var k=Object.keys(CITY_COORD);for(var i=0;i<k.length;i++){if(n.indexOf(k[i])>=0)return k[i];}var sp={'柳江':'柳州','新恒丰':'梧州','城西':'贺州','石化直发':'钦州'};for(var s in sp){if(n.indexOf(s)>=0)return sp[s];}return '';}
+function buildDepots(preset,saved){
+  saved=saved||loadDepotCoords();
+  DEPOTS=preset.map(function(p){
+    var coord;
+    if(saved[p.n])coord=saved[p.n];
+    else if(p.lng&&p.lat)coord={lng:p.lng,lat:p.lat,t:p.t};
+    else if(CITY_COORD[p.c])coord={lng:CITY_COORD[p.c][0],lat:CITY_COORD[p.c][1],t:p.t};
+    else if(CITY_COORD['南宁'])coord={lng:CITY_COORD['南宁'][0],lat:CITY_COORD['南宁'][1],t:p.t};
+    else coord={lng:108.62,lat:23.5,t:p.t};
+    return {n:p.n,lng:coord.lng,lat:coord.lat,t:coord.t||p.t};
+  });
+}
+function renderDepots(){
+  if(!mapOK)return;
+  if(depotLayer){depotLayer.forEach(tRemove);}
+  depotLayer=[]; depotMarks=[];
+  if(!depotOn){return;}
+  DEPOTS.forEach(function(d,di){
+    var isSelf=d.t==='self', isStation=d.t==='station', isExternal=d.t==='external';
+    var depotColor=isSelf?'#C0392B':(isStation?'#2C6AA0':(isExternal?'#8E44AD':'#E67E22'));
+    var depotIcon=isStation?'⛽':(isExternal?'📦':'🏭');
+    var iconHtml="<div class=\"depot-icon\" style=\"color:"+depotColor+(depotDragMode?";cursor:grab;transform:scale(1.3);text-shadow:0 0 6px rgba(231,76,60,.6)":"")+"\">"+depotIcon+"</div>";
+    var mk=mkA(d.lat,d.lng,iconHtml,{draggable:depotDragMode,offset:new AMap.Pixel(-9,-9),zIndex:depotDragMode?300:100});
+    mk.depotData=d; mk.depotIdx=di;
+    if(depotDragMode){
+      mk.on('dragend',function(){
+        var pos=mk.getPosition();
+        var dd=mk.depotData;
+        var oldLng=dd.lng.toFixed(4),oldLat=dd.lat.toFixed(4);
+        dd.lng=pos.lng; dd.lat=pos.lat;
+        saveDepotCoords();
+        if(depotLayer[di*2+1]) depotLayer[di*2+1].setPosition(pos);
+        showDragToast(dd.n,pos.lng.toFixed(4)+', '+pos.lat.toFixed(4));
+        if(startLL&&Math.abs(startLL[0]-oldLng)<0.001&&Math.abs(startLL[1]-oldLat)<0.001){
+          startLL=[pos.lng,pos.lat];
+          if(startMarker)startMarker.setPosition(pos);
+        }
+      });
+    }
+    mk.on('click',function(){
+      if(depotDragMode)return; // 拖拽模式下点击不设起点
+      if(measureMode)return; // 测距模式不触发油库点击
+      startLL=[d.lng,d.lat];
+      document.getElementById('routePick').textContent='✓ 起点已设为：'+d.n+'（已在地图标记 🟢）';
+      document.getElementById('routeStart').value=d.n;
+      if(mapOK){tRemove(startMarker);startMarker=mkA(d.lat,d.lng,'🟢',{offset:new AMap.Pixel(-13,-13)});mkPop(startMarker,'<b>起点</b><br>'+esc(d.n));}
+      if(endLL)runDriving(startLL,endLL);
+    });
+    var typeLabel=isSelf?'自有':(isStation?'以站代库':(isExternal?'外采':'互供'));
+    var tipHtml='<b>'+esc(d.n)+'</b>';
+    if(d.rail)tipHtml+='<br>🚂 铁路到站：'+esc(d.rail);
+    if(d.addr)tipHtml+='<br>📍 '+esc(d.addr.substring(0,40));
+    tipHtml+='<br><span style="color:'+depotColor+'">'+typeLabel+'</span>'+(depotDragMode?' ☝️ 拖我到精确位置':'');
+    mkPop(mk,tipHtml);
+    var lblHtml='<div style="background:'+(depotDragMode?'rgba(231,76,60,.9)':'rgba(255,255,255,.85)')+';border:1px solid '+(depotDragMode?'#e74c3c':depotColor)+';padding:1px 5px;border-radius:4px;font-size:11px;color:'+(depotDragMode?'#fff':'#333')+'">'+esc(d.n)+(depotDragMode?' ✋':'')+'</div>';
+    var lbl=mkA(d.lat,d.lng,lblHtml,{offset:new AMap.Pixel(-15,-9),zIndex:depotDragMode?301:90});
+    depotMarks.push(mk);
+    depotLayer.push(mk); depotLayer.push(lbl);
+  });
+  var dc=document.getElementById('mapDepotCnt'); if(dc)dc.textContent=DEPOTS.length;
+}
+// 拖拽保存后的浮动提示
+var dragToastTimer=null;
+function showDragToast(name,coord){
+  var el=document.getElementById('dragToast');
+  if(!el){
+    el=document.createElement('div');
+    el.id='dragToast';
+    el.style.cssText="position:fixed;bottom:20px;left:50%;transform:translateX(-50%);z-index:9999;background:#27ae60;color:#fff;padding:8px 16px;border-radius:8px;font-size:.82rem;box-shadow:0 4px 12px rgba(0,0,0,.25);transition:opacity .3s;pointer-events:none";
+    document.body.appendChild(el);
+  }
+  el.textContent='✅ '+name+' 已定位到 '+coord;
+  el.style.opacity='1';
+  clearTimeout(dragToastTimer);
+  dragToastTimer=setTimeout(function(){el.style.opacity='0';},2500);
+}
+function toggleDepotDrag(){
+  if(!mapOK){alert('地图未加载，无法使用拖拽校准');return;}
+  depotDragMode=!depotDragMode;
+  var btn=document.getElementById('btnDrag');
+  if(btn){
+    btn.classList.toggle('on',depotDragMode);
+    btn.textContent=depotDragMode?'✋ 停止拖拽':'✋ 拖拽定位';
+  }
+  // 同时关闭标注模式和校准模式（互斥）
+  if(depotDragMode&&annotateOn)toggleAnnotate();
+  if(depotDragMode&&userMarkMode)toggleUserMarkMode();
+  renderDepots(); // 重绘以应用draggable
+  if(depotDragMode){
+    map.setStatus({dragEnable:false, scrollWheel:false, doubleClickZoom:false});
+    alert('✋ 拖拽模式已开启\n\n操作方式：\n1. 先点右上角 🛰️ 卫星 切换卫星图\n2. 直接拖动 🏭 标记到白色油罐上方\n3. 松手即自动保存（刷新不丢）\n\n完成后点「停止拖拽」退出');
+  }else {
+    map.setStatus({dragEnable:true, scrollWheel:true, doubleClickZoom:true});
+  }
+}
+function renderCities(){
+  if(!mapOK)return;
+  if(cityLayer){cityLayer.forEach(tRemove);}
+  cityLayer=[];
+  Object.keys(CITY_COORD).forEach(function(c){
+    var x=CITY_COORD[c];
+    var mk=mkA(x[1],x[0],'<span style="background:rgba(255,255,255,.85);border:1px solid #ccc;padding:1px 5px;border-radius:4px;font-size:11px;color:#333;white-space:nowrap">'+c+'</span>',{offset:new AMap.Pixel(-15,-10),zIndex:80});
+    cityLayer.push(mk);
+  });
+  if(!cityOn)cityLayer.forEach(function(m){tRemove(m);});
+}
+function fitDepots(){if(!mapOK||!DEPOTS.length)return;var ps=DEPOTS.map(function(d){return [d.lng,d.lat];});tFit(ps);}
+function toggleAnnotate(){
+  if(!mapOK){alert('地图未加载，无法校准');return;}
+  if(userMarkMode){userMarkMode=false;map.off('click',userMarkClick);var ba=document.getElementById('btnMarkAdd');if(ba){ba.classList.remove('on');ba.textContent='✏️ 标';}}
+  if(depotDragMode)toggleDepotDrag();
+  annotateOn=!annotateOn;
+  if(annotateOn){map.on('click',annoClick);alert('📍 校准模式：点击地图设置某个油库位置');}
+  else map.off('click',annoClick);
+}
+var annoHandle=null;
+function annoClick(e){
+  var lng=e.lnglat.getLng(),lat=e.lnglat.getLat();
+  if(!DEPOTS.length){alert('油库为空');return;}
+  var list=DEPOTS.map(function(d,i){return (i+1)+'. '+d.n+'（'+d.lng.toFixed(3)+','+d.lat.toFixed(3)+'）';}).join('\n');
+  var inp=prompt('点击位置：'+lng.toFixed(4)+', '+lat.toFixed(4)+'\n输入油库编号：\n'+list);
+  if(inp==null)return;
+  var idx=parseInt(inp,10)-1;
+  if(isNaN(idx)||!DEPOTS[idx]){alert('编号无效');return;}
+  DEPOTS[idx].lng=lng;DEPOTS[idx].lat=lat;saveDepotCoords();renderDepots();
+  map.setZoomAndCenter(12,[lng,lat]);
+  alert('已更新并保存：'+DEPOTS[idx].n+'（已落点，刷新/重开后仍生效）');
+}
+
+// ===== 自定义地图标注（点击地图添加，本地+后端同步，刷新/换端不丢）=====
+var userMarkOn=true, userMarkMode=false, USER_MARKS=[], userMarkLayer=null;
+var pendingMark=null; // {lng,lat} 等待弹窗确认
+function loadUserMarks(){
+  if(BACKEND||BACKEND_OK){
+    apiFetch('/api/userMarks').then(function(r){if(!r.ok)throw new Error('http');return r.json();}).then(function(arr){applyUserMarks(arr);}).catch(function(){idb2Get('userMarks',function(o){if(o)applyUserMarks(o);else loadUserMarksLS();});});
+  } else {
+    idb2Get('userMarks',function(o){ if(o)applyUserMarks(o); else loadUserMarksLS(); });
+  }
+}
+function loadUserMarksLS(){ try{ var a=JSON.parse(localStorage.getItem('intel_user_marks')||'null'); if(a)applyUserMarks(a); }catch(e){} }
+function applyUserMarks(arr){ if(!Array.isArray(arr))return; USER_MARKS=arr; renderUserMarks(); }
+function saveUserMarks(){
+  try{localStorage.setItem('intel_user_marks',JSON.stringify(USER_MARKS));}catch(e){}
+  idb2Put('userMarks',USER_MARKS);
+  if(BACKEND||BACKEND_OK){apiFetch('/api/userMarks',{method:'PUT',body:JSON.stringify(USER_MARKS)}).catch(function(){});}
+}
+function toggleUserMarkLayer(){
+  if(!mapOK)return;
+  userMarkOn=!userMarkOn;
+  document.getElementById('btnMark').classList.toggle('on',userMarkOn);
+  if(userMarkLayer){ userMarkLayer.forEach(function(m){ if(userMarkOn)m.setMap(map); else tRemove(m); }); }
+}
+function toggleUserMarkMode(){
+  if(!mapOK){alert('地图未加载');return;}
+  // 与油库校准模式互斥
+  if(annotateOn){annotateOn=false;map.off('click',annoClick);document.getElementById('btnAnno')&&document.getElementById('btnAnno').classList.remove('on');}
+  if(depotDragMode)toggleDepotDrag();
+  userMarkMode=!userMarkMode;
+  var btn=document.getElementById('btnMarkAdd');
+  if(userMarkMode){ map.on('click',userMarkClick); btn.classList.add('on'); btn.textContent='✏️ 退出'; }
+  else { map.off('click',userMarkClick); btn.classList.remove('on'); btn.textContent='✏️ 标'; }
+}
+function userMarkClick(e){
+  if(!userMarkMode)return;
+  var lng=e.lnglat.getLng(),lat=e.lnglat.getLat();
+  pendingMark={lng:lng,lat:lat};
+  document.getElementById('markCoord').textContent='坐标：'+lat.toFixed(4)+', '+lng.toFixed(4);
+  document.getElementById('markTitle').value='';
+  document.getElementById('markNote').value='';
+  var m=document.getElementById('markModal'); m.style.display='flex';
+  setTimeout(function(){document.getElementById('markTitle').focus();},50);
+}
+function closeMarkModal(){ document.getElementById('markModal').style.display='none'; pendingMark=null; }
+function confirmAddMark(){
+  if(!pendingMark)return;
+  var title=document.getElementById('markTitle').value.trim();
+  var note=document.getElementById('markNote').value.trim();
+  if(!title){alert('请填写标注标题');document.getElementById('markTitle').focus();return;}
+  var id='m'+Date.now()+Math.floor(Math.random()*1000);
+  USER_MARKS.push({id:id,lng:pendingMark.lng,lat:pendingMark.lat,title:title,note:note,t:new Date().toISOString().slice(0,16).replace('T',' ')});
+  saveUserMarks(); renderUserMarks();
+  closeMarkModal();
+  map.setZoomAndCenter(13,[pendingMark.lng,pendingMark.lat]);
+  alert('✅ 标注已保存（本地+后端同步，刷新/换设备不丢）');
+}
+function deleteUserMark(id){
+  if(!confirm('确认删除该标注？'))return;
+  USER_MARKS=USER_MARKS.filter(function(m){return m.id!==id;});
+  saveUserMarks(); renderUserMarks();
+}
+function renderUserMarks(){
+  if(!mapOK)return;
+  if(userMarkLayer){userMarkLayer.forEach(tRemove);}
+  userMarkLayer=[];
+  if(!userMarkOn)return;
+  USER_MARKS.forEach(function(m){
+    var pop='<div style="font-size:.8rem;max-width:220px"><b>📍 '+esc(m.title)+'</b>'+(m.note?'<br><span style="color:#555">'+esc(m.note)+'</span>':'')+(m.t?'<br><span style="color:#999;font-size:.68rem">'+esc(m.t)+'</span>':'')+'<br><button class="btn sm" style="background:#e74c3c;color:#fff;margin-top:6px" onclick="deleteUserMark(\''+m.id+'\')">🗑 删除</button></div>';
+    var mk=mkA(m.lat,m.lng,'<div style="background:#27ae60;color:#fff;border-radius:50% 50% 50% 0;transform:rotate(-45deg);width:20px;height:20px;display:flex;align-items:center;justify-content:center;font-size:10px;border:2px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,.3)">📍</div>',{offset:new AMap.Pixel(-10,-20),zIndex:150});
+    mkPop(mk,pop);
+    userMarkLayer.push(mk);
+  });
+}
+
+// ===== 地图点选测距（高德 REST API 驾车路线规划，返回真实道路距离） =====
+var measureMode=false;
+var _measureStart=null;   // [lat,lng] 起点
+var _measureEnd=null;     // [lat,lng] 终点
+var _measureMarkers=[];   // 起终点标记
+var _measureClickHandler=null;
+// 直线距离估算（km），驾车规划失败兜底
+function geoDist(lat1,lon1,lat2,lon2){
+  var R=6371,dLat=(lat2-lat1)*Math.PI/180,dLon=(lon2-lon1)*Math.PI/180;
+  var a=Math.sin(dLat/2)*Math.sin(dLat/2)+Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLon/2)*Math.sin(dLon/2);
+  return R*2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a));
+}
+function setRulerB(txt){ var b=document.getElementById('btnRuler'); if(b)b.textContent=txt; var b2=document.getElementById('btnRuler2'); if(b2)b2.textContent=txt; }
+// 选点道路测距：点击地图依次选点，相邻两点用高德 REST API 计算真实驾车道路距离并累加
+var _measurePts=[];          // [[lat,lng],...] 选择的点（按点击顺序）
+var _measureLines=[];        // 已绘制的驾车路线折线
+var _measureTotalKm=0;       // 累计道路距离(km)
+var _measureQueue=[];        // 待计算的路段队列（序列化避免并发冲突）
+var _measureCalcIng=false;   // 是否正在请求道路规划
+var _measureAnyFallback=false;// 是否有路段走了直线估算兜底
+function toggleMeasureMode(){
+  if(!mapOK){alert('地图未加载');return;}
+  // 与其他地图点击模式互斥
+  if(userMarkMode)toggleUserMarkMode();
+  if(annotateOn){annotateOn=false;map.off('click',annoClick);var ba=document.getElementById('btnAnno');if(ba)ba.classList.remove('on');}
+  if(depotDragMode)toggleDepotDrag();
+  measureMode=!measureMode;
+  if(measureMode){
+    // 先清除旧轨迹（必须先 tRemove 再重置数组，否则旧 Polyline 残留地图上）
+    _measureMarkers.forEach(tRemove); _measureLines.forEach(tRemove);
+    _measurePts=[]; _measureLines=[]; _measureTotalKm=0; _measureQueue=[]; _measureCalcIng=false; _measureAnyFallback=false; _measureMarkers=[];
+    if(typeof map.on==='function') map.on('click',measureClick);
+    document.getElementById('btnRuler').classList.add('on');
+    document.getElementById('btnRuler2').classList.add('on');
+    setRulerB('📏 选点中…');
+    document.getElementById('measureResult').innerHTML='<div class="hint">🛣️ <b>道路测距</b>：点击地图选择<b>起点</b>，再点击选择<b>下一站</b>，系统自动计算相邻两点的<b>真实驾车道路距离</b>并累加。可连续点击多个点，点「重新测量」清空。</div>';
+    var ms=document.getElementById('measureStatus');
+    if(ms){ms.innerHTML='<span style="color:#3A5C4A">✅ 已进入道路测距模式，请点击地图选点</span>';ms.style.display='';}
+  } else {
+    stopAMapMeasure();
+    document.getElementById('btnRuler').classList.remove('on');
+    document.getElementById('btnRuler2').classList.remove('on');
+    setRulerB('📏 开始测距');
+  }
+}
+function measureClick(e){
+  if(!measureMode)return;
+  var lat=e.lnglat.getLat(), lng=e.lnglat.getLng();
+  var idx=_measurePts.length;
+  _measurePts.push([lat,lng]);
+  var isStart = idx===0;
+  var html='<div style="background:'+(isStart?'#3A5C4A':'#C0392B')+';color:#fff;border:2px solid #fff;border-radius:50%;width:18px;height:18px;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:bold;box-shadow:0 0 4px rgba(0,0,0,.4)">'+(isStart?'起':(idx+1))+'</div>';
+  var mk=mkA(lat,lng,html,{offset:new AMap.Pixel(-9,-9),zIndex:300});
+  _measureMarkers.push(mk);
+  if(idx>=1){
+    measureSegRoad(_measurePts[idx-1], _measurePts[idx]);
+  }else{
+    var ms=document.getElementById('measureStatus');
+    if(ms){ms.innerHTML='<span style="color:#3A5C4A">✅ 已选起点，请点击下一个点</span>';ms.style.display='';}
+  }
+}
+function measureSegRoad(p1,p2){
+  _measureQueue.push([p1,p2]);
+  if(!_measureCalcIng) _pumpMeasureQueue();
+}
+function _pumpMeasureQueue(){
+  if(_measureQueue.length===0){_measureCalcIng=false;return;}
+  _measureCalcIng=true;
+  var seg=_measureQueue.shift();
+  var ms=document.getElementById('measureStatus');
+  if(ms){ms.innerHTML='<span style="color:#E67E22">⏳ 正在规划道路路线（'+_measurePts.length+' 个点）…</span>';ms.style.display='';}
+  // 使用 REST API（与 amapDrivingRoute 同模式，避免 JSAPI AMap.Driving 在当前环境失败）
+  var p1=seg[0], p2=seg[1];
+  var url='https://restapi.amap.com/v3/direction/driving?origin='+p1[1]+','+p1[0]+'&destination='+p2[1]+','+p2[0]+'&key='+AMAP_KEY+'&extensions=all&strategy=10';
+  fetch(url).then(function(r){return r.json();}).then(function(d){
+    if(d&&d.route&&d.route.paths&&d.route.paths[0]){
+      var path=d.route.paths[0];
+      var km=parseFloat(path.distance)/1000;
+      // 提取路线坐标：高德 v3/direction/driving 的 steps[].polyline 是明文 "lng,lat;lng,lat;..." 格式
+      var pts=[];
+      // 顶层 polyline 经常不存在，主要靠 steps 拼接
+      if(path.steps && path.steps.length>0){
+        try{
+          path.steps.forEach(function(step){
+            if(step.polyline){
+              step.polyline.split(';').forEach(function(seg){
+                var parts=seg.trim().split(',');
+                if(parts.length>=2){
+                  var lng=parseFloat(parts[0]), lat=parseFloat(parts[1]);
+                  if(!isNaN(lng)&&!isNaN(lat)) pts.push([lat,lng]);
+                }
+              });
+            }
+          });
+        }catch(ee){console.warn('[测距] steps提取失败:',ee);}
+      }
+      // 画路线（沿道路的真实轨迹）— pts 已是 [lat,lng]，addLine 内部会转为 [lng,lat]
+      if(pts.length>=2){
+        var poly=addLine(pts,'#3A5C4A',4,false);
+        _measureLines.push(poly);
+        // 自动适配视野到最新画的路段
+        try{ tFit(pts,16); }catch(e){}
+      }else{
+        console.warn('[测距] 无路径坐标，API响应:', JSON.stringify(d).slice(0,300));
+        addLine([p1,p2],'#E6A23C',4,true);
+        _measureAnyFallback=true;
+      }
+      _measureTotalKm+=km;
+      showMeasureResult(_measureTotalKm,null,_measureAnyFallback);
+    }else{
+      // REST API 也无路线，走直线兜底
+      console.warn('[测距] 驾车路线未找到',d.info,d.infocode);
+      drawSegLine(p1,p2,true);
+    }
+    _pumpMeasureQueue();
+  }).catch(function(err){
+    console.error('[测距] 路线规划请求异常:',err);
+    drawSegLine(p1,p2,true);
+    _pumpMeasureQueue();
+  });
+}
+function drawSegLine(p1,p2,fallback){
+  var poly=addLine([p1,p2], fallback?'#E6A23C':'#3A5C4A', 4, true);
+  _measureLines.push(poly);
+  var km=geoDist(p1[0],p1[1],p2[0],p2[1])*(fallback?1.3:1);
+  if(fallback) _measureAnyFallback=true;
+  _measureTotalKm+=km;
+  showMeasureResult(_measureTotalKm,null,_measureAnyFallback);
+}
+function stopAMapMeasure(){
+  if(typeof map!=='undefined' && typeof map.off==='function') map.off('click',measureClick);
+  _measureMarkers.forEach(tRemove); _measureLines.forEach(tRemove);
+  _measureMarkers=[]; _measureLines=[];
+}
+function showMeasureResult(roadKm,lineKm,isFallback){
+  var km = (roadKm!=null)?roadKm:(lineKm||0);
+  var pts = _measurePts.length;
+  var seg = Math.max(0, pts-1);
+  var mins = Math.round(km/70*60);
+  var hrs = Math.floor(mins/60), rem = mins%60;
+  var timeTxt = hrs>0?(hrs+' 小时'+(rem>0?' '+rem+' 分':'')):rem+' 分钟';
+  var note = isFallback?'<div style="color:#E6A23C;font-size:.72rem;margin-top:6px">⚠️ 部分路段道路距离获取失败，已按直线距离×1.3 估算（实际道路通常更长）</div>':'';
+  var html='<div class="card" style="border-left:3px solid #3A5C4A;margin-top:4px">'+
+    '<div class="t">📏 道路运距测算</div>'+
+    '<div class="d">已选 <b>'+pts+'</b> 个点 / <b>'+seg+'</b> 段，累计道路运距：<b style="color:#3A5C4A;font-size:1.15rem">'+km.toFixed(1)+' km</b></div>'+
+    '<div class="d">按最高时速 <b>70 km/h</b> 估算行驶时长：<b style="color:#C0392B;font-size:1.05rem">'+timeTxt+'</b>（'+mins+' 分钟）</div>'+
+    note+
+    '<button class="btn sm" style="background:#999;margin-top:8px" onclick="resetMeasureForNew()">↻ 重新测量</button>'+
+    '</div>';
+  document.getElementById('measureResult').innerHTML=html;
+}
+function resetMeasureForNew(){
+  _measurePts=[]; _measureTotalKm=0; _measureQueue=[]; _measureCalcIng=false; _measureAnyFallback=false;
+  _measureMarkers.forEach(tRemove); _measureLines.forEach(tRemove);
+  _measureMarkers=[]; _measureLines=[];
+  document.getElementById('measureResult').innerHTML='<div class="hint">已清空，点击「📏 开始测距」重新测量</div>';
+  if(measureMode){
+    if(typeof map!=='undefined' && typeof map.off==='function') map.off('click',measureClick);
+    measureMode=false;
+    document.getElementById('btnRuler').classList.remove('on');
+    document.getElementById('btnRuler2').classList.remove('on');
+    setRulerB('📏 开始测距');
+  }
+}
+// ===== 中石油加油站 =====
+var stationOn=true, STATIONS=[], stationLayer=null;
+var CITY_ADCODE={'南宁':'450100','柳州':'450200','桂林':'450300','梧州':'450400','北海':'450500','防城港':'450600','钦州':'450700','贵港':'450800','玉林':'450900','百色':'451000','贺州':'451100','河池':'451200','来宾':'451300','崇左':'451400'};
+function initCityChecks(){
+  var box=document.getElementById('cityChecks'); if(!box)return;
+  var def={'南宁':1,'柳州':1,'桂林':1,'玉林':1,'百色':1,'梧州':1,'贺州':1};
+  box.innerHTML=Object.keys(CITY_ADCODE).map(function(c){
+    return '<label style="display:inline-flex;align-items:center;gap:2px;cursor:pointer"><input type="checkbox" value="'+c+'"'+(def[c]?' checked':'')+' style="width:11px;height:11px">'+c+'</label>';
+  }).join('');
+}
+function loadStationsByCities(){
+  var checked=[].slice.call(document.querySelectorAll('#cityChecks input:checked')).map(function(c){return c.value;});
+  if(!mapOK){alert('地图未加载，无法标注');return;}
+  if(!MY_STATIONS||!MY_STATIONS.length){alert('未找到加油站坐标数据（my_stations.js）');return;}
+  var all=MY_STATIONS.filter(function(s){return s.lng&&s.lat;});
+  var list = checked.length ? all.filter(function(s){return checked.indexOf(s.region)>=0 || checked.indexOf(s.city)>=0;}) : all;
+  STATIONS=list;
+  renderStations();
+  var el=document.getElementById('stationCount');
+  if(el)el.textContent='已加载 '+STATIONS.length+' 个加油站'+(checked.length?('（'+checked.length+' 市）'):'（全区）');
+}
+// ===== 加油站搜索（高德 POI 搜索）=====// ===== 加油站搜索（高德 POI 搜索）=====
+var CITY_AMAP_NAME={'南宁':'南宁市','柳州':'柳州市','桂林':'桂林市','梧州':'梧州市','北海':'北海市','防城港':'防城港市','钦州':'钦州市','贵港':'贵港市','玉林':'玉林市','百色':'百色市','贺州':'贺州市','河池':'河池市','来宾':'来宾市','崇左':'崇左市'};
+function fetchStationsPage(kw,cityName,page,acc,cb){
+  var url='https://restapi.amap.com/v3/place/text?keywords='+encodeURIComponent(kw)+'&city='+encodeURIComponent(cityName)+'&key='+AMAP_KEY+'&output=json&offset=25&page='+(page||1);
+  fetch(url).then(function(r){return r.json();}).then(function(d){
+    var pois=(d&&d.pois)||[];
+    pois.forEach(function(p){
+      if(p.location){var ll=p.location.split(',');acc.push({name:p.name||'加油站',lng:parseFloat(ll[0]),lat:parseFloat(ll[1]),city:cityName,addr:p.address||p.name||''});}
+    });
+    if(page<2&&pois.length>=20){fetchStationsPage(kw,cityName,page+1,acc,cb);} else cb(acc);
+  }).catch(function(){cb(acc);});
+}
+function renderStations(){
+  if(!mapOK)return;
+  if(stationLayer){stationLayer.forEach(tRemove);}
+  if(!stationOn){stationLayer=null;return;}
+  stationLayer=[];
+  STATIONS.forEach(function(s){
+    var mk=mkA(s.lat,s.lng,'<div class="station-icon">⛽</div>',{offset:new AMap.Pixel(-9,-9),zIndex:120});
+    mk.on('click',function(){
+      if(measureMode)return; // 测距模式不触发
+      endLL=[s.lng,s.lat];
+      document.getElementById('routeEnd').value=s.name;
+      if(mapOK){tRemove(endMarker);endMarker=mkA(s.lat,s.lng,'🔵',{offset:new AMap.Pixel(-13,-13)});mkPop(endMarker,'<b>终点</b><br>'+esc(s.name));}
+      if(startLL)runDriving(startLL,endLL);
+    });
+    mkPop(mk,'<b>'+esc(s.name)+'</b>'+(s.region||s.city?'<br><span style="color:#999">'+esc(s.region||s.city)+'</span>':'')+(s.addr?'<br><span style="color:#999;font-size:.72rem">'+esc(s.addr.substring(0,40))+'</span>':''));
+    stationLayer.push(mk);
+  });
+}
+function clearStationLayer(){STATIONS=[];if(stationLayer&&stationLayer.length){stationLayer.forEach(tRemove);}stationLayer=null;var el=document.getElementById('stationCount');if(el)el.textContent='已清空';}
+
+function loadAllStations(){
+  if(!mapOK){return;}
+  if(!MY_STATIONS||!MY_STATIONS.length){return;}
+  STATIONS=MY_STATIONS.filter(function(s){return s.lng&&s.lat;});
+  if(stationOn){renderStations();}
+  var el=document.getElementById('stationCount');
+  if(el)el.textContent='已加载 '+STATIONS.length+' 个加油站（全区有效坐标）';
+  var mc=document.getElementById('mapStationCnt'); if(mc)mc.textContent=STATIONS.length;
+}
+// ===== 图层开关 =====
+function toggleLayer(name){
+  if(name==='depot'){depotOn=!depotOn;document.getElementById('btnDepot').classList.toggle('on',depotOn);renderDepots();}
+  if(name==='station'){stationOn=!stationOn;document.getElementById('btnStation').classList.toggle('on',stationOn);if(stationOn&&!STATIONS.length)loadStationsByCities();renderStations();}
+  if(name==='city'){cityOn=!cityOn;document.getElementById('btnCity').classList.toggle('on',cityOn);if(cityOn&&cityLayer)cityLayer.forEach(function(m){m.setMap(map);});else if(cityLayer)cityLayer.forEach(tRemove);}
+}
+
+// ===== 天气（Open-Meteo 免费天气 API，无需 key）=====
+var LIVE_WX={};
+// WMO 天气代码 → 中文描述
+var WMO_CODE_MAP={0:'晴',1:'大部晴',2:'多云',3:'阴天',45:'雾',48:'霜雾',51:'小毛毛雨',53:'中毛毛雨',55:'大毛毛雨',61:'小雨',63:'中雨',65:'大雨',71:'小雪',73:'中雪',75:'大雪',80:'阵雨',81:'强阵雨',82:'暴雨',95:'雷暴',96:'雷暴+冰雹',99:'强雷暴+冰雇'};
+var CITY_WEATHER_COORD={'南宁':[108.32,22.82],'柳州':[109.41,24.31],'桂林':[110.30,25.27],'梧州':[111.30,23.47],'北海':[109.12,21.48],'防城港':[108.35,21.62],'钦州':[108.65,21.98],'贵港':[109.60,23.09],'玉林':[110.19,22.63],'百色':[106.62,23.90],'贺州':[111.55,24.41],'河池':[108.06,24.70],'来宾':[109.23,23.74],'崇左':[107.35,22.40]};
+function refreshWeather(){
+  var cities=Object.keys(CITY_WEATHER_COORD),done=0,total=cities.length;
+  function fin(){if(done>=total)renderWeather();}
+  cities.forEach(function(city){
+    var cc=CITY_WEATHER_COORD[city];
+    fetch('https://api.open-meteo.com/v1/forecast?latitude='+cc[1]+'&longitude='+cc[0]+'&current=temperature_2m,relative_humidity_2m,weather_code,wind_speed_10m&timezone=Asia/Shanghai')
+      .then(function(r){return r.json();}).then(function(d){done++;
+        if(d&&d.current){
+          var c=d.current;
+          var code=c.weather_code;
+          LIVE_WX[city]={cond:WMO_CODE_MAP[code]||'未知('+code+')',temp:Math.round(c.temperature_2m)+'℃',time:new Date().toISOString().slice(0,16).replace('T',' ')};
+        }
+        fin();
+      }).catch(function(){done++;fin();});
+  });
+  setTimeout(fin,10000);
+}
+function renderWeather(){
+  var box=document.getElementById('weatherBox'); if(!box)return;
+  var arr=window.__wx||FALLBACK.weather;
+  var latestRt='';
+  Object.keys(LIVE_WX).forEach(function(c){var l=LIVE_WX[c];if(l&&l.time&&l.time>latestRt)latestRt=l.time;});
+  var hdr=latestRt?'<div style="font-size:.7rem;color:#3A5C4A;margin-bottom:6px;text-align:center">🟢 Open-Meteo 实况 · 最新 '+esc(latestRt)+'（自动每10分钟刷新）</div>':'';
+  box.innerHTML=hdr+'<div class="wgrid">'+arr.map(function(w){
+    var c=w.city,live=LIVE_WX[c];
+    var cond=live?live.cond:w.cond, temp=live?live.temp:w.temp;
+    var a=w.alarm||'';
+    var ac=a==='红'?'al-red':a==='橙'?'al-orange':a==='黄'?'al-yellow':a==='蓝'?'al-blue':'al-none';
+    var tag=live?' <span style="color:#3A5C4A;font-size:.6rem;font-weight:700">●实时</span>':'';
+    return '<div class="wcell"><div class="c">'+esc(c)+tag+'</div><div class="tp">'+esc(temp)+'</div><div class="w">'+esc(cond)+'</div><span class="al '+ac+'">'+(a?a+'色预警':'正常')+'</span></div>';
+  }).join('')+'</div>';
+}
+
+// ===== 情报加载 =====
+function renderIntel(data){
+  // 紧急通报由 fetchNMC()->renderAlarms() 自动渲染：中央气象台实时预警 + 手动 alert 叠加
+  window.__intel=data;
+  window.__wx=data.weather&&data.weather.length?data.weather:FALLBACK.weather;
+  var now=new Date().toLocaleString('zh-CN',{month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'});
+  var srcTag=window.__intelSource==='local'?' · ✏️ 我的编辑':(window.__intelSource==='backend'?' · 🟢 后端同步':'');
+  document.getElementById('updTime').textContent='情报更新：'+now+srcTag;
+  // 数据原始时间（文件/后端写入时间）作为副标注
+  if(data.updated&&data.updated!==now){
+    var ut=document.getElementById('updTime');
+    if(ut)ut.title='数据来源时间：'+data.updated;
+  }
+  renderWeather();
+  renderRoadImpact();
+  renderClosure(data);
+}
+function renderClosure(data){
+  var box=document.getElementById('closureBox'); if(!box)return;
+  var html='';
+  // 手动维护提示
+  var srcTime=(data.updated||'未知');
+  html+='<div style="background:#FFF8E7;border:1px solid #F0D878;border-radius:6px;padding:6px 10px;margin-bottom:8px;font-size:.72rem;color:#996500">⚠️ <b>路况/管制/施工数据为手动维护</b>（来源时间：'+esc(srcTime)+'）。如需更新请点顶部「✏️ 编辑情报」修改，或联系AI助手刷新。天气数据由 Open-Meteo 免费API自动实时获取。</div>';
+  var closure=data.closure||[];
+  closure.forEach(function(c){
+    html+='<div class="card"><div class="t">🚧 '+esc(c.title||'')+'</div>'+(c.detail?'<div class="d">'+esc(c.detail)+'</div>':'')+'<div class="m"><span>⏱ '+(esc(c.time||''))+'</span>'+(c.url?'<a href="'+esc(c.url)+'" target="_blank">来源 ↗</a>':'<span>'+(esc(c.source||''))+'</span>')+'</div></div>';
+  });
+  var live=data.live||[];
+  if(live.length){
+    html+='<div style="font-size:.78rem;font-weight:700;color:#C65D52;margin:6px 0 4px">● 高速通行状况（手动维护）</div>';
+    html+=live.map(function(l){return '<div class="card" style="padding:7px 10px"><div class="d"><b>'+esc(l.road)+'</b> ｜ '+esc(l.status)+(l.time?' <span style="color:#999">('+esc(l.time)+')</span>':'')+(l.source?' <span style="color:#999">· '+esc(l.source)+'</span>':'')+'</div></div>';}).join('');
+  }
+  var cons=data.construction||[];
+  if(cons.length){
+    html+='<div style="font-size:.78rem;font-weight:700;color:#1B9E3E;margin:6px 0 4px">🛣 在建 / 新路动态</div>';
+    html+=cons.map(function(c){return '<div class="card" style="padding:7px 10px"><div class="d"><b>'+esc(c.title||'')+'</b>'+(c.detail?'<br>'+esc(c.detail):'')+(c.url?' <a href="'+esc(c.url)+'" target="_blank">↗</a>':'')+'</div></div>';}).join('');
+  }
+  box.innerHTML=html||'<div class="hint">暂无</div>';
+}
+function loadIntel(forceCloud){
+  if(BACKEND || BACKEND_OK){
+    apiFetch('/api/intel').then(function(r){if(!r.ok)throw new Error('http');return r.json();}).then(function(d){
+      SERVER_INTEL=d; window.__intelSource='server'; renderIntel(d);
+    }).catch(function(){ fallbackIntel(forceCloud); });
+    return;
+  }
+  fallbackIntel(forceCloud);
+}
+function fallbackIntel(forceCloud){
+  if(!forceCloud){
+    idb2Get('intelData',function(saved){
+      if(saved){ window.__intelSource='local'; renderIntel(saved); }
+      else{ window.__intelSource='cloud'; fetchCloud(); }
+    });
+    return;
+  }
+  window.__intelSource='cloud'; fetchCloud();
+}
+function fetchCloud(){
+  fetch('intel_data.json?t='+Date.now()).then(function(r){if(!r.ok)throw new Error('http');return r.json();}).then(function(d){window.__intelSource='cloud';renderIntel(d);}).catch(function(){renderIntel(FALLBACK);});
+}
+// ===== 情报数据在线编辑器 =====
+function openEditor(){
+  var data=window.__intel||FALLBACK;
+  document.getElementById('editorTA').value=JSON.stringify(data,null,2);
+  document.getElementById('editorMsg').textContent='';
+  document.getElementById('editorModal').style.display='flex';
+}
+function closeEditor(){document.getElementById('editorModal').style.display='none';}
+function saveEditor(){
+  var ta=document.getElementById('editorTA'),msg=document.getElementById('editorMsg');
+  try{
+    var obj=JSON.parse(ta.value);
+    if(!obj||typeof obj!=='object')throw new Error('不是合法 JSON 对象');
+    obj.updated='（我编辑于 '+new Date().toLocaleString('zh-CN')+'）';
+    if(BACKEND || BACKEND_OK){
+      apiFetch('/api/intel',{method:'PUT',body:JSON.stringify(obj)}).then(function(r){if(!r.ok)throw new Error('保存失败');return r.json();}).then(function(){
+        SERVER_INTEL=obj; window.__intelSource='server'; renderIntel(obj);
+        msg.style.color='#1B9E3E';msg.textContent='✓ 已保存到后端，所有设备/账号访问同一地址即同步生效';
+      }).catch(function(e){msg.style.color='#C65D52';msg.textContent='✗ 后端保存失败：'+(e&&e.message||'')+'（检查后端地址/令牌，或改用本机存储）';});
+    } else {
+      idb2Put('intelData',obj,function(){
+        window.__intelSource='local';
+        renderIntel(obj);
+        msg.style.color='#1B9E3E';msg.textContent='✓ 已保存并应用，刷新后仍生效（存在本机数据库 IntelDB）';
+      });
+    }
+  }catch(e){msg.style.color='#C65D52';msg.textContent='✗ JSON 解析失败：'+e.message;}
+}
+function resetEditor(){
+  if(!confirm('确定还原为系统默认数据？你将丢失编辑的情报内容（油库校准不受影响）。'))return;
+  if(BACKEND || BACKEND_OK){
+    apiFetch('/api/intel',{method:'DELETE'}).then(function(r){if(!r.ok)throw new Error('还原失败');return r.json();}).then(function(){
+      SERVER_INTEL=null; document.getElementById('editorMsg').textContent=''; closeEditor(); loadIntel();
+    }).catch(function(){alert('还原失败，请检查后端连接');});
+  } else {
+    idb2Put('intelData',null,function(){
+      document.getElementById('editorMsg').textContent='';
+      closeEditor();
+      loadIntel(true);
+    });
+  }
+}
+function exportEditor(){
+  var ta=document.getElementById('editorTA');
+  var blob=new Blob([ta.value],{type:'application/json'});
+  var a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='intel_data.json';a.click();
+}
+function copyEditor(){
+  var ta=document.getElementById('editorTA');ta.select();
+  try{document.execCommand('copy');}catch(e){}
+  var msg=document.getElementById('editorMsg');msg.style.color='#3A5C4A';msg.textContent='已复制，可粘贴到别处备份';
+}
+
+// ===== 后端同步设置 =====
+function openSync(){
+  document.getElementById('syncUrl').value=BACKEND;
+  document.getElementById('syncToken').value=API_TOKEN;
+  document.getElementById('syncMsg').textContent='';
+  document.getElementById('syncModal').style.display='flex';
+}
+function closeSync(){document.getElementById('syncModal').style.display='none';}
+function applySyncConfig(){
+  BACKEND=(document.getElementById('syncUrl').value.trim()||'').replace(/\/+$/,'');
+  API_TOKEN=document.getElementById('syncToken').value.trim();
+  try{localStorage.setItem('intel_backend',BACKEND);localStorage.setItem('intel_token',API_TOKEN);}catch(e){}
+}
+function testSync(){
+  applySyncConfig();
+  var msg=document.getElementById('syncMsg');msg.style.color='#888';msg.textContent='测试中…';
+  fetch(apiUrl('/api/intel')+'?probe=1',{headers:apiHeaders()}).then(function(r){
+    if(r.ok){BACKEND_OK=true;updateSyncStat();msg.style.color='#1B9E3E';msg.textContent='✓ 连接成功，已启用后端同步（情报/油库校准将集中存储）';syncDepotCoordsFromDB();loadIntel();}
+    else if(r.status===401){msg.style.color='#C65D52';msg.textContent='✗ 令牌错误（401），请确认令牌与后端一致';}
+    else {msg.style.color='#C65E52';msg.textContent='✗ 无法连接（'+r.status+'），确认后端已启动且地址可达';}
+  }).catch(function(){msg.style.color='#C65D52';msg.textContent='✗ 连接失败，确认后端地址可达';});
+}
+function saveSync(){applySyncConfig();testSync();}
+// ===== 修复移动端/WebView 面板滚动 =====
+function fixPanelScroll(){
+  var panel=document.getElementById('panel');
+  if(!panel)return;
+  // 方案1：强制设置 panel 高度为 body 减去 bar（解决 flex 子项 overflow-y:auto 在部分 WebView 中失效）
+  function doFix(){
+    var bar=document.querySelector('.bar');
+    var vh=window.innerHeight;
+    var barH=bar?bar.offsetHeight:54;
+    panel.style.height=(vh-barH)+'px';
+    panel.scrollTop=0;
+  }
+  doFix();
+  // 窗口 resize/旋转时重新计算
+  window.addEventListener('resize',doFix);
+  // 兼容 HarmonyOS / 鸿蒙 WebView：确保 touch 事件不被阻止
+  panel.addEventListener('touchmove',function(e){
+    // 仅当面板可滚动时才允许默认行为
+    if(panel.scrollHeight>panel.clientHeight+2){return;} // 可滚动则不拦截
+    // 不可滚动时也放行，让浏览器处理
+  },{passive:true});
+}
+function detectBackend(cb){
+  fetch(apiUrl('/api/intel')+'?probe=1',{headers:apiHeaders()}).then(function(r){
+    var ok=r.ok; BACKEND_OK=ok; updateSyncStat();
+    if(cb)cb(ok);
+  }).catch(function(){BACKEND_OK=false;updateSyncStat();if(cb)cb(false);});
+}
+
+// ===== 升级 v1997：清除历史手动标注 + 旧油库校准（仅一次，改用文件坐标 MY_DEPOTS 为准）=====
+function clearLegacyMarks(){
+  try{ if(localStorage.getItem('intel_cleared_v1997'))return; }catch(e){}
+  try{ localStorage.removeItem('intel_user_marks'); }catch(e){}
+  try{ idb2Put('userMarks', null); }catch(e){}
+  try{ localStorage.removeItem('intel_depot_coords'); }catch(e){}
+  try{ idb2Put('depotCoords', null); }catch(e){}
+  USER_MARKS=[];
+  if(userMarkLayer){ try{ userMarkLayer.forEach(tRemove); }catch(e){} userMarkLayer=null; }
+  try{ localStorage.setItem('intel_cleared_v1997','1'); }catch(e){}
+}
+// ===== 初始化 =====
+function initOverlays(){
+  migrateDepotCoordsNames();  // 油库改名后迁移已校准坐标
+  loadCustomDepots();  // 先加载自定义油库
+  var allPresets=DEPOT_PRESET.concat(CUSTOM_DEPOTS);
+  buildDepots(allPresets,loadDepotCoords());   // 同步先画油库（加载已校准坐标）
+  renderDepots();
+  renderCities();
+  initCityChecks();
+  initCalDepotSel();
+}
+window.__wx=FALLBACK.weather;
+renderIntel(FALLBACK);   // 立即渲染兜底，避免空白
+clearLegacyMarks();
+initOverlays();
+loadUserMarks();         // 加载自定义标注（本地+后端同步）
+syncDepotCoordsFromDB();   // 跨设备：再用 IndexedDB 中的校准覆盖（若有）
+loadIntel();
+refreshWeather();
+loadAllStations();   // 进站即加载全区加油站（来自 my_stations.js）
+startAuto();              // 自动更新（每5分钟，天气实时；情报变化才重渲染）
+fixPanelScroll();         // 修复移动端/WebView 面板滚动问题
+detectBackend(function(ok){   // 探测同源/已配置后端；可达则切到集中存储并重新加载
+  if(ok){ syncDepotCoordsFromDB(); loadIntel(); loadUserMarks(); }
+});
+function refreshAll(){
+  var btn=document.getElementById('btnRefresh');
+  if(btn){btn.textContent='🔄 刷新中…';btn.disabled=true;}
+  var done=0;
+  function fin(){done++;if(done>=2){if(btn){btn.textContent='🔄 手动刷新';btn.disabled=false;}}}
+  loadIntel();
+  refreshWeather();
+  // 顶部标注本次刷新时刻（与数据更新时间分开显示）
+  var t=new Date();
+  var hh=('0'+t.getHours()).slice(-2),mm=('0'+t.getMinutes()).slice(-2),ss=('0'+t.getSeconds()).slice(-2);
+  document.getElementById('refreshTime').textContent='· 刷新于 '+hh+':'+mm+':'+ss;
+  setTimeout(fin,1200);
+}
+</script>
+</body>
+</html>

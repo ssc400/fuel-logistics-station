@@ -1,0 +1,2362 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>互供/外采对账系统 v12.3</title>
+<script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
+<script src="order_preset.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,'Microsoft YaHei',sans-serif;background:#F2F0EB;color:#2C2A28;font-size:13px}
+.hd{background:#3A5C4A;color:#fff;padding:10px 20px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px}
+.hd h1{font-size:17px}
+.hd .ver{font-size:10px;opacity:.7;margin-left:6px}
+
+/* Tabs */
+.tab-row{display:flex;background:#fff;padding:0 16px;border-bottom:1px solid #E0D5C8;gap:2px}
+.tab-item{padding:10px 20px;cursor:pointer;font-weight:500;border-bottom:3px solid transparent;color:#666;font-size:14px;transition:all .2s}
+.tab-item:hover{color:#3A5C4A}
+.tab-item.on{border-color:#3A5C4A;color:#3A5C4A}
+
+/* Controls stripe */
+.stripe{background:#fff;padding:4px 10px;border-bottom:1px solid #f0f0f0}
+.s-row{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+.s-tab{padding:5px 14px;border-radius:16px;font-size:12px;cursor:pointer;border:1px solid #d0d0d0;background:#fff;color:#555;transition:all .15s}
+.s-tab:hover{border-color:#3A5C4A;color:#3A5C4A}
+.s-tab.on{background:#3A5C4A;color:#fff;border-color:#3A5C4A}
+.s-row label{font-size:11px;color:#888;margin-left:6px}
+.s-row input[type="month"],.s-row select{padding:5px 8px;border:1px solid #d0d0d0;border-radius:4px;font-size:12px;outline:none}
+.s-row input:focus,.s-row select:focus{border-color:#3A5C4A}
+
+/* View mode tabs */
+.vm-row{display:flex;gap:4px;margin-left:auto}
+.vm-btn{padding:4px 10px;border-radius:12px;font-size:10px;cursor:pointer;border:1px solid #d0d0d0;background:#fff;color:#777;transition:all .15s}
+.vm-btn.on{background:#3A5C4A;color:#fff;border-color:#3A5C4A}
+
+.btn{padding:5px 12px;border:none;border-radius:4px;cursor:pointer;font-size:11px;font-weight:500}
+.btn-p{background:#3A5C4A;color:#fff}
+.btn-o{background:#fff;color:#3A5C4A;border:1px solid #3A5C4A}
+.btn-sm{padding:3px 8px;font-size:10px}
+
+/* ====== Top Summary Bar ====== */
+.summary-bar{display:flex;gap:6px;padding:6px 10px;flex-wrap:wrap;align-items:stretch}
+.sum-card{flex:1;min-width:110px;background:#fff;border-radius:6px;padding:6px 10px;box-shadow:0 1px 3px rgba(0,0,0,.05);text-align:center}
+.sum-card.partner-to{background:linear-gradient(135deg,#eef4ff,#f5f8ff);border:2px solid #5b9cf5}
+.sum-card.partner-from{background:linear-gradient(135deg,#fff8f0,#fff5eb);border:2px solid #f0a050}
+.sum-card.plan{background:linear-gradient(135deg,#f0faf5,#f5fdf8);border:2px solid #5dbe7a}
+.sum-card .sl{font-size:10px;color:#666;margin-bottom:1px;font-weight:500}
+.sum-card .sv{font-size:20px;font-weight:800;line-height:1.1}
+.sum-card .sv.b{color:#3A5C4A}
+.sum-card .sv.o{color:#e67e22}
+.sum-card .sv.g{color:#C49A4A}
+.sum-card .sv.gr{color:#555}
+.sum-card .sv.r{color:#3A5C4A}
+.sum-card .sub{font-size:9px;color:#888;margin-top:1px}
+.sum-card .pivot-tag{display:inline-block;font-size:8px;padding:1px 4px;border-radius:6px;margin-bottom:2px;font-weight:600}
+.sum-card.partner-to .pivot-tag{background:#dbeafe;color:#3A5C4A}
+.sum-card.partner-from .pivot-tag{background:#fff0d5;color:#cc6600}
+
+.main{padding:4px 8px 10px}
+
+/* ====== Summary Grid (汇总视图) ====== */
+.gw-container{background:#fff;border-radius:6px;box-shadow:0 1px 3px rgba(0,0,0,.05);overflow:hidden;margin-bottom:6px}
+.gw-hd{padding:6px 10px;background:#f8fafd;border-bottom:1px solid #e8e8e8;display:flex;justify-content:space-between;align-items:center}
+.gw-hd h3{font-size:12px;font-weight:600;margin:0}
+.gw-body{overflow-x:auto;max-height:calc(100vh - 200px);overflow-y:auto}
+.sum-grid{border-collapse:collapse;font-size:10px}
+.sum-grid th{padding:3px 4px;border:1px solid #d0d0d0;background:#eef2f7;font-weight:600;text-align:center;position:sticky;top:0;z-index:2;white-space:nowrap}
+.sum-grid th.dh{background:#dce8f5;color:#3A5C4A;font-size:10px}
+.sum-grid th.dh2{background:#fef3e2;color:#e67e22;font-size:10px}
+.sum-grid th.ph{background:#f5f7fa;font-weight:500;font-size:9px;color:#555}
+.sum-grid td{padding:2px 4px;border:1px solid #E0D5C8;text-align:center;white-space:nowrap}
+.sum-grid td.date-cell{font-weight:600;color:#333;min-width:40px;background:#fafbfc;position:sticky;left:0;z-index:1}
+.sum-grid td.wk{background:#fafafa}
+.sum-grid td.hol-cell{background:#fff3e0}
+.sum-grid td.has{background:#e8f5e9;font-weight:600;color:#1b5e20}
+.sum-grid td.total-col{background:#f0f4f8;font-weight:700;font-size:10px}
+.sum-grid tr.sum-row td{background:#eef2f7;font-weight:700;border-top:2px solid #d0d0d0}
+.sum-grid td .hm{font-size:7px;color:#e65100;display:block;line-height:1}
+
+/* ====== Depot Dashboard Cards ====== */
+.dir-head{font-size:12px;font-weight:600;padding:4px 0;display:flex;align-items:center;gap:4px}
+.dir-head.blue{color:#3A5C4A;border-bottom:1.5px solid #3A5C4A}
+.dir-head.orange{color:#e67e22;border-bottom:1.5px solid #e67e22}
+.dir-head .dot{width:6px;height:6px;border-radius:50%;display:inline-block}
+.dir-head.blue .dot{background:#3A5C4A}
+.dir-head.orange .dot{background:#e67e22}
+.dir-head .dir-total{margin-left:auto;font-size:10px;color:#888;font-weight:400}
+
+.depot-cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:6px}
+
+/* Dashboard Card */
+.dd-card{background:#fff;border-radius:6px;box-shadow:0 1px 2px rgba(0,0,0,.05);overflow:hidden;border:1px solid #e8e8e8}
+.dd-card .dd-hd{display:flex;justify-content:space-between;align-items:center;padding:6px 10px;background:#f8fafd;border-bottom:1px solid #e8e8e8;gap:4px}
+.dd-card .dd-hd .dn{font-weight:700;font-size:12px;color:#333;display:flex;align-items:center;gap:3px}
+.dd-card .dd-hd .dn .ico{font-size:12px}
+.dd-card .dd-hd .db{font-size:8px;color:#fff;padding:1px 6px;border-radius:6px;font-weight:500}
+.dd-card .dd-hd .db.blue{background:#3A5C4A}
+.dd-card .dd-hd .db.orange{background:#e67e22}
+
+/* Stats row */
+.dd-stats{display:flex;gap:0;padding:5px 10px;border-bottom:1px solid #f0f0f0}
+.dd-stat{flex:1;text-align:center;padding:0 2px}
+.dd-stat+.dd-stat{border-left:1px solid #f0f0f0}
+.dd-stat .sl{font-size:8px;color:#999;margin-bottom:0}
+.dd-stat .sv{font-size:14px;font-weight:700;line-height:1.2}
+.dd-stat .sv.b{color:#3A5C4A}
+.dd-stat .sv.o{color:#e67e22}
+.dd-stat .sv.g{color:#C49A4A}
+.dd-stat .sv.gr{color:#555}
+.dd-stat .sv.r{color:#3A5C4A}
+.dd-stat .su{font-size:8px;color:#aaa}
+.dd-stat .pct{font-size:15px;font-weight:800;color:#3A5C4A}
+
+/* Progress bar */
+.dd-progress{padding:0 10px 4px}
+.dd-progress .pp-bar{width:100%;height:5px;background:#F5F0EB;border-radius:2px;overflow:hidden}
+.dd-progress .pp-fill{height:100%;border-radius:2px;transition:width .4s;background:linear-gradient(90deg,#4a9af5,#3A5C4A)}
+.dd-progress .pp-fill.over{background:linear-gradient(90deg,#5dbe7a,#C49A4A)}
+.dd-progress .pp-fill.warn{background:linear-gradient(90deg,#f5a623,#e67e22)}
+.dd-progress .pp-fill.low{background:linear-gradient(90deg,#3A5C4A,#c0392b)}
+.dd-progress .pp-label{font-size:8px;color:#888;margin-top:1px;display:flex;justify-content:space-between}
+
+/* Product table */
+.dd-prod-tbl{width:100%;border-collapse:collapse;font-size:9px}
+.dd-prod-tbl th{padding:2px 3px;border-bottom:1.5px solid #E0D5C8;background:#fafbfc;font-weight:600;text-align:center;font-size:8px;color:#666}
+.dd-prod-tbl td{padding:2px 3px;border-bottom:1px solid #f0f0f0;text-align:center}
+.dd-prod-tbl td.pn{font-weight:600;color:#333;text-align:left;padding-left:4px}
+.dd-prod-tbl td.has{color:#1b5e20;font-weight:600}
+.dd-prod-tbl td.plan-in input{width:40px;padding:1px 2px;border:1px solid #ddd;border-radius:2px;font-size:9px;text-align:center}
+.dd-prod-tbl td.plan-in input:focus{border-color:#3A5C4A;outline:none}
+.dd-prod-tbl tr.sum-row td{background:#f5f7fa;font-weight:700;border-top:1.5px solid #d0d0d0;font-size:9px}
+.dd-prod-tbl tr.sum-row td.has{color:#1b5e20}
+
+/* Carry-over input */
+.dd-carry{padding:3px 10px;border-top:1px dashed #E0D5C8;display:flex;align-items:center;gap:4px}
+.dd-carry label{font-size:9px;color:#666;font-weight:500;white-space:nowrap}
+.dd-carry input{width:50px;padding:1px 3px;border:1px solid #ddd;border-radius:2px;font-size:10px;text-align:center}
+.dd-carry input:focus{border-color:#3A5C4A;outline:none}
+.dd-carry .carry-hint{font-size:10px;color:#888}
+
+.dd-detail-tgl{cursor:pointer;font-size:11px;color:#3A5C4A;padding:6px 14px;display:block;user-select:none;border-top:1px solid #f0f0f0}
+.dd-detail-tgl:hover{color:#0d47a1;background:#f8fafd}
+
+.daily-tbl{width:100%;border-collapse:collapse;font-size:9px}
+.daily-tbl th{padding:2px 3px;border:1px solid #E0D5C8;background:#f5f7fa;font-weight:600;text-align:center;position:sticky;top:0;white-space:nowrap}
+.daily-tbl td{padding:1px 3px;border:1px solid #eee;text-align:center}
+.daily-tbl td.date-cell{font-weight:600;color:#333;min-width:44px;background:#fafbfc}
+.daily-tbl td.wknd{background:#fafafa}
+.daily-tbl td.hol{background:#fff3e0}
+.daily-tbl td.has{background:#e8f5e9;font-weight:600;color:#1b5e20}
+.daily-tbl td.sum-col{background:#f5f7fa;font-weight:600;font-size:9px}
+.daily-tbl tr.sum-row td{background:#eef2f7;font-weight:700;border-top:1.5px solid #d0d0d0}
+.daily-tbl td .hm{font-size:7px;color:#e65100;display:block;line-height:1}
+
+/* Yearly table */
+.yr-wrap{background:#fff;border-radius:8px;box-shadow:0 1px 4px rgba(0,0,0,.06);overflow:hidden;margin-bottom:10px}
+.yr-wrap .yr-hd{padding:10px 14px;background:#f8fafd;border-bottom:1px solid #eee;font-weight:600;font-size:13px;cursor:pointer;display:flex;justify-content:space-between;align-items:center}
+.yr-wrap .yr-hd:hover{background:#eef2f7}
+.yr-body{padding:8px 12px;overflow-x:auto}
+.yr-tbl{border-collapse:collapse;font-size:11px;width:100%}
+.yr-tbl th{padding:4px 8px;border:1px solid #d0d0d0;background:#f0f4f8;font-weight:600;text-align:center;font-size:10px}
+.yr-tbl td{padding:3px 8px;border:1px solid #E0D5C8;text-align:center}
+.yr-tbl td.has{background:#e8f5e9;font-weight:600;color:#1b5e20}
+.yr-tbl tr.cur{background:#fffde7}
+.yr-tbl td.yr-sum{background:#eef2f7;font-weight:600}
+
+/* Upload */
+.up-zone{border:2px dashed #d0d0d0;border-radius:6px;padding:10px;text-align:center;cursor:pointer;background:#fafbfc;margin:4px 8px;transition:all .2s}
+.up-zone:hover{border-color:#3A5C4A;background:#FBF0ED}
+.up-mini.done{border-color:#C49A4A;color:#C49A4A;background:#f0faf5}
+.up-mini.err{border-color:#e53935;color:#e53935;background:#fff0f0}
+.up-mini.loading{border-color:#3A5C4A;color:#3A5C4A;background:#FBF0ED;cursor:default}
+.up-mini .up-icon{font-size:12px}
+.up-mini input[type="file"]{display:none}
+input[type="file"]{display:none}
+
+.toast{position:fixed;top:12px;right:12px;padding:8px 16px;border-radius:6px;color:#fff;font-size:12px;z-index:2000;animation:slide .3s;max-width:500px}
+.toast.s{background:#C49A4A}
+.toast.e{background:#3A5C4A}
+@keyframes slide{from{transform:translateX(100%);opacity:0}to{transform:translateX(0);opacity:1}}
+
+.hidden{display:none!important}
+.tip{font-size:10px;color:#888;margin:4px 0}
+
+/* ===== 开单与结转板块 ===== */
+.pb-wrap{margin:10px;border:1px solid #d8e0db;border-radius:8px;background:#fbfdfc;overflow:hidden}
+.pb-hd{background:#3A5C4A;color:#fff;padding:8px 12px;font-weight:600;display:flex;align-items:center;gap:10px}
+.pb-ym{font-size:12px;background:rgba(255,255,255,.2);padding:1px 8px;border-radius:10px}
+.pb-acts{margin-left:auto}
+.pb-tip{font-size:11px;color:#666;padding:5px 12px;background:#f0f5f2}
+.pb-tbl{border-collapse:collapse;width:100%;font-size:12px}
+.pb-tbl th,.pb-tbl td{border:1px solid #e2e8e4;padding:4px 6px;text-align:center}
+.pb-tbl thead th{background:#eef3f0;color:#3A5C4A;font-weight:600}
+.pb-tbl tfoot td{background:#f0f5f2;font-weight:700}
+.pb-pair{text-align:left!important;font-weight:600;white-space:nowrap;color:#2c3e35}
+.pb-in{width:62px;padding:3px 4px;border:1px solid #c9d4cd;border-radius:4px;text-align:right;font-size:12px}
+.pb-in:focus{outline:2px solid #3A5C4A}
+.pb-carry{background:#fff8ec}
+.pb-num{font-variant-numeric:tabular-nums;color:#2c3e35}
+.pb-neg{color:#c0392b;font-weight:700}
+.pb-dir{margin:10px 10px 0;overflow-x:auto}
+.pb-dir-hd{font-weight:700;padding:8px 12px;color:#fff;font-size:13px}
+.pb-dir-to{background:#f5f9fd;border:1px solid #cfe0f2;border-radius:6px;overflow:hidden}
+.pb-dir-from{background:#fef8f1;border:1px solid #f3dcc0;border-radius:6px;overflow:hidden;margin-top:10px}
+.pb-dir-to .pb-dir-hd{background:#2c6fbb}
+.pb-dir-from .pb-dir-hd{background:#d97a1a}
+.pb-depot{text-align:left!important;font-weight:600;white-space:nowrap;color:#2c3e35}
+.pb-tbl td.pb-depot{background:#fbfdfc}
+.pb-add{background:#eef7ee}
+/* 提油量·按日期矩阵（日期为列，1~31日） */
+.dm-wrap{margin-top:12px;border:1px solid #e3e8ef;border-radius:8px;overflow:hidden;background:#fff}
+.dm-cap{font-size:12px;font-weight:700;color:#3A5C4A;padding:8px 12px;background:#f3f7fb;border-bottom:1px solid #e3e8ef}
+.dm-to .dm-cap{color:#1b5e20;background:#eef7ee}
+.dm-from .dm-cap{color:#e67e22;background:#fdf2e7}
+.dm-scroll{overflow-x:auto}
+.dm-tbl{border-collapse:collapse;font-size:11px;width:100%}
+.dm-tbl th,.dm-tbl td{border:1px solid #eef1f5;padding:3px 5px;text-align:center;white-space:nowrap}
+.dm-rownm{background:#f7f9fb;position:sticky;left:0;z-index:2;text-align:left}
+.dm-dep{text-align:left;font-weight:600;background:#f7f9fb;position:sticky;left:0;z-index:1;color:#333}
+.dm-prod{background:#f7f9fb;position:sticky;left:0;z-index:1;color:#666}
+.dm-day{background:#f7f9fb;color:#888;font-weight:600}
+.dm-has{background:#e8f5e9;color:#1b5e20;font-weight:600}
+.dm-zero{background:#fff}
+.dm-tot{background:#eef4ff;font-weight:700;color:#3A5C4A}
+.dm-sumrow td{background:#f3f7fb;font-weight:700;border-top:2px solid #cfd8e3}
+/* 中化对账单：日期为行·油库×品号为列 */
+.pb-dm-wrap{overflow-x:auto;border:1px solid #e0e0e0;border-radius:4px;background:#fff}
+.pb-dm-tbl{border-collapse:collapse;font-size:11px;min-width:100%}
+.pb-dm-tbl th{background:#5b8def;color:#fff;padding:5px 8px;border:1px solid #4a7de0;font-size:11px;position:sticky;top:0;z-index:2;white-space:nowrap}
+.pb-dm-tbl td{padding:2px 6px;border:1px solid #e0e0e0;text-align:right;min-width:48px;white-space:nowrap}
+.pb-dm-date{text-align:left;font-weight:500;background:#f5f5f5;position:sticky;left:0;z-index:1;min-width:52px;color:#333;border-right:2px solid #ccc}
+.pb-dm-num{font-size:11px}
+.pb-dm-sum{font-weight:600;background:#fff8e1;border-left:2px solid #e0e0e0;min-width:56px}
+</style>
+<script src="https://beacon.cdn.qq.com/sdk/4.5.9/beacon_web.min.js"></script>
+<script>
+(function(){
+  try{
+    var beacon=new BeaconAction({
+      appkey:'0WEB06U85YBSLJNL',
+      versionCode:'1.0.0',
+      channelID:'share',
+      delay:1000,
+      sessionDuration:30*60*1000,
+      isOversea:false,
+      needReportRqdEvent:false
+    });
+    beacon.onDirectUserAction('preview_page_view',{
+      'url':location.href,
+      'referrer':document.referrer,
+      'title':document.title,
+      'sandbox_id':'0db34ffb03b640faa07518be307ff827'
+    });
+  }catch(e){}
+})();
+</script></head>
+<body>
+<div class="hd"><div><h1>互供 / 外采 对账系统<span class="ver">v12.3</span></h1></div><span style="font-size:10px;opacity:.8">油库看板 | 每库结转 | 品号月/年累计 | 提货进度 | 开单量/提油量分析</span></div>
+
+<div class="tab-row">
+  <div class="tab-item on" data-tab="husong" onclick="goTab('husong')">互供对账</div>
+  <div class="tab-item" data-tab="waicai" onclick="goTab('waicai')">外采对账</div>
+</div>
+
+<div id="husong-stripe" class="stripe">
+  <div class="s-row">
+    <div class="s-tab on" data-sub="sinopec" onclick="goSub('sinopec')">中石化</div>
+    <div class="s-tab" data-sub="cnooc" onclick="goSub('cnooc')">中海油</div>
+    <div class="s-tab" data-sub="sinochem" onclick="goSub('sinochem')">中化</div>
+    <label>年月:</label>
+    <input type="month" id="ym_sel" value="2026-06" onchange="onYM()">
+    <div class="vm-row">
+      <div class="vm-btn on" data-vm="summary" onclick="setView('summary')">汇总视图</div>
+      <div class="vm-btn" data-vm="cards" onclick="setView('cards')">看板视图</div>
+    </div>
+    <button class="btn btn-o btn-sm" id="btnToggleDet" onclick="toggleAllDetails()" style="display:none">展开/收起明细</button>
+    <button class="btn btn-o btn-sm" onclick="exportCurrentView()">📥 导出汇总</button>
+    <button class="btn btn-o btn-sm" style="background:#3A5C4A;color:#fff" onclick="exportReconStatement(curSub)">📄 导出对账单</button>
+    <span style="font-size:11px;color:#888;margin-left:4px">v1.33 · 开单结转·按油库×品号·分方向</span>
+    <button class="btn btn-o btn-sm" onclick="showUploadDebug()">📋 分类详情</button>
+    <button class="btn btn-o btn-sm" onclick="showDiag()">📊 诊断</button>
+    <div style="position:relative;display:inline-block" class="clr-menu-wrap">
+      <button class="btn btn-o btn-sm" onclick="toggleClrMenu(this)" style="border-color:#e53935;color:#e53935">🧹 清除 ▾</button>
+      <div id="clrMenu" style="display:none;position:absolute;top:100%;right:0;background:#fff;border:1px solid #ddd;border-radius:6px;box-shadow:0 4px 12px rgba(0,0,0,.15);z-index:999;min-width:160px;padding:6px 0">
+        <div style="padding:8px 14px;font-size:12px;cursor:pointer;color:#e53935;white-space:nowrap" onmouseover="this.style.background='#fff5f5'" onmouseout="this.style.background=''" onclick="clearUploadedData()">🗑️ 清除已上传数据（保留开单/结转）</div>
+        <div style="padding:8px 14px;font-size:12px;cursor:pointer;color:#c62828;white-space:nowrap" onmouseover="this.style.background='#ffebee'" onmouseout="this.style.background=''" onclick="clearAllData()">🧹 清除全部数据</div>
+      </div>
+    </div>
+  </div>
+  <div class="up-mini" id="zu" onclick="document.getElementById('zf').click()">
+    <span class="up-icon">📁</span>
+    <span class="up-text" id="zfn">上传出库明细(CSV/Excel)</span>
+    <input type="file" id="zf" accept=".csv,.xlsx,.xls" onchange="upFile(event)">
+    <input type="file" id="orderExcelInput" accept=".xlsx,.xls" style="display:none" onchange="handleOrderExcelUpload(event)">
+  </div>
+  <div style="display:flex;align-items:center;gap:10px;padding:4px 10px 0;font-size:11px;color:#666">
+    <label style="display:inline-flex;align-items:center;gap:4px;cursor:pointer"><input type="checkbox" id="overwriteUpload" style="accent-color:#3A5C4A"> 覆盖本月已上传数据（避免重复叠加）</label>
+  </div>
+</div>
+<div id="waicai-stripe" class="stripe" style="display:none">
+  <div class="s-row">
+    <label>年月:</label>
+    <input type="month" id="wc_ym" value="2026-06" onchange="onWCYM()">
+    <button class="btn btn-o btn-sm" onclick="exportCurrentView()">📥 导出</button>
+  </div>
+</div>
+
+<div class="summary-bar" id="sum-bar"></div>
+<div class="main" id="content"></div>
+<div id="wc-content" class="main"></div>
+<div id="tt"></div>
+
+<script src="preload_data.js"></script>
+<script>
+// ===== HOLIDAYS =====
+const HOLIDAYS={
+  '2026-01-01':'元旦','2026-01-02':'元旦','2026-01-03':'元旦',
+  '2026-02-15':'春节','2026-02-16':'春节','2026-02-17':'除夕','2026-02-18':'春节','2026-02-19':'春节','2026-02-20':'春节','2026-02-21':'春节','2026-02-22':'春节','2026-02-23':'春节',
+  '2026-04-04':'清明','2026-04-05':'清明','2026-04-06':'清明',
+  '2026-05-01':'劳动节','2026-05-02':'劳动节','2026-05-03':'劳动节','2026-05-04':'劳动节','2026-05-05':'劳动节',
+  '2026-06-19':'端午','2026-06-20':'端午','2026-06-21':'端午',
+  '2026-10-01':'国庆中秋','2026-10-02':'国庆','2026-10-03':'国庆','2026-10-04':'国庆','2026-10-05':'国庆','2026-10-06':'国庆','2026-10-07':'国庆','2026-10-08':'国庆',
+};
+
+// ===== PRODUCT ORDER & DEPOT INFO =====
+const ALL_PRODS=['0#','E92#','92#','95#','98#'];
+const DEPOT_PRODS={
+  // ===== 我方去中石化提油 (toThem) =====
+  '中石化玉林油库':['0#'],
+  '中石化火山油库':['0#','92#','95#','98#'],
+  '中石化鹧鸪江油库':['0#','92#','95#'],
+  '南宁石化油库':['0#','92#','95#'],
+  '百色石化油库':['0#','E92#','95#'],
+  '桂林羊角山石化油库':['0#','92#','95#'],
+  '河池石化油库':['0#','E92#','95#','98#'],
+  '贵港石化油库':['0#','98#'],
+  '北海石化油库':['0#'],
+  // ===== 我方去中海油/中化提油 (toThem) =====
+  '中海油广西油库':['0#','92#','95#'],
+  '中化开平江门油库':['0#','92#','95#'],
+  '中化佛山华创油库':['0#','92#','95#'],
+  '中化东莞东洲油库':['0#','92#','95#'],
+  // ===== 中石化来我方提油 (fromThem) =====
+  '广西南宁油库':['0#','92#','95#'],
+  '广西柳江油库':['0#','E92#'],
+  '广西柳州油库':['0#','92#','95#'],
+  '广西兴业油库':['0#','95#'],
+  '广西百色油库':['0#'],
+  '广西桂林油库':['0#','92#','95#'],
+  '钦州石化直发库':['0#'],
+  // ===== 中海油/中化来我方提油 (fromThem) =====
+  '广西石化直发库':['0#'],
+  '广西梧州新恒丰油库':['0#'],
+  '广西钦州广明油库':['0#'],
+  '广西钦州东油库':['0#'],
+};
+
+// ===== DEPOT CLASSIFICATION =====
+// 互供库（我方去对方提油）
+function isSHDepot(s){
+  s=String(s||'').trim();
+  return s&&(
+    s.includes('中石化')||s.includes('石化')&&(
+      s.includes('玉林')||s.includes('鹧鸪江')||s.includes('火山')||
+      s.includes('羊角山')||s.includes('百色石化')||s.includes('贵港石化')||
+      s.includes('河池石化')||s.includes('南宁石化')||s.includes('崇左')||
+      s.includes('北海石化')||s.includes('南瑶')
+    )
+  );
+}
+function isCNOilDepot(s){
+  s=String(s||'').trim();
+  return s&&(s.includes('中海油')||s.includes('海平油库')||s.includes('广西油库'));
+}
+function isSinoDepot(s){
+  s=String(s||'').trim();
+  return s&&(s.includes('中化')||s.includes('佛山')||s.includes('江门')||s.includes('开平')||s.includes('东莞')||s.includes('东洲'));
+}
+function isCNDepot(s){ return isCNOilDepot(s)||isSinoDepot(s); }
+function isWCDepot(s){
+  s=String(s||'').trim();
+  return s&&(s.includes('肇庆')||s.includes('中寰')||s.includes('南瑶'));
+}
+// 自有库（对方来我方提油）
+function isOwnDepot(s){
+  s=String(s||'').trim();
+  if(!s||isSHDepot(s)||isCNDepot(s)||isWCDepot(s))return false;
+  return s.includes('油库')||s.includes('库')||s.includes('直发');
+}
+
+// ===== DATA MODEL =====
+const KEY='recon_v12';
+function preloadToRecs(){
+      const all={sinopec:{toThem:[],fromThem:[]},cnooc:{toThem:[],fromThem:[]},sinochem:{toThem:[],fromThem:[]},waicai:[]};
+  try{
+    for(const cat of['sinopec','cnooc','sinochem']){
+      for(const dir of['toThem','fromThem']){
+        const data=PRELOAD_DATA[cat]?.[dir]||{};
+        for(const[month,depotProds]of Object.entries(data)){
+          for(const[key,tons]of Object.entries(depotProds)){
+            const[deliver,product]=key.split(':');
+            all[cat][dir].push({deliver,product,tons,month});
+          }
+        }
+      }
+    }
+    const wcData=PRELOAD_DATA.waicai?.waicai||{};
+    for(const[month,depotProds]of Object.entries(wcData)){
+      for(const[key,tons]of Object.entries(depotProds)){
+        const[deliver,product]=key.split(':');
+        all.waicai.push({deliver,product,tons,month});
+      }
+    }
+  }catch(e){console.error(e)}
+  return all;
+}
+let PRELOAD=null;
+function getPreload(){if(!PRELOAD)PRELOAD=preloadToRecs();return PRELOAD;}
+
+let uploaded={sinopec:{toThem:[],fromThem:[]},cnooc:{toThem:[],fromThem:[]},sinochem:{toThem:[],fromThem:[]},waicai:[]};
+let plans={};
+// ===== 开单与结转子系统（独立，按油库对×品号） =====
+let orderPlan={};
+const ORDER_PRODS=['0#','92#','95#'];
+// 中石化公路油库对（sh=对方库关键词，cn=我方库关键词；includes 双向匹配）
+const SINOPEC_PAIRS=[
+  {key:'鹧鸪江-柳州', sh:'鹧鸪江油库', cn:'柳州油库'},
+  {key:'桂林羊角山-桂林', sh:'桂林羊角山', cn:'桂林油库'},
+  {key:'百色-百色', sh:'百色石化', cn:'百色油库'},
+  {key:'玉林-柳州', sh:'玉林油库', cn:'柳州油库'},
+  {key:'贵港-柳州', sh:'贵港石化', cn:'柳州油库'},
+  {key:'桂林羊角山-柳州', sh:'桂林羊角山', cn:'柳州油库'},
+  {key:'河池-柳江', sh:'河池石化', cn:'柳江油库'},
+  {key:'梧州-柳州', sh:'梧州火山', cn:'柳州油库'},
+  {key:'玉林-梧州', sh:'玉林油库', cn:'梧州新恒丰'},
+  {key:'广西石化直发库', sh:'广西石化直发库', cn:'广西石化直发库'},
+];
+// 中海油公路油库对（格式：对方库-我方库；关键词用于匹配上传互供明细）
+const CNOOC_PAIRS=[
+  {key:'桂平-南宁', sh:'桂平', cn:'南宁'},
+  {key:'桂平-桂林', sh:'桂平', cn:'桂林'},
+];
+// 中化公路/水运油库对（格式：对方库-我方库；钦州炼厂=对方炼厂）
+const SINOCHEM_PAIRS=[
+  {key:'东洲-钦州炼厂', sh:'东洲', cn:'钦州炼厂'},
+  {key:'华创-钦州炼厂', sh:'华创', cn:'钦州炼厂'},
+  {key:'开平-钦州炼厂', sh:'开平', cn:'钦州炼厂'},
+];
+// 按公司返回油库对列表
+function getPairs(cat){
+  if(cat==='cnooc')return CNOOC_PAIRS;
+  if(cat==='sinochem')return SINOCHEM_PAIRS;
+  return SINOPEC_PAIRS;
+}
+function prevYm(ym){const[y,m]=ym.split('-').map(Number);const pm=m-1,py=pm===0?y-1:y;return py+'-'+String(pm===0?12:pm).padStart(2,'0');}
+function getOrder(cat,ym){
+  if(!orderPlan[cat])orderPlan[cat]={};
+  let o=orderPlan[cat][ym];
+  if(!o||(o.plan&&!o.toThem)){o=orderPlan[cat][ym]={toThem:{plan:{},add:{},carry:{}},fromThem:{plan:{},add:{},carry:{}}};}
+  ['toThem','fromThem'].forEach(d=>{if(!o[d])o[d]={plan:{},add:{},carry:{}};['plan','add','carry'].forEach(f=>{if(!o[d][f])o[d][f]={};});});
+  return o;
+}
+// 聚合本月实际提油（按油库×品号，区分方向）：dir='toThem' 我去对方提（deliver=对方库），dir='fromThem' 对方来我提（deliver=我方库）
+function aggActualByDepot(cat,ym,dir){
+  const res={};
+  (uploaded[cat]?.[dir]||[]).filter(r=>String(r.date).startsWith(ym)).forEach(r=>{
+    const dp=String(r.deliver||'').trim();const pr=r.product;
+    if(!dp)return;
+    if(!res[dp])res[dp]={};
+    if(ORDER_PRODS.includes(pr))res[dp][pr]=(res[dp][pr]||0)+(+r.tons||0);
+  });
+  return res;
+}
+
+function loadAll(){
+  try{const j=localStorage.getItem(KEY);if(j){const o=JSON.parse(j);uploaded=o.uploaded||uploaded;plans=o.plans||plans;orderPlan=o.orderPlan||orderPlan;}}catch(e){}
+}
+function saveAll(){localStorage.setItem(KEY,JSON.stringify({uploaded,plans,orderPlan}));}
+function clearUploadedData(){
+  if(!confirm('确定清除所有已上传的出库明细？\n开单量、结转量等手工录入数据会被保留。'))return;
+  uploaded={sinopec:{toThem:[],fromThem:[]},cnooc:{toThem:[],fromThem:[]},sinochem:{toThem:[],fromThem:[]},waicai:[]};
+  saveAll();
+  toast('已清除上传数据，手工计划数据已保留','s');
+  render();
+  closeClrMenu();
+}
+function clearAllData(){
+  if(!confirm('确定清除全部数据？\n这包括已上传的出库明细和手工录入的开单量/结转量，不可恢复。'))return;
+  localStorage.removeItem(KEY);
+  uploaded={sinopec:{toThem:[],fromThem:[]},cnooc:{toThem:[],fromThem:[]},sinochem:{toThem:[],fromThem:[]},waicai:[]};
+  plans={};
+  orderPlan={};
+  toast('已清除全部缓存','s');
+  render();
+  closeClrMenu();
+}
+function toggleClrMenu(btn){var m=document.getElementById('clrMenu');if(!m)return;var s=m.style.display;m.style.display=s==='block'?'none':'block';}
+function closeClrMenu(){var m=document.getElementById('clrMenu');if(m)m.style.display='none';}
+document.addEventListener('click',function(e){if(!e.target.closest('.clr-menu-wrap'))closeClrMenu();});
+
+// Plan & Carry: per depot:product
+function gp(cat,ym,depot,product){return plans[cat]?.[ym]?.plan?.[`${depot}:${product}`]||0;}
+function sp(cat,ym,depot,product,val){
+  if(!plans[cat])plans[cat]={};
+  if(!plans[cat][ym])plans[cat][ym]={plan:{},carried:{}};
+  plans[cat][ym].plan[`${depot}:${product}`]=val;
+}
+function gc(cat,ym,depot,product){
+  if(product)return plans[cat]?.[ym]?.carried?.[`${depot}:${product}`]||0;
+  // Legacy: sum all carried for depot
+  const c=plans[cat]?.[ym]?.carried||{};let s=0;
+  Object.entries(c).forEach(([k,v])=>{if(k.startsWith(depot+':'))s+=v;});
+  return s;
+}
+function sc(cat,ym,depot,product,val){
+  if(!plans[cat])plans[cat]={};
+  if(!plans[cat][ym])plans[cat][ym]={plan:{},carried:{},remaining:{}};
+  if(!plans[cat][ym].carried)plans[cat][ym].carried={};
+  plans[cat][ym].carried[`${depot}:${product}`]=val;
+}
+function gr(cat,ym,depot,product){
+  if(!plans[cat]?.[ym]?.remaining)return null;
+  return plans[cat][ym].remaining[`${depot}:${product}`];
+}
+function sr(cat,ym,depot,product,val){
+  if(!plans[cat])plans[cat]={};
+  if(!plans[cat][ym])plans[cat][ym]={plan:{},carried:{},remaining:{}};
+  if(!plans[cat][ym].remaining)plans[cat][ym].remaining={};
+  plans[cat][ym].remaining[`${depot}:${product}`]=val;
+}
+// 智能计算结转量/剩余量（如果用户没有手工覆盖）
+function smartCarry(cat,ym,depot,product){
+  // 优先使用人工输入，否则从上月月合计推算
+  const stored=gc(cat,ym,depot,product);
+  if(stored>0)return stored;
+  // 计算上月（ym - 1月）
+  const[y,m]=ym.split('-').map(Number);
+  const prevM=m-1,prevY=prevM===0?y-1:y,prevYm=prevY+'-'+String(prevM===0?12:prevM).padStart(2,'0');
+  const prevMonth=getPreloadMonthTotal(cat,ym,depot,product);
+  if(prevMonth>0)return prevMonth;
+  return 0;
+}
+function smartRemain(cat,ym,depot,product){
+  const stored=gr(cat,ym,depot,product);
+  if(stored!==null&&stored!==undefined)return stored;
+  const pl=gp(cat,ym,depot,product);
+  const ca=gc(cat,ym,depot,product);
+  const mv=getCurrentMonthTotal(cat,ym,depot,product);
+  return pl+ca-mv;
+}
+function getPreloadMonthTotal(cat,ym,depot,product){
+  // 尝试从上传数据中找上月的月合计
+  const[y,m]=ym.split('-').map(Number);
+  const prevM=m-1,prevY=prevM===0?y-1:y,prevYm=prevY+'-'+String(prevM===0?12:prevM).padStart(2,'0');
+  const data=getCombined(cat,'toThem',prevYm);
+  const fromData=getCombined(cat,'fromThem',prevYm);
+  let s=0;
+  Object.entries(data.monthly||{}).forEach(function(kv){
+    const[dp,prods]=kv;
+    if(dp!==depot)return;
+    s+=prods[product]||0;
+  });
+  Object.entries(fromData.monthly||{}).forEach(function(kv){
+    const[dp,prods]=kv;
+    if(dp!==depot)return;
+    s+=prods[product]||0;
+  });
+  return s;
+}
+function getCurrentMonthTotal(cat,ym,depot,product){
+  const data=getCombined(cat,'toThem',ym);
+  const fromData=getCombined(cat,'fromThem',ym);
+  let s=(data.monthly?.[depot]?.[product]||0)+(fromData.monthly?.[depot]?.[product]||0);
+  return s;
+}
+function refreshAfterEdit(cat,dir){
+  // 重新渲染当前汇总表
+  if(curTab==='husong')renderHuSong(cat);
+  else render();
+}
+
+// ===== 开单Excel直传：上传公路开单明细xlsx → 自动填入本月开单量 =====
+function triggerOrderExcel(cat,ym){
+  window._orderExcelCat=cat; window._orderExcelYm=ym;
+  document.getElementById('orderExcelInput').click();
+}
+function handleOrderExcelUpload(event){
+  const file=event.target.files[0];
+  if(!file)return;
+  const cat=window._orderExcelCat, ym=window._orderExcelYm;
+  if(!cat||!ym){toast('内部错误：缺少公司/月份信息','e');event.target.value='';return;}
+  const reader=new FileReader();
+  reader.onload=function(e){
+    try{
+      const wb=XLSX.read(e.target.result,{type:'array'});
+      const ws=wb.Sheets[wb.SheetNames[0]];
+      const data=XLSX.utils.sheet_to_json(ws,{header:1,defval:''});
+      applyParsedOrderData(cat,ym,data);
+    }catch(err){toast('解析Excel失败：'+err.message,'e');}
+  };
+  reader.readAsArrayBuffer(file);
+  event.target.value='';
+}
+function applyParsedOrderData(cat,ym,data){
+  if(!data||data.length<2){toast('Excel数据为空或只有表头','e');return;}
+  // 定位表头行（含「互供方案」列）
+  let hdrIdx=-1, schemeCol=-1, colMap={};
+  for(let r=0;r<data.length;r++){
+    const row=data[r], hi=row.findIndex(c=>String(c).includes('互供方案'));
+    if(hi>=0){
+      hdrIdx=r; schemeCol=hi;
+      row.forEach((c,i)=>{
+        const s=String(c).trim();
+        if(s==='0#')colMap['0#']=i;
+        else if(s==='92#')colMap['92#']=i;
+        else if(s==='95#')colMap['95#']=i;
+        else if(s.includes('乙醇'))colMap['_ethanol']=i;
+        else if(s.includes('组分'))colMap['_zu']=i;
+      });
+      break;
+    }
+  }
+  if(hdrIdx<0 || colMap['0#']===undefined){
+    toast('未找到标准表头（需含「互供方案」和「0#」列），请确认Excel格式','e');return;}
+  const pairs=getPairs(cat);
+  const od=getOrder(cat,ym);
+  od.toThem.plan={}; od.fromThem.plan={};
+  let n=0, skip=[], applied=[];
+  for(let r=hdrIdx+1;r<data.length;r++){
+    const row=data[r];
+    const scheme=String(row[schemeCol]||'').trim();
+    if(!scheme || /合计|小计|单位/.test(scheme))continue;
+    // 匹配油库对：检查互供方案文本是否同时含 sh 和 cn
+    let matched=null;
+    for(const p of pairs){
+      const sOk=scheme.includes(p.sh)||(p.sh.endsWith('油库')?scheme.includes(p.sh.slice(0,-2)):false);
+      const cOk=scheme.includes(p.cn)||(p.cn.endsWith('油库')?scheme.includes(p.cn.slice(0,-2)):false)
+             ||scheme.includes(p.cn.replace(/炼厂$/,''));
+      if(sOk&&cOk){matched=p;break;}
+    }
+    if(!matched){skip.push(scheme);continue;}
+    const vals={};
+    ['0#','92#','95#'].forEach(pr=>{if(colMap[pr]!==undefined)vals[pr]=parseFloat(row[colMap[pr]])||0;});
+    if(colMap._ethanol!==undefined){const ev=parseFloat(row[colMap._ethanol])||0;if(ev>0)vals['95#']=(vals['95#']||0)+ev;}
+    ORDER_PRODS.forEach(pr=>{
+      const v=(vals[pr]!==undefined)?(+vals[pr]||0):0;
+      if(v>0){
+        if(!od.toThem.plan[matched.sh])od.toThem.plan[matched.sh]={};
+        od.toThem.plan[matched.sh][pr]=(od.toThem.plan[matched.sh][pr]||0)+v;n++;
+        if(!od.fromThem.plan[matched.cn])od.fromThem.plan[matched.cn]={};
+        od.fromThem.plan[matched.cn][pr]=(od.fromThem.plan[matched.cn][pr]||0)+v;n++;
+      }
+    });
+    applied.push(matched.key+'→'+Object.entries(vals).filter(([,v])=>v>0).map(([k,v])=>k+':'+v).join(','));
+  }
+  saveAll();
+  let msg='已从Excel填入开单量（'+Math.floor(n/2)+'对·'+n+'格）';
+  if(applied.length) msg+=`："${applied.slice(0,3).join('、')+(applied.length>3?'...':'')}"`;
+  if(skip.length) msg+=`；未匹配行(${skip.length})：${skip.slice(0,3).join('、')+(skip.length>3?'...':'')}`;
+  toast(msg,skip.length?'w':'s');
+  renderHuSong(cat);
+}
+
+// ===== 开单与结转子系统 v2.3：中化对账单格式 + 跨公司开单量 + 日期感知进度 + 日报可编辑 =====
+function fmt(v){v=+v||0;return (Math.round(v*100)/100).toString();}
+function renderPlanBoard(cat,ym){
+  const pairs=getPairs(cat);
+  if(!pairs.length)return'';
+  const partnerName=cat==='sinopec'?'中石化':(cat==='sinochem'?'中化':'中海油');
+  const preset=(typeof ORDER_PRESET!=='undefined'&&ORDER_PRESET[cat]&&ORDER_PRESET[cat][ym])?ORDER_PRESET[cat][ym]:null;
+  const hasPreset=!!(preset&&preset.plan&&Object.keys(preset.plan).length);
+  const od=getOrder(cat,ym);
+  const toDepots=[...new Set(pairs.map(p=>p.sh))];
+  const fromDepots=[...new Set(pairs.map(p=>p.cn))];
+  // 按方向取每日明细
+  const toData=getCombined(cat,'toThem',ym), fromData=getCombined(cat,'fromThem',ym);
+  const [y,m]=ym.split('-').map(Number);
+  const daysInMonth=new Date(y,m,0).getDate();
+  const pym=prevYm(ym);
+  const pod=getOrder(cat,pym);
+  const paTo=aggActualByDepot(cat,pym,'toThem'), paFrom=aggActualByDepot(cat,pym,'fromThem');
+  // 辅助：按方向取开单/追加/结转/提油
+  function mkDir(dir,dailyData,pa){
+    const odDir=od[dir],podDir=pod[dir];
+    const _planOf=(d,pr)=>odDir.plan[d]?.[pr]||0;
+    const _addOf=(d,pr)=>odDir.add[d]?.[pr]||0;
+    const _carryOf=(d,pr)=>{
+      if(odDir.carry[d]&&odDir.carry[d][pr]!==undefined)return odDir.carry[d][pr];
+      const pp=(podDir.plan[d]&&podDir.plan[d][pr]!==undefined)?podDir.plan[d][pr]:0;
+      const pa2=(podDir.add[d]&&podDir.add[d][pr]!==undefined)?podDir.add[d][pr]:0;
+      const pc=(podDir.carry[d]&&podDir.carry[d][pr]!==undefined)?podDir.carry[d][pr]:0;
+      const pav=(pa[d]&&pa[d][pr]!==undefined)?pa[d][pr]||0:0;
+      return pp+pa2+pc-pav;
+    };
+    // 月提油合计（遍历每日累加）
+    const _actSum=(d,pr)=>{
+      let s=0;
+      for(let dd=1;dd<=daysInMonth;dd++){s+=(dailyData.daily[dd]?.[d]?.[pr]||0);}
+      return s;
+    };
+    return {planOf:_planOf, addOf:_addOf, carryOf:_carryOf, actSum:_actSum,
+      remOf(d,pr){return _planOf(d,pr)+_addOf(d,pr)+_carryOf(d,pr)-_actSum(d,pr);}};
+  }
+  const Dto=mkDir('toThem',toData,paTo), Dfrom=mkDir('fromThem',fromData,paFrom);
+
+  // 渲染一张中化风格对账表（某个方向）
+  function renderDir(dir,depots,D,data,title,cls){
+    const colGroups=depots.map(d=>({name:d, prods:(DEPOT_PRODS[d]&&DEPOT_PRODS[d].length)?[...DEPOT_PRODS[d]]:[...ORDER_PRODS]}));
+    const df=d=>m+'月'+d+'日';
+    let body='';
+    // 列合计
+    let nCol=1; colGroups.forEach(g=>{nCol+=g.prods.length;});
+    const colTotals=new Array(nCol).fill(0);
+    // 每日行
+    for(let d=1;d<=daysInMonth;d++){
+      let cells='', rowSum=0;
+      let ci=1;
+      colGroups.forEach((g)=>{g.prods.forEach((pr)=>{
+        const v=data.daily[d]?.[g.name]?.[pr]||0;
+        colTotals[ci]+=v; rowSum+=v;
+        const bg=v>0?'background:#ffe066;font-weight:600':'';
+        cells+=`<td class="pb-dm-num" style="padding:0;border:1px solid #E0D5C8${bg?';'+bg:''}"><input type="number" step="0.001" value="${v?fmt(v):''}" style="width:100%;padding:2px 3px;border:none;background:transparent;font-size:10px;text-align:center;${v>0?'font-weight:600;color:#e65100':''}" onchange="onDailyInput('${cat}','${ym}','${dir}','${g.name}','${pr}','${d}',this.value)"></td>`;
+        ci++;
+      });});
+      colTotals[nCol-1]+=rowSum;
+      cells+=`<td class="pb-dm-sum">${rowSum>0?fmt(rowSum):''}</td>`;
+      body+=`<tr><td class="pb-dm-date">${df(d)}</td>${cells}</tr>`;
+    }
+    // 合计行
+    let sumCells='', gTotal=0;
+    colTotals.forEach((v,i)=>{gTotal+=v; sumCells+=`<td class="pb-dm-num" style="font-weight:700;background:#e8f5e9">${fmt(v)}</td>`;});
+    body+=`<tr><td class="pb-dm-date" style="font-weight:700">合计</td>${sumCells}</tr>`;
+    // 底部追加行：上月结转 / 本月开单 / 本月追加 / 总单量 / 月剩余
+    const bottomLabels=['上月结转量','本月开单量','本月追加','总单量','月剩余量'];
+    const bottomFns=[
+      (d,pr)=>D.carryOf(d,pr),
+      (d,pr)=>D.planOf(d,pr),
+      (d,pr)=>D.addOf(d,pr),
+      (d,pr)=>D.planOf(d,pr)+D.addOf(d,pr),
+      (d,pr)=>D.remOf(d,pr)
+    ];
+    let bottomRows='';
+    bottomLabels.forEach((lbl,li)=>{
+      let cells='', rowSum=0;
+      colGroups.forEach((g,gi)=>{g.prods.forEach((pr,pi)=>{
+        const v=bottomFns[li](g.name,pr); rowSum+=v;
+        if(li>=1&&li<=2){
+          const inpName=li===1?'plan':'add';
+          cells+=`<td><input class="pb-in ${li===2?'pb-add':''}" type="number" step="0.001" value="${fmt(v)}" onchange="on${li===1?'Plan':'Add'}Input('${cat}','${ym}','${dir}','${g.name}','${pr}',this.value)"></td>`;
+        } else {
+          const st=li===4?(v<0?'color:#c0392b;font-weight:700':'font-weight:700'):'font-weight:700';
+          cells+=`<td class="pb-dm-num" style="${st}">${fmt(v)}</td>`;
+        }
+      });});
+      const rst=li===4?(rowSum<0?'color:#c0392b;font-weight:700':'font-weight:700'):'font-weight:700';
+      cells+=`<td class="pb-dm-sum" style="${rst}">${fmt(rowSum)}</td>`;
+      bottomRows+=`<tr><td class="pb-dm-date" style="font-weight:700;color:${li===4?(rowSum<0?'#c0392b':'#2e7d32'):'#333'}">${lbl}</td>${cells}</tr>`;
+    });
+    // 表头
+    let mainHead='<th rowspan="2">日期</th>';
+    colGroups.forEach(g=>{mainHead+=`<th colspan="${g.prods.length}">${g.name}</th>`;});
+    mainHead+='<th rowspan="2">合计</th>';
+    let subHead='';
+    colGroups.forEach(g=>{subHead+=g.prods.map(pr=>`<th>${pr}</th>`).join('');});
+    subHead+='<th></th>';
+    return `<div class="pb-dir ${cls}">
+      <div class="pb-dir-hd">${title}</div>
+      <div class="pb-dm-wrap">
+        <table class="pb-tbl pb-dm-tbl">
+          <thead><tr>${mainHead}</tr><tr>${subHead}</tr></thead>
+          <tbody>${body}${bottomRows}</tbody>
+        </table>
+      </div>
+    </div>`;
+  }
+  return `<div class="pb-wrap">
+    <div class="pb-hd">📊 ${partnerName}互供对账 <span class="pb-ym">${ym}</span>
+      <span class="pb-acts">
+        ${hasPreset?`<button class="btn btn-sm" style="background:#C0392B;color:#fff" onclick="applyOrderPreset('${cat}','${ym}')">🖼️ 应用开单预设(图片)</button>`:''}
+        <button class="btn btn-sm" style="background:#2E7D32;color:#fff" onclick="triggerOrderExcel('${cat}','${ym}')">📤 上传开单Excel</button>
+        <button class="btn btn-o btn-sm" onclick="loadCarryFromPrev('${cat}','${ym}')">📥 从上月剩余载入结转</button>
+      </span>
+    </div>${hasPreset?`<div class="pb-tip" style="background:#FDEDEC;color:#C0392B;border-bottom:1px solid #E6B0AA">📌 检测到开单预设（来自你上传的流向图）。点「🖼️ 应用开单预设」即可把图片里的开单量写入本表，之后再逐格核对修改。</div>`:''}
+    <div class="pb-tip">每日提油量来自上传互供明细（有数据单元格黄色高亮）；开单量/追加可逐格改；结转默认=上月剩余；<b>月剩余＝开单＋追加＋结转−本月提油合计</b></div>
+    ${renderDir('toThem',toDepots,Dto,toData,`🔵 我方去${partnerName}提油`,'pb-dir-to')}
+    ${renderDir('fromThem',fromDepots,Dfrom,fromData,`🟠 ${partnerName}来我方提油`,'pb-dir-from')}
+  </div>`;
+}
+
+function onPlanInput(cat,ym,dir,depot,prod,val){const od=getOrder(cat,ym);if(!od[dir].plan[depot])od[dir].plan[depot]={};let n=parseFloat(val);if(isNaN(n))n=0;od[dir].plan[depot][prod]=n;saveAll();renderHuSong(cat);}
+function onAddInput(cat,ym,dir,depot,prod,val){const od=getOrder(cat,ym);if(!od[dir].add[depot])od[dir].add[depot]={};let n=parseFloat(val);if(isNaN(n))n=0;od[dir].add[depot][prod]=n;saveAll();renderHuSong(cat);}
+// v2.3: 日报单元格编辑 — 直接写入 uploaded 数组
+function onDailyInput(cat,ym,dir,depot,prod,dayStr,val){
+  if(!uploaded[cat])uploaded[cat]={toThem:[],fromThem:[]};
+  if(!uploaded[cat][dir])uploaded[cat][dir]=[];
+  const n=parseFloat(val);if(isNaN(n))n=0;
+  const[y,m]=ym.split('-').map(Number);
+  const day=parseInt(dayStr);
+  const dateStr=`${y}-${String(m).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
+  // 查找已有记录
+  const idx=uploaded[cat][dir].findIndex(r=>String(r.date)===dateStr&&String(r.deliver||'').trim()===depot&&r.product===prod);
+  if(n>0){
+    const rec={date:dateStr,deliver:depot,product:prod,tons:n};
+    if(idx>=0){uploaded[cat][dir][idx]=rec;}else{uploaded[cat][dir].push(rec);}
+  }else{
+    if(idx>=0){uploaded[cat][dir].splice(idx,1);}
+  }
+  saveAll();renderHuSong(cat);
+}
+function onCarryInput(cat,ym,dir,depot,prod,val){const od=getOrder(cat,ym);if(!od[dir].carry[depot])od[dir].carry[depot]={};let n=parseFloat(val);if(isNaN(n))n=0;od[dir].carry[depot][prod]=n;saveAll();renderHuSong(cat);}
+function loadCarryFromPrev(cat,ym){
+  const pym=prevYm(ym);const od=getOrder(cat,ym);
+  ['toThem','fromThem'].forEach(dir=>{
+    const pa=aggActualByDepot(cat,pym,dir);
+    const pod=getOrder(cat,pym);
+    const depots=[...new Set(getPairs(cat).map(p=>dir==='toThem'?p.sh:p.cn))];
+    depots.forEach(d=>{
+      if(!od[dir].carry[d])od[dir].carry[d]={};
+      ORDER_PRODS.forEach(pr=>{
+        const pp=(pod[dir].plan[d]&&pod[dir].plan[d][pr]!==undefined)?pod[dir].plan[d][pr]:0;
+        const pa2=(pod[dir].add[d]&&pod[dir].add[d][pr]!==undefined)?pod[dir].add[d][pr]:0;
+        const pc=(pod[dir].carry[d]&&pod[dir].carry[d][pr]!==undefined)?pod[dir].carry[d][pr]:0;
+        const pav=(pa[d]&&pa[d][pr]!==undefined)?pa[d][pr]:0;
+        od[dir].carry[d][pr]=pp+pa2+pc-pav;
+      });
+    });
+  });
+  saveAll();toast('已将上月剩余固化为本月结转','s');renderHuSong(cat);
+}
+function applyOrderPreset(cat,ym){
+  const preset=(typeof ORDER_PRESET!=='undefined'&&ORDER_PRESET[cat]&&ORDER_PRESET[cat][ym])?ORDER_PRESET[cat][ym]:null;
+  if(!preset||!preset.plan){toast('当前没有可应用的开单预设','e');return;}
+  const od=getOrder(cat,ym);
+  od.toThem.plan={};od.fromThem.plan={};
+  let n=0;
+  getPairs(cat).forEach(p=>{
+    const pp=(preset.plan[p.key])||{};
+    ORDER_PRODS.forEach(pr=>{
+      const v=(pp[pr]!==undefined)?(+pp[pr]||0):0;
+      if(v>0){
+        if(!od.toThem.plan[p.sh])od.toThem.plan[p.sh]={};
+        od.toThem.plan[p.sh][pr]=v;n++;
+        if(!od.fromThem.plan[p.cn])od.fromThem.plan[p.cn]={};
+        od.fromThem.plan[p.cn][pr]=v;n++;
+      }
+    });
+  });
+  saveAll();
+  toast('已应用开单预设（'+n+'格·覆盖本月开单量），请逐格核对','s');
+  renderHuSong(cat);
+}
+
+function getCombined(cat,dir,ym){
+  const[y,m]=ym.split('-').map(Number);
+  const daysInMonth=new Date(y,m,0).getDate();
+  const daily={};for(let d=1;d<=daysInMonth;d++)daily[d]={};
+  const recs=(uploaded[cat]?.[dir]||[]).filter(r=>String(r.date).startsWith(ym));
+  const depots=new Set(),prods=new Set();
+  recs.forEach(r=>{
+    if(!r.date)return;
+    const d=new Date(r.date).getDate();
+    const dp=String(r.deliver||'').trim();
+    if(!daily[d][dp])daily[d][dp]={};
+    daily[d][dp][r.product]=(daily[d][dp][r.product]||0)+r.tons;
+    depots.add(dp);prods.add(r.product);
+  });
+  return{daily,depots,prods,daysInMonth,recs};
+}
+
+function calcYTD(cat,dir,ym){
+  const[y,m]=ym.split('-').map(Number);
+  const uploadedMonths=new Set();
+  const src=dir?(uploaded[cat]?.[dir]||[]):(uploaded.waicai||[]);
+  src.forEach(r=>{const d=String(r.date);if(d.startsWith(`${y}-`))uploadedMonths.add(d.slice(0,7));});
+  let ytd=0;
+  const pre=dir?(getPreload()[cat]?.[dir]||[]):(getPreload().waicai||[]);
+  pre.forEach(r=>{const[ry,rm]=r.month.split('-').map(Number);if(ry===y&&rm<=m&&!uploadedMonths.has(r.month))ytd+=r.tons;});
+  src.forEach(r=>{const rd=String(r.date);if(rd.startsWith(`${y}-`)&&parseInt(rd.slice(5,7))<=m)ytd+=r.tons;});
+  return ytd;
+}
+function calcDepotYTD(cat,dir,ym,depotName){
+  const[y,m]=ym.split('-').map(Number);
+  const uploadedMonths=new Set();
+  (uploaded[cat]?.[dir]||[]).forEach(r=>{const d=String(r.date);if(d.startsWith(`${y}-`))uploadedMonths.add(d.slice(0,7));});
+  let ytd=0;
+  const pre=getPreload()[cat]?.[dir]||[];
+  pre.forEach(r=>{const[ry,rm]=r.month.split('-').map(Number);if(ry===y&&rm<=m&&r.deliver===depotName&&!uploadedMonths.has(r.month))ytd+=r.tons;});
+  (uploaded[cat]?.[dir]||[]).forEach(r=>{const rd=String(r.date);if(rd.startsWith(`${y}-`)&&String(r.deliver||'').trim()===depotName&&parseInt(rd.slice(5,7))<=m)ytd+=r.tons;});
+  return ytd;
+}
+function calcDepotProdYTD(cat,dir,ym,depotName,product){
+  const[y,m]=ym.split('-').map(Number);
+  const uploadedMonths=new Set();
+  (uploaded[cat]?.[dir]||[]).forEach(r=>{const d=String(r.date);if(d.startsWith(`${y}-`))uploadedMonths.add(d.slice(0,7));});
+  let ytd=0;
+  const pre=getPreload()[cat]?.[dir]||[];
+  pre.forEach(r=>{const[ry,rm]=r.month.split('-').map(Number);if(ry===y&&rm<=m&&r.deliver===depotName&&r.product===product&&!uploadedMonths.has(r.month))ytd+=r.tons;});
+  (uploaded[cat]?.[dir]||[]).forEach(r=>{const rd=String(r.date);if(rd.startsWith(`${y}-`)&&String(r.deliver||'').trim()===depotName&&r.product===product&&parseInt(rd.slice(5,7))<=m)ytd+=r.tons;});
+  return ytd;
+}
+
+function getMonthlyTotal(cat,dir,ym){
+  const hasUpload=(uploaded[cat]?.[dir]||[]).some(r=>String(r.date).startsWith(ym));
+  if(hasUpload){
+    let total=0;
+    (uploaded[cat]?.[dir]||[]).forEach(r=>{if(String(r.date).startsWith(ym))total+=r.tons;});
+    return total;
+  }
+  const pre=getPreload()[cat]?.[dir]||[];
+  let total=0;
+  pre.forEach(r=>{if(r.month===ym)total+=r.tons;});
+  return total;
+}
+function getDepotMonthly(cat,dir,ym,depotName){
+  const hasUpload=(uploaded[cat]?.[dir]||[]).some(r=>String(r.date).startsWith(ym));
+  if(hasUpload){
+    let total=0;
+    (uploaded[cat]?.[dir]||[]).forEach(r=>{if(String(r.date).startsWith(ym)&&String(r.deliver||'').trim()===depotName)total+=r.tons;});
+    return total;
+  }
+  const pre=getPreload()[cat]?.[dir]||[];
+  let total=0;
+  pre.forEach(r=>{if(r.month===ym&&r.deliver===depotName)total+=r.tons;});
+  return total;
+}
+function getDepotProdMonthly(cat,dir,ym,depotName,product){
+  const hasUpload=(uploaded[cat]?.[dir]||[]).some(r=>String(r.date).startsWith(ym));
+  if(hasUpload){
+    let total=0;
+    (uploaded[cat]?.[dir]||[]).forEach(r=>{if(String(r.date).startsWith(ym)&&String(r.deliver||'').trim()===depotName&&r.product===product)total+=r.tons;});
+    return total;
+  }
+  const pre=getPreload()[cat]?.[dir]||[];
+  let total=0;
+  pre.forEach(r=>{if(r.month===ym&&r.deliver===depotName&&r.product===product)total+=r.tons;});
+  return total;
+}
+
+// Get all depots for a category+dir (from both preloaded and uploaded)
+function getAllDepots(cat,dir,ym){
+  const depots=new Set();
+  // Defined order per direction
+  const TO_ORDER=['鹧鸪江','玉林','羊角山','贵港','百色','河池'];
+  const FROM_ORDER=['柳州','百色','桂林','柳江'];
+  const order=dir==='toThem'?TO_ORDER:FROM_ORDER;
+  // From uploaded (current month)
+  (uploaded[cat]?.[dir]||[]).forEach(r=>{if(String(r.date).startsWith(ym))depots.add(String(r.deliver||'').trim());});
+  // From preloaded (if no upload for this month)
+  const hasUpload=(uploaded[cat]?.[dir]||[]).some(r=>String(r.date).startsWith(ym));
+  if(!hasUpload){
+    (getPreload()[cat]?.[dir]||[]).forEach(r=>{if(r.month===ym)depots.add(r.deliver);});
+  }
+  return [...depots].sort((a,b)=>{
+    const ai=order.findIndex(o=>a.includes(o));const bi=order.findIndex(o=>b.includes(o));
+    if(ai>=0&&bi>=0)return ai-bi;if(ai>=0)return -1;if(bi>=0)return 1;return a.localeCompare(b);
+  });
+}
+
+// ===== UI STATE =====
+let curTab='husong',curSub='sinopec',curYM='2026-06',viewMode='cards',expandedDepots=new Set();
+
+function goTab(t){
+  curTab=t;
+  document.querySelectorAll('.tab-item').forEach(e=>e.classList.toggle('on',e.dataset.tab===t));
+  document.getElementById('husong-stripe').style.display=t==='husong'?'':'none';
+  document.getElementById('waicai-stripe').style.display=t==='waicai'?'':'none';
+  document.getElementById('content').classList.toggle('hidden',t!=='husong');
+  document.getElementById('wc-content').classList.toggle('hidden',t!=='waicai');
+  render();
+}
+function goSub(s){curSub=s;document.querySelectorAll('.s-tab').forEach(e=>e.classList.toggle('on',e.dataset.sub===s));render();}
+function setView(v){viewMode=v;document.querySelectorAll('.vm-btn').forEach(e=>e.classList.toggle('on',e.dataset.vm===v));const b=document.getElementById('btnToggleDet');if(b)b.style.display=v==='cards'?'':'none';render();}
+function onYM(){curYM=document.getElementById('ym_sel').value;render();}
+function onWCYM(){curYM=document.getElementById('wc_ym').value;renderWaiCai();}
+
+// ===== MAIN RENDER =====
+function render(){
+  document.getElementById('content').classList.remove('hidden');
+  if(curTab==='husong')renderHuSong(curSub);
+  else renderWaiCai();
+}
+
+// ====== SUMMARY TABLE VIEW ======
+function renderDailyMatrix(cat,dir,data,depots,prods,daysInMonth,cls){
+  if(!depots||depots.length===0)return '';
+  let head=`<th class="dm-rownm">油库</th><th class="dm-rownm">品号</th>`;
+  for(let d=1;d<=daysInMonth;d++)head+=`<th class="dm-day">${d}日</th>`;
+  head+=`<th class="dm-tot">月合计</th>`;
+  let rows='';
+  depots.forEach(dp=>{
+    prods.forEach(p=>{
+      let r=`<tr><td class="dm-dep">${dp}</td><td class="dm-prod">${p}</td>`;
+      let mt=0;
+      for(let d=1;d<=daysInMonth;d++){const v=data.daily[d]?.[dp]?.[p]||0;mt+=v;r+=v>0?`<td class="dm-has">${v.toFixed(1)}</td>`:`<td class="dm-zero"></td>`;}
+      r+=`<td class="dm-tot">${mt>0?mt.toFixed(1):''}</td></tr>`;
+      rows+=r;
+    });
+  });
+  let tr=`<tr class="dm-sumrow"><td colspan="2" class="dm-rownm">日合计</td>`;
+  for(let d=1;d<=daysInMonth;d++){let dt=0;depots.forEach(dp=>prods.forEach(p=>{dt+=(data.daily[d]?.[dp]?.[p]||0);}));tr+=dt>0?`<td class="dm-has">${dt.toFixed(1)}</td>`:`<td class="dm-zero"></td>`;}
+  tr+=`<td></td></tr>`;
+  const cap=dir==='toThem'?'📅 提油量·按日期（我们去对方提油）':'📅 提油量·按日期（对方来我库提油）';
+  return `<div class="dm-wrap ${cls}"><div class="dm-cap">${cap}（1~${daysInMonth}日）</div><div class="dm-scroll"><table class="dm-tbl"><thead><tr>${head}</tr></thead><tbody>${rows}${tr}</tbody></table></div></div>`;
+}
+
+function renderSummaryTable(cat){
+  const ym=curYM;const[y,m]=ym.split('-').map(Number);
+  const partnerName=cat==='sinopec'?'中石化':(cat==='sinochem'?'中化':'中海油');
+  const daysInMonth=new Date(y,m,0).getDate();
+  const weekDays=['日','一','二','三','四','五','六'];
+  // 油库固定顺序
+  const TO_ORDER=['鹧鸪江','玉林','羊角山','贵港','百色','河池'];
+  const FROM_ORDER=['柳州','百色','桂林','柳江'];
+  function sortDeps(deps,order){const list=[...deps];list.sort((a,b)=>{const ai=order.findIndex(o=>a.includes(o));const bi=order.findIndex(o=>b.includes(o));if(ai>=0&&bi>=0)return ai-bi;if(ai>=0)return -1;if(bi>=0)return 1;return a.localeCompare(b);});return list;}
+
+  const toData=getCombined(cat,'toThem',ym);
+  const fromData=getCombined(cat,'fromThem',ym);
+
+  const toDepots=sortDeps([...toData.depots],TO_ORDER);
+  const fromDepots=sortDeps([...fromData.depots],FROM_ORDER);
+
+  const toProds=selfProds(toData.prods,toDepots,cat);
+  const fromProds=selfProds(fromData.prods,fromDepots,cat);
+
+  function buildMonthly(r,depotNames,prodList){const{daily}=r;const mt={};for(const dp of depotNames){mt[dp]={};for(const p of prodList){mt[dp][p]=0;}}for(let d=1;d<=daysInMonth;d++){for(const dp of depotNames){for(const p of prodList){const v=daily[d]?.[dp]?.[p]||0;mt[dp][p]=(mt[dp][p]||0)+v;}}}return mt;}
+  const toMonthly=buildMonthly(toData,toDepots,toProds);
+  const fromMonthly=buildMonthly(fromData,fromDepots,fromProds);
+
+  let toGrand=0,fromGrand=0;
+  toDepots.forEach(dp=>toProds.forEach(p=>toGrand+=toMonthly[dp]?.[p]||0));
+  fromDepots.forEach(dp=>fromProds.forEach(p=>fromGrand+=fromMonthly[dp]?.[p]||0));
+
+  // If no uploaded data, use preloaded monthly totals
+  if(toDepots.length===0){
+    const pre=getPreload()[cat]?.toThem||[];
+    pre.filter(r=>r.month===ym).forEach(r=>{toGrand+=r.tons;});
+  }
+  if(fromDepots.length===0){
+    const pre=getPreload()[cat]?.fromThem||[];
+    pre.filter(r=>r.month===ym).forEach(r=>{fromGrand+=r.tons;});
+  }
+
+  let h='<div class="gw-container"><div class="gw-hd"><h3>🔵 我们去'+partnerName+'互供库提油 — 汇总</h3><span style="font-size:10px;color:#888">日期×油品 | 节假日标注 | 月合计 '+toGrand.toFixed(1)+'吨</span></div>';
+  if(toDepots.length===0){
+    const pre=getPreload()[cat]?.toThem||[];
+    const preMonths=pre.filter(r=>r.month===ym);
+    if(preMonths.length===0){
+      h+=`<div class="gw-body" style="padding:16px"><span class="tip">暂无数据。请上传CSV明细。</span></div>`;
+    }else{
+      h+=`<div class="gw-body" style="padding:12px"><span class="tip" style="margin-bottom:8px;display:block">暂无上传明细（仅有预载月度汇总）：</span><table class="yr-tbl" style="max-width:500px"><thead><tr><th>油库</th><th>品号</th><th>吨数</th></tr></thead><tbody>`;
+      const pa={};preMonths.forEach(r=>{const k=`${r.deliver}:${r.product}`;pa[k]=(pa[k]||0)+r.tons;});
+      Object.entries(pa).sort().forEach(([k,t])=>{const[dp,p]=k.split(':');h+=`<tr><td style="text-align:left">${dp}</td><td>${p}</td><td style="font-weight:600;color:#1b5e20;background:#e8f5e9">${t.toFixed(1)}</td></tr>`;});
+      h+=`</tbody></table></div>`;
+    }
+    h+=`</div>`;
+  }else{
+    h+=`<div class="gw-body"><table class="sum-grid"><thead><tr><th rowspan="2">日期</th><th rowspan="2">周</th>`;
+    for(const dp of toDepots){h+=`<th class="dh" colspan="${toProds.length}">${dp}</th>`;}
+    h+=`<th rowspan="2" class="total-col">日合计</th></tr><tr>`;
+    for(const dp of toDepots){for(const p of toProds)h+=`<th class="ph">${p}</th>`;}
+    h+=`</tr></thead><tbody>`;
+
+    for(let d=1;d<=daysInMonth;d++){
+      const dayDate=new Date(y,m-1,d);
+      const wd=weekDays[dayDate.getDay()];
+      const isWknd=dayDate.getDay()===0||dayDate.getDay()===6;
+      const dateKey=dayDate.toISOString().slice(0,10);
+      const holiday=HOLIDAYS[dateKey]||'';
+      let dayTotal=0,hasData=false;
+      let cellHTML='';
+      for(const dp of toDepots){
+        for(const p of toProds){
+          const v=toData.daily[d]?.[dp]?.[p]||0;
+          dayTotal+=v;
+          if(v>0)hasData=true;
+          cellHTML+=v>0?`<td class="has">${v.toFixed(1)}</td>`:`<td class="${isWknd?'wk':''}${holiday?' hol-cell':''}"></td>`;
+        }
+      }
+      if(!hasData)continue;
+      h+=`<tr><td class="date-cell${holiday?' hol-cell':''}">${m}月${d}日${holiday?`<span class="hm">🎌${holiday}</span>`:''}</td><td class="date-cell${holiday?' hol-cell':''}" style="font-size:9px;${isWknd&&!holiday?'color:#3A5C4A':''}">${wd}</td>${cellHTML}<td class="total-col" style="color:#1b5e20">${dayTotal.toFixed(1)}</td></tr>`;
+    }
+    h+=`<tr class="sum-row"><td colspan="2">月合计</td>`;
+    let gt=0;
+    for(const dp of toDepots){for(const p of toProds){const v=toMonthly[dp]?.[p]||0;gt+=v;h+=`<td>${v>0?v.toFixed(1):''}</td>`;}}
+    h+=`<td>${gt.toFixed(1)}</td></tr>`;
+    // Plan / Carry / Remaining rows (all editable)
+    h+=`<tr style="background:#fff8e1"><td colspan="2" style="padding:3px 6px;font-size:9px;color:#e65100;font-weight:600">开单量（手动）</td>`;
+    let planTotal=0;
+    for(const dp of toDepots){for(const p of toProds){const v=gp(cat,ym,dp,p);planTotal+=v;h+=`<td class="editable-cell" style="padding:0;border:1px solid #E0D5C8;text-align:center;font-weight:600;color:#e65100;background:#fff8e1"><input type="number" value="${v||''}" step="any" style="width:100%;padding:3px 4px;border:none;background:transparent;font-weight:600;color:#e65100;text-align:center;font-size:11px" onchange="sp('${cat}','${ym}','${dp}','${p}',parseFloat(this.value)||0);saveAll();refreshAfterEdit('${cat}','toThem')"></td>`;}}
+    h+=`<td style="font-weight:700;color:#e65100">${planTotal.toFixed(1)}</td></tr>`;
+    h+=`<tr style="background:#f3e5f5"><td colspan="2" style="padding:3px 6px;font-size:9px;color:#7b1fa2;font-weight:600">结转量（自动·可改）</td>`;
+    let carryTotal=0;
+    for(const dp of toDepots){for(const p of toProds){const v=gc(cat,ym,dp,p);carryTotal+=v;h+=`<td class="editable-cell" style="padding:0;border:1px solid #E0D5C8;text-align:center;font-weight:600;color:#7b1fa2;background:#f3e5f5"><input type="number" value="${v||''}" step="any" style="width:100%;padding:3px 4px;border:none;background:transparent;font-weight:600;color:#7b1fa2;text-align:center;font-size:11px" onchange="sc('${cat}','${ym}','${dp}','${p}',parseFloat(this.value)||0);saveAll();refreshAfterEdit('${cat}','toThem')"></td>`;}}
+    h+=`<td style="font-weight:700;color:#7b1fa2">${carryTotal.toFixed(1)}</td></tr>`;
+    h+=`<tr style="background:#e8f5e9"><td colspan="2" style="padding:3px 6px;font-size:9px;color:#1b5e20;font-weight:600">剩余量（自动·可改）</td>`;
+    let remTotal=0;
+    for(const dp of toDepots){for(const p of toProds){const pl=gp(cat,ym,dp,p);const ca=gc(cat,ym,dp,p);const mv=toMonthly[dp]?.[p]||0;const rem=pl+ca-mv;remTotal+=rem;h+=`<td class="editable-cell" style="padding:0;border:1px solid #E0D5C8;text-align:center;font-weight:600;background:#e8f5e9"><input type="number" value="${rem||''}" step="any" style="width:100%;padding:3px 4px;border:none;background:transparent;font-weight:600;color:${rem>=0?'#2e7d32':'#c62828'};text-align:center;font-size:11px" onchange="sr('${cat}','${ym}','${dp}','${p}',parseFloat(this.value)||0);saveAll();refreshAfterEdit('${cat}','toThem')"></td>`;}}
+    h+=`<td style="font-weight:700;color:${remTotal>=0?'#2e7d32':'#c62828'}">${remTotal.toFixed(1)}</td></tr>`;
+    h+=`</tbody></table></div>`;
+  }
+  h+=`</div>`;
+
+  // fromThem
+  h+=`<div class="gw-container"><div class="gw-hd"><h3>🟠 ${partnerName}来我们自有库提油 — 汇总</h3><span style="font-size:10px;color:#888">日期×油品 | 节假日标注 | 月合计 ${fromGrand.toFixed(1)}吨</span></div>`;
+  if(fromDepots.length===0){
+    const pre=getPreload()[cat]?.fromThem||[];
+    const preMonths=pre.filter(r=>r.month===ym);
+    if(preMonths.length===0){
+      h+=`<div class="gw-body" style="padding:16px"><span class="tip">暂无数据。请上传CSV明细。</span></div>`;
+    }else{
+      h+=`<div class="gw-body" style="padding:12px"><span class="tip" style="margin-bottom:8px;display:block">暂无上传明细（仅有预载月度汇总）：</span><table class="yr-tbl" style="max-width:500px"><thead><tr><th>油库</th><th>品号</th><th>吨数</th></tr></thead><tbody>`;
+      const pa={};preMonths.forEach(r=>{const k=`${r.deliver}:${r.product}`;pa[k]=(pa[k]||0)+r.tons;});
+      Object.entries(pa).sort().forEach(([k,t])=>{const[dp,p]=k.split(':');h+=`<tr><td style="text-align:left">${dp}</td><td>${p}</td><td style="font-weight:600;color:#1b5e20;background:#e8f5e9">${t.toFixed(1)}</td></tr>`;});
+      h+=`</tbody></table></div>`;
+    }
+    h+=`</div>`;
+  }else{
+    h+=`<div class="gw-body"><table class="sum-grid"><thead><tr><th rowspan="2">日期</th><th rowspan="2">周</th>`;
+    for(const dp of fromDepots){h+=`<th class="dh2" colspan="${fromProds.length}">${dp}</th>`;}
+    h+=`<th rowspan="2" class="total-col">日合计</th></tr><tr>`;
+    for(const dp of fromDepots){for(const p of fromProds)h+=`<th class="ph">${p}</th>`;}
+    h+=`</tr></thead><tbody>`;
+    for(let d=1;d<=daysInMonth;d++){
+      const dayDate=new Date(y,m-1,d);
+      const wd=weekDays[dayDate.getDay()];
+      const isWknd=dayDate.getDay()===0||dayDate.getDay()===6;
+      const dateKey=dayDate.toISOString().slice(0,10);
+      const holiday=HOLIDAYS[dateKey]||'';
+      let dayTotal=0,hasData=false;
+      let cellHTML='';
+      for(const dp of fromDepots){for(const p of fromProds){const v=fromData.daily[d]?.[dp]?.[p]||0;dayTotal+=v;if(v>0)hasData=true;cellHTML+=v>0?`<td class="has">${v.toFixed(1)}</td>`:`<td class="${isWknd?'wk':''}${holiday?' hol-cell':''}"></td>`;}}
+      if(!hasData)continue;
+      h+=`<tr><td class="date-cell${holiday?' hol-cell':''}">${m}月${d}日${holiday?`<span class="hm">🎌${holiday}</span>`:''}</td><td class="date-cell${holiday?' hol-cell':''}" style="font-size:9px;${isWknd&&!holiday?'color:#3A5C4A':''}">${wd}</td>${cellHTML}<td class="total-col" style="color:#e67e22">${dayTotal.toFixed(1)}</td></tr>`;
+    }
+    h+=`<tr class="sum-row"><td colspan="2">月合计</td>`;
+    let gt=0;
+    for(const dp of fromDepots){for(const p of fromProds){const v=fromMonthly[dp]?.[p]||0;gt+=v;h+=`<td>${v>0?v.toFixed(1):''}</td>`;}}
+    h+=`<td>${gt.toFixed(1)}</td></tr>`;
+    // Plan / Carry / Remaining rows for fromThem (all editable)
+    h+=`<tr style="background:#fff8e1"><td colspan="2" style="padding:3px 6px;font-size:9px;color:#e65100;font-weight:600">开单量（手动）</td>`;
+    planTotal=0;
+    for(const dp of fromDepots){for(const p of fromProds){const v=gp(cat,ym,dp,p);planTotal+=v;h+=`<td class="editable-cell" style="padding:0;border:1px solid #E0D5C8;text-align:center;font-weight:600;color:#e65100;background:#fff8e1"><input type="number" value="${v||''}" step="any" style="width:100%;padding:3px 4px;border:none;background:transparent;font-weight:600;color:#e65100;text-align:center;font-size:11px" onchange="sp('${cat}','${ym}','${dp}','${p}',parseFloat(this.value)||0);saveAll();refreshAfterEdit('${cat}','fromThem')"></td>`;}}
+    h+=`<td style="font-weight:700;color:#e65100">${planTotal.toFixed(1)}</td></tr>`;
+    h+=`<tr style="background:#f3e5f5"><td colspan="2" style="padding:3px 6px;font-size:9px;color:#7b1fa2;font-weight:600">结转量（自动·可改）</td>`;
+    carryTotal=0;
+    for(const dp of fromDepots){for(const p of fromProds){const v=gc(cat,ym,dp,p);carryTotal+=v;h+=`<td class="editable-cell" style="padding:0;border:1px solid #E0D5C8;text-align:center;font-weight:600;color:#7b1fa2;background:#f3e5f5"><input type="number" value="${v||''}" step="any" style="width:100%;padding:3px 4px;border:none;background:transparent;font-weight:600;color:#7b1fa2;text-align:center;font-size:11px" onchange="sc('${cat}','${ym}','${dp}','${p}',parseFloat(this.value)||0);saveAll();refreshAfterEdit('${cat}','fromThem')"></td>`;}}
+    h+=`<td style="font-weight:700;color:#7b1fa2">${carryTotal.toFixed(1)}</td></tr>`;
+    h+=`<tr style="background:#e8f5e9"><td colspan="2" style="padding:3px 6px;font-size:9px;color:#1b5e20;font-weight:600">剩余量（自动·可改）</td>`;
+    remTotal=0;
+    for(const dp of fromDepots){for(const p of fromProds){const pl=gp(cat,ym,dp,p);const ca=gc(cat,ym,dp,p);const mv=fromMonthly[dp]?.[p]||0;const rem=pl+ca-mv;remTotal+=rem;h+=`<td class="editable-cell" style="padding:0;border:1px solid #E0D5C8;text-align:center;font-weight:600;background:#e8f5e9"><input type="number" value="${rem||''}" step="any" style="width:100%;padding:3px 4px;border:none;background:transparent;font-weight:600;color:${rem>=0?'#2e7d32':'#c62828'};text-align:center;font-size:11px" onchange="sr('${cat}','${ym}','${dp}','${p}',parseFloat(this.value)||0);saveAll();refreshAfterEdit('${cat}','fromThem')"></td>`;}}
+    h+=`<td style="font-weight:700;color:${remTotal>=0?'#2e7d32':'#c62828'}">${remTotal.toFixed(1)}</td></tr>`;
+    h+=`</tbody></table></div></div>`;
+  // 提油量·按日期（1~31日）矩阵（日期为列，贴合对账单样本）
+  h+=renderDailyMatrix(cat,'toThem',toData,toDepots,toProds,daysInMonth,'dm-to');
+  h+=renderDailyMatrix(cat,'fromThem',fromData,fromDepots,fromProds,daysInMonth,'dm-from');
+  }
+  return h;
+}
+
+// Smart product list
+function selfProds(prods,depots,cat){
+  const used=new Set();
+  for(const dp of depots){
+    const known=DEPOT_PRODS[dp];
+    if(known) known.forEach(p=>used.add(p));
+    prods.forEach(p=>used.add(p)); // also include actual data products
+  }
+  return ALL_PRODS.filter(p=>used.has(p));
+}
+
+// ====== DEPOT DASHBOARD CARDS VIEW (v12) ======
+function renderDepotDashboards(cat){
+  const ym=curYM;const[y,m]=ym.split('-').map(Number);
+  const partnerName=cat==='sinopec'?'中石化':(cat==='sinochem'?'中化':'中海油');
+  const daysInMonth=new Date(y,m,0).getDate();
+  const weekDays=['日','一','二','三','四','五','六'];
+
+  const toData=getCombined(cat,'toThem',ym);
+  const fromData=getCombined(cat,'fromThem',ym);
+
+  // Get all depots (uploaded + preloaded for this month)
+  const toDepots=getAllDepots(cat,'toThem',ym);
+  const fromDepots=getAllDepots(cat,'fromThem',ym);
+
+  function buildDashboardCards(dir,depotNames,data,dirLabel,dirColor){
+    if(depotNames.length===0)return'<div class="tip" style="padding:12px">暂无数据。</div>';
+    let h='';
+    depotNames.forEach(dp=>{
+      const prodList=selfProds(data.prods,new Set([dp]),cat);
+      if(prodList.length===0){
+        // Use DEPOT_PRODS or default
+        const known=DEPOT_PRODS[dp];
+        if(known)prodList.push(...known);
+        else prodList.push('0#');
+      }
+
+      // Monthly totals per product (from uploaded or preloaded)
+      const prodMonth={};
+      let dpMonthTotal=0;
+      for(const p of prodList){
+        const v=getDepotProdMonthly(cat,dir,ym,dp,p);
+        prodMonth[p]=v;
+        dpMonthTotal+=v;
+      }
+
+      // YTD per product
+      const prodYTD={};
+      let dpYTDTotal=0;
+      for(const p of prodList){
+        const v=calcDepotProdYTD(cat,dir,ym,dp,p);
+        prodYTD[p]=v;
+        dpYTDTotal+=v;
+      }
+
+      // Plan per product
+      let dpPlanTotal=0;
+      for(const p of prodList)dpPlanTotal+=gp(cat,ym,dp,p);
+
+      // Carry-over
+      const carry=gc(cat,ym,dp);
+
+      // Progress: (已提 / (计划 + 结转)) * 100
+      const totalAvail=dpPlanTotal+carry;
+      const pct=totalAvail>0?Math.round((dpMonthTotal/totalAvail)*100):0;
+      const remaining=totalAvail-dpMonthTotal;
+
+      // Progress bar color
+      let barClass='low';
+      if(pct>=100)barClass='over';
+      else if(pct>=70)barClass='';
+      else if(pct>=40)barClass='warn';
+
+      // Daily records for this depot
+      const dpRecs=data.recs.filter(r=>String(r.deliver||'').trim()===dp);
+
+      h+=`<div class="dd-card" id="card_${cat}_${dir}_${dp}">
+        <div class="dd-hd">
+          <div class="dn"><span class="ico">🏪</span>${dp}</div>
+          <div class="db ${dirColor}">${dirLabel}</div>
+        </div>
+
+        <!-- Stats Row -->
+        <div class="dd-stats">
+          <div class="dd-stat">
+            <div class="sl">本月已提</div>
+            <div class="sv ${dirColor==='blue'?'b':'o'}">${dpMonthTotal.toFixed(1)}</div>
+            <div class="su">吨</div>
+          </div>
+          <div class="dd-stat">
+            <div class="sl">本年累计</div>
+            <div class="sv gr">${dpYTDTotal.toFixed(1)}</div>
+            <div class="su">吨</div>
+          </div>
+          <div class="dd-stat">
+            <div class="sl">提货进度</div>
+            <div class="pct" style="color:${pct>=100?'#C49A4A':pct>=70?'#3A5C4A':pct>=40?'#e67e22':'#3A5C4A'}">${pct}%</div>
+            <div class="su">${remaining>=0?'剩余 '+remaining.toFixed(1)+'吨':'超提 '+(-remaining).toFixed(1)+'吨'}</div>
+          </div>
+        </div>
+
+        <!-- Progress Bar -->
+        <div class="dd-progress">
+          <div class="pp-bar"><div class="pp-fill ${barClass}" style="width:${Math.min(100,pct)}%"></div></div>
+          <div class="pp-label">
+            <span>已提 ${dpMonthTotal.toFixed(1)}</span>
+            <span>计划 ${dpPlanTotal.toFixed(1)} + 结转 ${carry.toFixed(1)} = 可用 ${totalAvail.toFixed(1)}</span>
+          </div>
+        </div>
+
+        <!-- Product Detail Table -->
+        <table class="dd-prod-tbl">
+          <thead><tr><th style="text-align:left;padding-left:8px">品号</th><th>本月</th><th>年累计</th><th>计划</th><th>剩余</th></tr></thead>
+          <tbody>`;
+      for(const p of prodList){
+        const mv=prodMonth[p]||0;
+        const yv=prodYTD[p]||0;
+        const pl=gp(cat,ym,dp,p);
+        const rem=pl-mv;
+        h+=`<tr>
+          <td class="pn">${p}</td>
+          <td class="${mv>0?'has':''}">${mv>0?mv.toFixed(1):'—'}</td>
+          <td class="${yv>0?'has':''}">${yv>0?yv.toFixed(1):'—'}</td>
+          <td class="plan-in"><input type="number" value="${pl||''}" step="100" onchange="sp('${cat}','${ym}','${dp}','${p}',parseFloat(this.value)||0);saveAll();quickRefreshCard('${cat}','${dir}','${dp}','${ym}')"></td>
+          <td style="color:${rem>=0?'#C49A4A':'#3A5C4A'};font-weight:600">${pl>0?rem.toFixed(1):'—'}</td>
+        </tr>`;
+      }
+      // Summary row
+      h+=`<tr class="sum-row">
+        <td class="pn">合计</td>
+        <td class="has">${dpMonthTotal.toFixed(1)}</td>
+        <td class="has">${dpYTDTotal.toFixed(1)}</td>
+        <td>${dpPlanTotal>0?dpPlanTotal.toFixed(1):'—'}</td>
+        <td style="color:${remaining>=0?'#C49A4A':'#3A5C4A'}">${dpPlanTotal>0||carry>0?remaining.toFixed(1):'—'}</td>
+      </tr>`;
+      h+=`</tbody></table>
+
+        <!-- Carry-over per product -->
+        <div class="dd-carry" style="flex-wrap:wrap;gap:3px">
+          <span style="font-size:9px;color:#666;font-weight:500">📦 各油品上月结转:</span>`;
+      for(const p of prodList){
+        const pc=gc(cat,ym,dp,p);
+        h+=`<span style="display:inline-flex;align-items:center;gap:2px;background:#f5f7fa;border-radius:3px;padding:1px 4px;font-size:9px">
+          ${p}: <input type="number" value="${pc||''}" step="100" style="width:44px;padding:1px 2px;border:1px solid #ddd;border-radius:2px;font-size:9px;text-align:center"
+          onchange="sc('${cat}','${ym}','${dp}','${p}',parseFloat(this.value)||0);saveAll();quickRefreshCard('${cat}','${dir}','${dp}','${ym}')">
+        </span>`;
+      }
+      h+=`</div>`;
+
+      // Daily detail (expandable)
+      if(dpRecs.length>0){
+        const isExp=expandedDepots.has(`${cat}_${dir}_${dp}`);
+        h+=`<span class="dd-detail-tgl" onclick="togDet('${cat}_${dir}_${dp}')">${isExp?'▲ 收起每日明细':'▼ 展开每日明细'} (${dpRecs.length}条)</span>`;
+        h+=`<div id="det_${cat}_${dir}_${dp}" data-det="${cat}_${dir}_${dp}" class="hidden" style="max-height:360px;overflow-y:auto;padding:0 8px 8px;display:${isExp?'':'none'}"><table class="daily-tbl"><thead><tr><th>日期</th><th>周</th>`;
+        for(const p of prodList)h+=`<th>${p}</th>`;
+        h+=`<th>合计</th></tr></thead><tbody>`;
+        for(let d=1;d<=daysInMonth;d++){
+          const dayDate=new Date(y,m-1,d);const wd=weekDays[dayDate.getDay()];
+          const isWknd=dayDate.getDay()===0||dayDate.getDay()===6;
+          const dateKey=dayDate.toISOString().slice(0,10);const holiday=HOLIDAYS[dateKey]||'';
+          let ds=0,hd=0;
+          for(const p of prodList){const v=data.daily[d]?.[dp]?.[p]||0;ds+=v;if(v>0)hd++;}
+          if(hd===0)continue;
+          h+=`<tr><td class="date-cell${holiday?' hol':''}">${m}月${d}日${holiday?`<span class="hm">${holiday}</span>`:''}</td><td class="date-cell${holiday?' hol':''}" style="font-size:9px;${isWknd&&!holiday?'color:#3A5C4A':''}">${wd}</td>`;
+          for(const p of prodList){const v=data.daily[d]?.[dp]?.[p]||0;h+=v>0?`<td class="has">${v.toFixed(1)}</td>`:`<td class="${isWknd?'wknd':''}${holiday?' hol':''}"></td>`;}
+          h+=`<td class="sum-col">${ds.toFixed(1)}</td></tr>`;
+        }
+        h+=`<tr class="sum-row"><td colspan="2">月合计</td>`;
+        let tt=0;for(const p of prodList){const v=prodMonth[p]||0;tt+=v;h+=`<td>${v>0?v.toFixed(1):''}</td>`;}
+        h+=`<td>${tt.toFixed(1)}</td></tr></tbody></table></div>`;
+      }else{
+        // Show preloaded summary if available
+        const pre=getPreload()[cat]?.[dir]||[];
+        const preMonths=pre.filter(r=>r.month===ym&&r.deliver===dp);
+        if(preMonths.length>0){
+          h+=`<div style="padding:6px 14px 8px"><span class="tip">📌 本月仅有预载汇总数据（${preMonths.length}条记录），上传CSV可查看每日明细</span></div>`;
+        }
+      }
+
+      h+=`</div>`;
+    });
+    return h;
+  }
+
+  let toH=buildDashboardCards('toThem',toDepots,toData,'去'+partnerName+'提','blue');
+  let fromH=buildDashboardCards('fromThem',fromDepots,fromData,partnerName+'来提','orange');
+
+  // Calculate grand totals
+  let toGrand=0,fromGrand=0;
+  toDepots.forEach(dp=>toGrand+=getDepotMonthly(cat,'toThem',ym,dp));
+  fromDepots.forEach(dp=>fromGrand+=getDepotMonthly(cat,'fromThem',ym,dp));
+
+  return {toH,fromH,toGrand,fromGrand};
+}
+
+// ~~已删除：renderOrderQtyPanel / partnerDepots（v2.3移除本月开单量录入面板）~~
+
+// ===== 日期感知提货进度（v2.3：自然日均摊含周末，超前>5%绿/欠>5%红） =====
+function progressCardHTML(lifted, plan, carry, dirLabel){
+  const totalAvail=plan+carry;
+  const todayDay=new Date().getDate();
+  const[y,m]=curYM.split('-').map(Number);
+  const daysInMonth=new Date(y,m,0).getDate();
+  const dayRatio=Math.min(todayDay/daysInMonth,1); // 防止跨月时>1
+  const expected=totalAvail*dayRatio;
+  const variance=lifted-expected;
+  const pct=totalAvail>0?Math.round(lifted/totalAvail*100):0;
+  const varPct=expected>0?Math.round(variance/expected*100):0;
+  // 颜色判定：超前>5%绿，欠>5%红，中间橙色
+  let color, statusTag;
+  if(varPct>5){color='#2e7d32';statusTag='⏩ 超前';}
+  else if(varPct<-5){color='#c62828';statusTag='⏪ 欠进度';}
+  else{color='#e65100';statusTag='▶ 正常';}
+  const rem=totalAvail-lifted;
+  return `<div class="sum-card" style="min-width:80px"><div class="sl">${dirLabel}</div><div class="sv" style="color:${color};font-weight:700">${pct}%</div><div class="sub" style="color:${color}">${statusTag} ${varPct}%</div><div class="sub">应提${expected.toFixed(1)} / 差${variance>=0?'+':''}${variance.toFixed(1)}</div></div>`;
+}
+
+// ===== 跨公司开单量汇总（三公司→中石油，分油品） =====
+function renderCrossCompanyOrders(ym){
+  const cats=[
+    {key:'sinopec', name:'中石化→中石油', sub:'中石化开单量'},
+    {key:'cnooc',   name:'中海油化→中石油', sub:'中海油开单量'},
+    {key:'sinochem',name:'中化→中石油',   sub:'中化开单量'}
+  ];
+  const prods=['0#','92#','95#','98#','E92#'];
+  // 收集所有品号
+  const prodSet=new Set();
+  cats.forEach(({key:cat})=>{
+    Object.keys(DEPOT_PRODS).forEach(d=>{
+      if((cat==='sinopec'&&(isSHDepot(d)||isOwnDepot(d)))||
+         (cat!=='sinopec'&&(isCNDepot(d)||isOwnDepot(d)))){
+        (DEPOT_PRODS[d]||[]).forEach(p=>prodSet.add(p));
+      }
+    });
+  });
+  const activeProds=[...prodSet].sort((a,b)=>{
+    const pi=prods.indexOf(a),bi=prods.indexOf(b);
+    return (pi>=0?pi:999)-(bi>=0?bi:999);
+  });
+  if(activeProds.length===0) return '';
+
+  let h=`<div class="yr-wrap"><div class="yr-hd" style="background:#e3f2fd">📋 互供单位 — 各公司向中石油开单量（分油品） <span style="font-size:10px;color:#888">${ym}</span></div>`;
+  h+=`<div class="yr-body" style="overflow-x:auto"><table class="yr-tbl"><thead><tr><th style="text-align:left;white-space:nowrap">品号＼公司</th>`;
+  cats.forEach(c=>h+=`<th style="white-space:nowrap">${c.sub}</th>`);
+  h+=`<th>三公司合计</th></tr></thead><tbody>`;
+
+  activeProds.forEach(p=>{
+    h+=`<tr><td style="text-align:left;font-weight:600">${p}</td>`;
+    let rowSum=0;
+    cats.forEach(({key:cat})=>{
+      let sum=0;
+      Object.keys(DEPOT_PRODS).forEach(d=>{
+        if((cat==='sinopec'&&(isSHDepot(d)||isOwnDepot(d)))||
+           (cat!=='sinopec'&&(isCNDepot(d)||isOwnDepot(d)))){
+          if((DEPOT_PRODS[d]||[]).includes(p)) sum+=gp(cat,ym,d,p);
+        }
+      });
+      rowSum+=sum;
+      h+=`<td style="font-weight:600;color:#1565c0">${sum>0?sum.toFixed(1):''}</td>`;
+    });
+    h+=`<td class="yr-sum">${rowSum.toFixed(1)}</td></tr>`;
+  });
+  // 合计行
+  h+=`<tr style="background:#e3f2fd;font-weight:700"><td style="text-align:left">公司合计</td>`;
+  let gTotal=0;
+  cats.forEach(({key:cat})=>{
+    let sum=0;
+    Object.keys(DEPOT_PRODS).forEach(d=>{
+      if((cat==='sinopec'&&(isSHDepot(d)||isOwnDepot(d)))||
+         (cat!=='sinopec'&&(isCNDepot(d)||isOwnDepot(d)))){
+        (DEPOT_PRODS[d]||[]).forEach(p=>sum+=gp(cat,ym,d,p));
+      }
+    });
+    gTotal+=sum;
+    h+=`<td class="yr-sum">${sum.toFixed(1)}</td>`;
+  });
+  h+=`<td class="yr-sum">${gTotal.toFixed(1)}</td></tr>`;
+  h+=`</tbody></table></div></div>`;
+  return h;
+}
+
+function renderHuSong(cat){
+  const el=document.getElementById('content');if(!el)return;
+  const ym=curYM;const[y,m]=ym.split('-').map(Number);
+  const partnerName=cat==='sinopec'?'中石化':(cat==='sinochem'?'中化':'中海油');
+  const toYTD=calcYTD(cat,'toThem',ym);
+  const fromYTD=calcYTD(cat,'fromThem',ym);
+
+  if(viewMode==='summary'){
+    // Summary view
+    try{
+    const toData=getCombined(cat,'toThem',ym);
+    const fromData=getCombined(cat,'fromThem',ym);
+    const daysInMonth=new Date(y,m,0).getDate();
+    let toG=getMonthlyTotal(cat,'toThem',ym);
+    let fromG=getMonthlyTotal(cat,'fromThem',ym);
+
+    // Plan totals
+    const toDepots=getAllDepots(cat,'toThem',ym);
+    const fromDepots=getAllDepots(cat,'fromThem',ym);
+    let tP=0,fP=0,tCarry=0,fCarry=0;
+    const toProds=selfProds(toData.prods,new Set(toDepots),cat);
+    const fromProds=selfProds(fromData.prods,new Set(fromDepots),cat);
+    for(const dp of toDepots){for(const p of toProds)tP+=gp(cat,ym,dp,p);tCarry+=gc(cat,ym,dp);}
+    for(const dp of fromDepots){for(const p of fromProds)fP+=gp(cat,ym,dp,p);fCarry+=gc(cat,ym,dp);}
+
+    // 各自计算进度
+    const tPct=tP+tCarry>0?Math.round(toG/(tP+tCarry)*100):0;
+    const fPct=fP+fCarry>0?Math.round(fromG/(fP+fCarry)*100):0;
+    const tRem=tP+tCarry-toG;
+    const fRem=fP+fCarry-fromG;
+
+    document.getElementById('sum-bar').innerHTML=
+      `<div class="sum-card partner-to"><div class="pivot-tag">⬆ 我们去提</div><div class="sl">去${partnerName}互供库提油</div><div class="sv b">${toG.toFixed(1)}</div><div class="sub">已提 ${toG.toFixed(1)} | 计划 ${tP.toFixed(1)} | 结转 ${tCarry.toFixed(1)} | 剩余 ${tRem.toFixed(1)}</div></div>`
+      +progressCardHTML(toG,tP,tCarry,'提货进度')+
+      `<div class="sum-card partner-from"><div class="pivot-tag">⬇ 对方来提</div><div class="sl">${partnerName}来我库提油</div><div class="sv o">${fromG.toFixed(1)}</div><div class="sub">已提 ${fromG.toFixed(1)} | 计划 ${fP.toFixed(1)} | 结转 ${fCarry.toFixed(1)} | 剩余 ${fRem.toFixed(1)}</div></div>`
+      +progressCardHTML(fromG,fP,fCarry,'提货进度')+
+      `<div class="sum-card"><div class="sl">年累计(${y}年)</div><div class="sv gr">${(toYTD+fromYTD).toFixed(1)}</div><div class="sub">去${toYTD.toFixed(1)} / 来${fromYTD.toFixed(1)}</div></div>`;
+
+    // Yearly summary
+    let h=`<div class="yr-wrap"><div class="yr-hd" onclick="toggleDet('${cat}_yearly_detail')">📊 ${y}年月度总览 <span style="font-size:11px;color:#888">点击展开/收起</span></div>
+      <div id="${cat}_yearly_detail" class="hidden yr-body"><table class="yr-tbl"><thead><tr><th>月份</th><th colspan="2">去${partnerName}提</th><th colspan="2">${partnerName}来提</th><th>月合计</th></tr><tr><th></th><th>当月</th><th>年累计</th><th>当月</th><th>年累计</th><th></th></tr></thead><tbody>`;
+    let yCT=0,yCF=0;
+    for(let mi=1;mi<=12;mi++){
+      const mK=`${y}-${String(mi).padStart(2,'0')}`;
+      let tm=getMonthlyTotal(cat,'toThem',mK);
+      let fm=getMonthlyTotal(cat,'fromThem',mK);
+      yCT+=tm;yCF+=fm;
+      h+=`<tr class="${mi===m?'cur':''}"><td><b>${mi}月</b>${mi===m?' ◀':''}</td><td class="${tm>0?'has':''}">${tm>0?tm.toFixed(1):''}</td><td class="yr-sum">${yCT.toFixed(1)}</td><td class="${fm>0?'has':''}">${fm>0?fm.toFixed(1):''}</td><td class="yr-sum">${yCF.toFixed(1)}</td><td class="yr-sum">${(tm+fm).toFixed(1)}</td></tr>`;
+    }
+    h+=`</tbody></table></div></div>`;
+
+    h+=renderCrossCompanyOrders(ym);
+    h+=renderSummaryTable(cat);
+    h=renderPlanBoard(cat,ym)+h;
+    el.innerHTML=h;
+    }catch(e){
+      console.error('[renderHuSong summary]', e);
+      el.innerHTML = '<div style="padding:20px;background:#FDEDEC;border:1px solid #C0392B;border-radius:8px;color:#C0392B;font-size:14px"><b>⚠️ 渲染异常（summary模式）</b><pre style="margin:8px 0;overflow:auto;max-height:300px">'+String(e.stack||e.message).replace(/</g,'&lt;')+'</pre></div>';
+    }  }else{
+    // Dashboard cards view
+    try{
+    const dash=renderDepotDashboards(cat);
+
+    // Plan totals
+    const toDepots=getAllDepots(cat,'toThem',ym);
+    const fromDepots=getAllDepots(cat,'fromThem',ym);
+    let tP=0,fP=0,tCarry=0,fCarry=0;
+    for(const dp of toDepots){
+      const pl=selfProds(new Set(),new Set([dp]),cat);
+      for(const p of pl)tP+=gp(cat,ym,dp,p);
+      tCarry+=gc(cat,ym,dp);
+    }
+    for(const dp of fromDepots){
+      const pl=selfProds(new Set(),new Set([dp]),cat);
+      for(const p of pl)fP+=gp(cat,ym,dp,p);
+      fCarry+=gc(cat,ym,dp);
+    }
+    const totalPlan=tP+fP;
+    const totalLifted=dash.toGrand+dash.fromGrand;
+    const totalCarry=tCarry+fCarry;
+    const totalRemain=totalPlan+totalCarry-totalLifted;
+    const pct=totalPlan+totalCarry>0?Math.round(totalLifted/(totalPlan+totalCarry)*100):0;
+    // 分开计算
+    const tPct=tP+tCarry>0?Math.round(dash.toGrand/(tP+tCarry)*100):0;
+    const fPct=fP+fCarry>0?Math.round(dash.fromGrand/(fP+fCarry)*100):0;
+    const tRem=tP+tCarry-dash.toGrand;
+    const fRem=fP+fCarry-dash.fromGrand;
+
+    document.getElementById('sum-bar').innerHTML=
+      `<div class="sum-card partner-to"><div class="pivot-tag">⬆ 我们去提</div><div class="sl">去${partnerName}互供库提油</div><div class="sv b">${dash.toGrand.toFixed(1)}</div><div class="sub">已提 ${dash.toGrand.toFixed(1)} | 计划 ${tP.toFixed(1)} | 结转 ${tCarry.toFixed(1)} | 剩余 ${tRem.toFixed(1)}</div></div>
+      `+progressCardHTML(dash.toGrand,tP,tCarry,'提货进度')+`
+      <div class="sum-card partner-from"><div class="pivot-tag">⬇ 对方来提</div><div class="sl">${partnerName}来我库提油</div><div class="sv o">${dash.fromGrand.toFixed(1)}</div><div class="sub">已提 ${dash.fromGrand.toFixed(1)} | 计划 ${fP.toFixed(1)} | 结转 ${fCarry.toFixed(1)} | 剩余 ${fRem.toFixed(1)}</div></div>
+      `+progressCardHTML(dash.fromGrand,fP,fCarry,'提货进度')+`
+      <div class="sum-card"><div class="sl">年累计(${y}年)</div><div class="sv gr">${(toYTD+fromYTD).toFixed(1)}</div><div class="sub">去${toYTD.toFixed(1)} / 来${fromYTD.toFixed(1)}</div></div>`;
+
+    // Yearly summary
+    let h=`<div class="yr-wrap"><div class="yr-hd" onclick="toggleDet('${cat}_yearly_detail')">📊 ${y}年月度总览 <span style="font-size:11px;color:#888">点击展开/收起</span></div>
+      <div id="${cat}_yearly_detail" class="hidden yr-body"><table class="yr-tbl"><thead><tr><th>月份</th><th colspan="2">去${partnerName}提</th><th colspan="2">${partnerName}来提</th><th>月合计</th></tr><tr><th></th><th>当月</th><th>年累计</th><th>当月</th><th>年累计</th><th></th></tr></thead><tbody>`;
+    let yCT=0,yCF=0;
+    for(let mi=1;mi<=12;mi++){
+      const mK=`${y}-${String(mi).padStart(2,'0')}`;
+      let tm=getMonthlyTotal(cat,'toThem',mK);
+      let fm=getMonthlyTotal(cat,'fromThem',mK);
+      yCT+=tm;yCF+=fm;
+      h+=`<tr class="${mi===m?'cur':''}"><td><b>${mi}月</b>${mi===m?' ◀':''}</td><td class="${tm>0?'has':''}">${tm>0?tm.toFixed(1):''}</td><td class="yr-sum">${yCT.toFixed(1)}</td><td class="${fm>0?'has':''}">${fm>0?fm.toFixed(1):''}</td><td class="yr-sum">${yCF.toFixed(1)}</td><td class="yr-sum">${(tm+fm).toFixed(1)}</td></tr>`;
+    }
+    h+=`</tbody></table></div></div>`;
+
+    h+=renderCrossCompanyOrders(ym);
+    h+=`<div class="dir-head blue"><span class="dot"></span>🔵 我们去${partnerName}互供库提油 <span class="dir-total">本月 ${dash.toGrand.toFixed(1)} 吨</span></div><div class="depot-cards">${dash.toH}</div>`;
+    h+=`<div class="dir-head orange" style="margin-top:14px"><span class="dot"></span>🟠 ${partnerName}来我们自有库提油 <span class="dir-total">本月 ${dash.fromGrand.toFixed(1)} 吨</span></div><div class="depot-cards">${dash.fromH}</div>`;
+    h=renderPlanBoard(cat,ym)+h;
+    el.innerHTML=h;
+    }catch(e){
+      console.error('[renderHuSong cards]', e);
+      el.innerHTML = '<div style="padding:20px;background:#FDEDEC;border:1px solid #C0392B;border-radius:8px;color:#C0392B;font-size:14px"><b>⚠️ 渲染异常（cards模式）</b><pre style="margin:8px 0;overflow:auto;max-height:300px">'+String(e.stack||e.message).replace(/</g,'&lt;')+'</pre></div>';
+    }
+  }
+}
+
+// Quick refresh a single card after plan/carryover input change
+function quickRefreshCard(cat,dir,dp,ym){
+  if(viewMode!=='cards')return;
+  const card=document.getElementById(`card_${cat}_${dir}_${dp}`);
+  if(!card)return;
+
+  const prodList=[];
+  card.querySelectorAll('.dd-prod-tbl tbody tr').forEach(tr=>{
+    const pn=tr.querySelector('.pn')?.textContent?.trim();
+    if(pn&&pn!=='合计')prodList.push(pn);
+  });
+
+  // Recalculate
+  let dpMonthTotal=0,dpYTDTotal=0,dpPlanTotal=0;
+  const prodMonth={},prodYTD={};
+  for(const p of prodList){
+    const mv=getDepotProdMonthly(cat,dir,ym,dp,p);
+    const yv=calcDepotProdYTD(cat,dir,ym,dp,p);
+    const pl=gp(cat,ym,dp,p);
+    prodMonth[p]=mv;prodYTD[p]=yv;
+    dpMonthTotal+=mv;dpYTDTotal+=yv;dpPlanTotal+=pl;
+  }
+  const carry=gc(cat,ym,dp);
+  const totalAvail=dpPlanTotal+carry;
+  const pct=totalAvail>0?Math.round((dpMonthTotal/totalAvail)*100):0;
+  const remaining=totalAvail-dpMonthTotal;
+
+  // Update stats row
+  const stats=card.querySelectorAll('.dd-stat');
+  if(stats[0])stats[0].querySelector('.sv').textContent=dpMonthTotal.toFixed(1);
+  if(stats[1])stats[1].querySelector('.sv').textContent=dpYTDTotal.toFixed(1);
+  if(stats[2]){
+    stats[2].querySelector('.pct').textContent=pct+'%';
+    stats[2].querySelector('.pct').style.color=pct>=100?'#C49A4A':pct>=70?'#3A5C4A':pct>=40?'#e67e22':'#3A5C4A';
+    stats[2].querySelector('.su').textContent=remaining>=0?'剩余 '+remaining.toFixed(1)+'吨':'超提 '+(-remaining).toFixed(1)+'吨';
+  }
+
+  // Update progress bar
+  const fill=card.querySelector('.pp-fill');
+  if(fill){
+    fill.style.width=Math.min(100,pct)+'%';
+    fill.className='pp-fill '+(pct>=100?'over':pct>=70?'':pct>=40?'warn':'low');
+  }
+  const ppLabel=card.querySelector('.pp-label');
+  if(ppLabel){
+    ppLabel.innerHTML=`<span>已提 ${dpMonthTotal.toFixed(1)}</span><span>计划 ${dpPlanTotal.toFixed(1)} + 结转 ${carry.toFixed(1)} = 可用 ${totalAvail.toFixed(1)}</span>`;
+  }
+
+  // Update product table rows
+  const rows=card.querySelectorAll('.dd-prod-tbl tbody tr');
+  rows.forEach(tr=>{
+    const pn=tr.querySelector('.pn')?.textContent?.trim();
+    if(!pn||pn==='合计')return;
+    const cells=tr.querySelectorAll('td');
+    if(cells.length>=5){
+      const mv=prodMonth[pn]||0;
+      const yv=prodYTD[pn]||0;
+      const pl=gp(cat,ym,dp,pn);
+      const rem=pl-mv;
+      cells[1].textContent=mv>0?mv.toFixed(1):'—';
+      cells[1].className=mv>0?'has':'';
+      cells[2].textContent=yv>0?yv.toFixed(1):'—';
+      cells[2].className=yv>0?'has':'';
+      cells[4].textContent=pl>0?rem.toFixed(1):'—';
+      cells[4].style.color=rem>=0?'#C49A4A':'#3A5C4A';
+    }
+  });
+
+  // Update sum row
+  const sumRow=card.querySelector('.dd-prod-tbl tr.sum-row');
+  if(sumRow){
+    const cells=sumRow.querySelectorAll('td');
+    if(cells.length>=5){
+      cells[1].textContent=dpMonthTotal.toFixed(1);
+      cells[2].textContent=dpYTDTotal.toFixed(1);
+      cells[3].textContent=dpPlanTotal>0?dpPlanTotal.toFixed(1):'—';
+      cells[4].textContent=dpPlanTotal>0||carry>0?remaining.toFixed(1):'—';
+      cells[4].style.color=remaining>=0?'#C49A4A':'#3A5C4A';
+    }
+  }
+
+  // Update top summary bar
+  const partnerName=cat==='sinopec'?'中石化':(cat==='sinochem'?'中化':'中海油');
+  const toDepots=getAllDepots(cat,'toThem',ym);
+  const fromDepots=getAllDepots(cat,'fromThem',ym);
+  let tP=0,fP=0,tCarry=0,fCarry=0;
+  for(const d of toDepots){const pl=selfProds(new Set(),new Set([d]),cat);for(const p of pl)tP+=gp(cat,ym,d,p);tCarry+=gc(cat,ym,d);}
+  for(const d of fromDepots){const pl=selfProds(new Set(),new Set([d]),cat);for(const p of pl)fP+=gp(cat,ym,d,p);fCarry+=gc(cat,ym,d);}
+  let toG=0,fromG=0;
+  toDepots.forEach(d=>toG+=getDepotMonthly(cat,'toThem',ym,d));
+  fromDepots.forEach(d=>fromG+=getDepotMonthly(cat,'fromThem',ym,d));
+  const totalPlan=tP+fP;
+  const totalLifted=toG+fromG;
+  const totalCarry=tCarry+fCarry;
+  const totalRemain=totalPlan+totalCarry-totalLifted;
+  const pct2=totalPlan+totalCarry>0?Math.round(totalLifted/(totalPlan+totalCarry)*100):0;
+  const sb=document.getElementById('sum-bar');
+  if(sb){
+    const toYTD=calcYTD(cat,'toThem',ym);
+    const fromYTD=calcYTD(cat,'fromThem',ym);
+    sb.innerHTML=
+      `<div class="sum-card partner-to"><div class="sl">去${partnerName}提 (本月)</div><div class="sv b">${toG.toFixed(1)}</div><div class="sub">吨</div></div>
+      <div class="sum-card partner-from"><div class="sl">${partnerName}来提 (本月)</div><div class="sv o">${fromG.toFixed(1)}</div><div class="sub">吨</div></div>
+      <div class="sum-card plan"><div class="sl">本月计划量</div><div class="sv g">${totalPlan.toFixed(1)}</div><div class="sub">已提 ${totalLifted.toFixed(1)} | 结转 ${totalCarry.toFixed(1)} | 剩余 ${totalRemain.toFixed(1)}</div></div>
+      <div class="sum-card"><div class="sl">提货进度</div><div class="sv ${pct2>=100?'g':pct2>=70?'b':pct2>=40?'gr':'r'}">${pct2}%</div><div class="sub">${totalRemain>=0?'剩余 '+totalRemain.toFixed(1)+'吨':'超提 '+(-totalRemain).toFixed(1)+'吨'}</div></div>
+      <div class="sum-card"><div class="sl">年累计(${ym.split('-')[0]}年)</div><div class="sv gr">${(toYTD+fromYTD).toFixed(1)}</div><div class="sub">去${toYTD.toFixed(1)} / 来${fromYTD.toFixed(1)}</div></div>`;
+  }
+}
+
+function togDet(id){
+  const e=document.querySelector(`[data-det="${id}"]`);
+  if(!e)return;
+  const nowHidden=e.style.display==='none'||e.classList.contains('hidden');
+  if(nowHidden){e.style.display='';e.classList.remove('hidden');}else{e.style.display='none';e.classList.add('hidden');}
+  const c=e.closest('.dd-card');
+  if(c){const t=c.querySelector('.dd-detail-tgl');if(t)t.textContent=nowHidden?'▲ 收起每日明细':'▼ 展开每日明细';}
+}
+function toggleAllDetails(){
+  const rows=document.querySelectorAll('[data-det]');
+  if(rows.length===0)return;
+  const anyHidden=[...rows].some(e=>e.style.display==='none'||e.classList.contains('hidden'));
+  rows.forEach(e=>{
+    if(anyHidden){e.style.display='';e.classList.remove('hidden');}else{e.style.display='none';e.classList.add('hidden');}
+  });
+  document.querySelectorAll('.dd-detail-tgl').forEach(t=>t.textContent=anyHidden?'▲ 收起每日明细':'▼ 展开每日明细');
+}
+function toggleDet(id){const e=document.getElementById(id);if(e)e.classList.toggle('hidden');}
+
+// ===== WAICAI =====
+function renderWaiCai(){
+  const el=document.getElementById('wc-content');if(!el)return;
+  document.getElementById('content').classList.add('hidden');
+  const ym=curYM;const[y,m]=ym.split('-').map(Number);
+  const yk=ym.split('-')[0]+'-';
+  const all=uploaded.waicai||[];
+  const mRecs=all.filter(r=>String(r.date).startsWith(ym));
+  const yRecs=all.filter(r=>{const d=String(r.date);return d.startsWith(yk)&&d<=ym+'-31';});
+  const monthMap={},ytdMap={};const depots=new Set();const prodsSet=new Set();
+  function add(map,r){const dp=String(r.deliver||'未知油库').trim();const p=r.product;depots.add(dp);prodsSet.add(p);map[dp]=map[dp]||{};map[dp][p]=(map[dp][p]||0)+r.tons;}
+  mRecs.forEach(r=>add(monthMap,r));
+  yRecs.forEach(r=>add(ytdMap,r));
+  const depList=[...depots].sort();
+  const plList=[...prodsSet].sort();
+  let total=0;depList.forEach(dp=>plList.forEach(p=>total+=monthMap[dp]?.[p]||0));
+  let ytd=0;depList.forEach(dp=>plList.forEach(p=>ytd+=ytdMap[dp]?.[p]||0));
+  function sumObj(o){return o?Object.values(o).reduce((a,b)=>a+b,0):0;}
+
+  document.getElementById('sum-bar').innerHTML=
+    `<div class="sum-card partner-to"><div class="sl">本月提油</div><div class="sv b">${total.toFixed(1)}</div><div class="sub">吨</div></div>
+     <div class="sum-card"><div class="sl">年累计(${y}年)</div><div class="sv gr">${ytd.toFixed(1)}</div><div class="sub">吨</div></div>
+     <div class="sum-card"><div class="sl">本月记录</div><div class="sv">${mRecs.length}</div><div class="sub">条</div></div>
+     <div class="sum-card plan"><div class="sl">油库数</div><div class="sv g">${depList.length}</div><div class="sub">个</div></div>`;
+
+  // 本月提油量 面板：按油库 / 按油品
+  let h=`<div class="yr-wrap"><div class="yr-hd" style="background:#eef4ff">📦 外采本月提油量 <span style="margin-left:auto;font-size:12px;font-weight:700;color:#3A5C4A">合计 ${total.toFixed(1)} 吨</span></div><div class="yr-body" style="display:grid;grid-template-columns:1fr 1fr;gap:12px">`;
+  h+=`<div><div style="font-size:11px;font-weight:600;margin-bottom:4px;color:#3A5C4A">按油库</div><table class="yr-tbl"><thead><tr><th style="text-align:left">油库</th><th>提油量(吨)</th></tr></thead><tbody>`;
+  depList.map(dp=>({dp,v:sumObj(monthMap[dp])})).sort((a,b)=>b.v-a.v).forEach(o=>{if(o.v>0)h+=`<tr><td style="text-align:left">${o.dp}</td><td class="has">${o.v.toFixed(1)}</td></tr>`;});
+  if(depList.length===0)h+=`<tr><td colspan="2" style="color:#999">暂无数据</td></tr>`;
+  h+=`</tbody></table></div>`;
+  h+=`<div><div style="font-size:11px;font-weight:600;margin-bottom:4px;color:#3A5C4A">按油品</div><table class="yr-tbl"><thead><tr><th style="text-align:left">品号</th><th>提油量(吨)</th></tr></thead><tbody>`;
+  plList.map(p=>({p,v:depList.reduce((s,dp)=>s+((monthMap[dp]?.[p])||0),0)})).sort((a,b)=>b.v-a.v).forEach(o=>{if(o.v>0)h+=`<tr><td style="text-align:left">${o.p}</td><td class="has">${o.v.toFixed(1)}</td></tr>`;});
+  if(plList.length===0)h+=`<tr><td colspan="2" style="color:#999">暂无数据</td></tr>`;
+  h+=`</tbody></table></div></div></div>`;
+
+  // 互供格式：外采油库提油看板（卡片）
+  h+=`<div class="dir-head blue" style="margin-top:8px"><span class="dot"></span>🏪 外采油库提油看板 <span class="dir-total">本月 ${total.toFixed(1)} 吨</span></div><div class="depot-cards">`;
+  if(depList.length===0){
+    h+=`<div class="tip" style="padding:12px">暂无数据。请上传CSV明细。</div>`;
+  }else{
+    depList.forEach(dp=>{
+      const dpMonth=sumObj(monthMap[dp]);
+      const dpYTD=sumObj(ytdMap[dp]);
+      let card=`<div class="dd-card"><div class="dd-hd"><div class="dn"><span class="ico">🏪</span>${dp}</div><div class="db blue">外采</div></div>`;
+      card+=`<div class="dd-stats">
+        <div class="dd-stat"><div class="sl">本月已提</div><div class="sv b">${dpMonth.toFixed(1)}</div><div class="su">吨</div></div>
+        <div class="dd-stat"><div class="sl">本年累计</div><div class="sv gr">${dpYTD.toFixed(1)}</div><div class="su">吨</div></div>
+      </div>`;
+      card+=`<table class="dd-prod-tbl"><thead><tr><th style="text-align:left;padding-left:8px">品号</th><th>本月</th><th>年累计</th></tr></thead><tbody>`;
+      plList.forEach(p=>{const mv=monthMap[dp]?.[p]||0;const yv=ytdMap[dp]?.[p]||0;card+=`<tr><td class="pn">${p}</td><td class="${mv>0?'has':''}">${mv>0?mv.toFixed(1):'—'}</td><td class="${yv>0?'has':''}">${yv>0?yv.toFixed(1):'—'}</td></tr>`;});
+      card+=`<tr class="sum-row"><td class="pn">合计</td><td class="has">${dpMonth.toFixed(1)}</td><td class="has">${dpYTD.toFixed(1)}</td></tr>`;
+      card+=`</tbody></table></div>`;
+      h+=card;
+    });
+  }
+  h+=`</div>`;
+
+  h+=`<span class="dd-detail-tgl" onclick="toggleDet('wc_detail')" style="padding:4px 12px">▼ 展开明细 (${mRecs.length}条)</span>
+    <div id="wc_detail" class="hidden" style="max-height:400px;overflow-y:auto;margin-top:6px"><table class="daily-tbl"><thead><tr><th>日期</th><th>车号</th><th>发货单位</th><th>品号</th><th>吨数</th></tr></thead><tbody>`;
+  mRecs.slice().sort((a,b)=>String(a.date).localeCompare(String(b.date))).forEach(r=>{h+=`<tr><td>${(r.date||'').slice(5)}</td><td>${r.car||''}</td><td>${r.deliver||''}</td><td>${r.product}</td><td style="font-weight:600;color:#1b5e20">${r.tons}</td></tr>`;});
+  h+=`</tbody></table></div>`;
+  el.innerHTML=h;el.classList.remove('hidden');
+}
+
+// ===== CSV PARSING =====
+function mapProd(name){
+  const s=String(name||'').trim();
+  if(s.includes('柴油')||s.includes('0号')||s.includes('0#'))return'0#';
+  if(s.includes('乙醇')||s.includes('E92'))return'E92#';
+  if(s.includes('98'))return'98#';
+  if(s.includes('95'))return'95#';
+  if(s.includes('92'))return'92#';
+  return'0#';
+}
+function cleanCsv(v){let s=String(v).trim().replace(/^=+/,'');if(s.startsWith('"')&&s.endsWith('"'))s=s.slice(1,-1);return s;}
+// 规范化提货方式：去除前后空白，统一全角/半角空格
+function normMode(m){
+  return String(m||'').trim().replace(/[\s\u3000]+/g,'');
+}
+function parseCSVText(text){
+  const lines=text.split(/\r?\n/).filter(l=>l.trim());
+  if(lines.length<2)return{headers:[],rows:[]};
+  const delim=lines[0].split('\t').length>lines[0].split(',').length?'\t':',';
+  const hdr=lines[0].split(delim).map(h=>cleanCsv(h));
+  const rows=[];
+  for(let i=1;i<lines.length;i++){const vals=lines[i].split(delim);if(vals.length>1)rows.push(vals.map(v=>cleanCsv(v)));}
+  return{headers:hdr,rows};
+}
+
+function upFile(e){
+  const file=e.target.files[0];if(!file)return;
+  const zu=document.getElementById('zu');
+  zu.className='up-mini loading';
+  document.getElementById('zfn').textContent='正在读取: '+file.name+' ('+(file.size/1024).toFixed(0)+'KB)...';
+  const reader=new FileReader();
+  reader.onload=function(ev){
+    try{
+      let hdr=[],rows=[];
+      const buf=new Uint8Array(ev.target.result);
+      const isUTF16LE=buf.length>1&&buf[0]===0xFF&&buf[1]===0xFE;
+      const isUTF16BE=buf.length>1&&buf[0]===0xFE&&buf[1]===0xFF;
+      if(file.name.endsWith('.csv')){
+        let text;
+        if(isUTF16LE)text=new TextDecoder('utf-16le').decode(buf);
+        else if(isUTF16BE)text=new TextDecoder('utf-16be').decode(buf);
+        else{try{text=new TextDecoder('gbk').decode(buf);}catch(_){try{text=new TextDecoder('utf-8').decode(buf);}catch(__){text='';}}}
+        const p=parseCSVText(text);hdr=p.headers;rows=p.rows;
+      }else{
+        const wb=XLSX.read(buf,{type:'array'});
+        const ws=wb.Sheets[wb.SheetNames[0]];
+        const data=XLSX.utils.sheet_to_json(ws,{header:1,defval:''});
+        if(data.length>0){hdr=data[0].map(h=>cleanCsv(String(h)));rows=data.slice(1);}
+      }
+      if(hdr.length===0){toast('无法解析文件','e');return;}
+      // 列映射（按用户提供的CSV列编号）
+      const colMap={
+        date:7,    // H列
+        car:8,     // I列
+        deliver:10,// K列
+        pickup:11, // L列
+        mode:12,   // M列
+        outType:13,// N列（之前用了F列物料，错了！）
+        product:16,// Q列
+        qtyTons:27 // AB列
+      };
+      const sinopecTo=[],sinopecFrom=[],cnoocTo=[],cnoocFrom=[],sinochemTo=[],sinochemFrom=[],waicai=[];
+      const debugInfo=[]; // 收集所有分类详情
+      const diag={total:rows.length,skipped:0,noDate:0,noCar:0,badDate:0,noTons:0,classified:0,first5:[],colMap:JSON.parse(JSON.stringify(colMap)),headers:hdr};
+      rows.forEach((row,i)=>{
+        if(row.length<Math.max(colMap.date||0,colMap.product||0,colMap.qtyTons||0)){diag.skipped++;return;}
+        const car=cleanCsv(String(row[colMap.car]||'').trim());
+        // 跳过完全无车号的行
+        if(car===''||car==='0'||car==='无'){diag.noCar++;return;}
+        // 车号过滤：只保留正常车牌格式（如桂BA2888），排除"6618099等5车""账务处理"等
+        if(!/^[\u4e00-\u9fa5][A-Z][A-Z0-9]{4,6}$/.test(car)){diag.noCar++;return;}
+        let date=null;
+        const ds=cleanCsv(String(row[colMap.date]||'').trim());
+        const n=parseFloat(ds);
+        if(!isNaN(n)&&n>40000&&n<60000)date=new Date((n-25569)*86400*1000);
+        else{const m=ds.match(/(\d{4})[-\/\.](\d{1,2})[-\/\.](\d{1,2})/)||ds.match(/^(\d{4})(\d{2})(\d{2})$/);if(m)date=new Date(+m[1],+m[2]-1,+m[3]);}
+        if(!date||isNaN(date.getTime())){diag.badDate++;return;}
+        const dts=date.getFullYear()+'-'+String(date.getMonth()+1).padStart(2,'0')+'-'+String(date.getDate()).padStart(2,'0');
+        const deliver=cleanCsv(String(row[colMap.deliver]||'').trim());
+        const pickup=cleanCsv(String(row[colMap.pickup]||'').trim());
+        const productName=cleanCsv(String(row[colMap.product]||'').trim());
+        const product=mapProd(productName);
+        const mode=normMode(cleanCsv(String(row[colMap.mode]||'').trim()));
+        let tons=parseFloat(row[colMap.qtyTons]);
+        if(isNaN(tons)||tons<=0){const l=parseFloat(row[colMap.qtyLiters]);if(!isNaN(l)&&l>0)tons=l/1000;}
+        if(isNaN(tons)||tons<=0){diag.noTons++;return;}
+        // 记录前5条原始数据用于诊断
+        if(diag.first5.length<5)diag.first5.push({i:i+2,car,date:dts,deliver,pickup,productName,product,mode,tons,outType:cleanCsv(String(row[colMap.outType]||'').trim()),rawCar:cleanCsv(String(row[colMap.car]||'')),rawDate:cleanCsv(String(row[colMap.date]||'')),rawDeliver:cleanCsv(String(row[colMap.deliver]||'')),rawPickup:cleanCsv(String(row[colMap.pickup]||'')),rawMode:cleanCsv(String(row[colMap.mode]||'')),rawTons:cleanCsv(String(row[colMap.qtyTons]||'')),rawOutType:cleanCsv(String(row[colMap.outType]||''))});
+        const rec={date:dts,car,deliver,pickup,product,productName,mode,tons};
+        // ===== 分类规则（按业务逻辑 2026-06-20） =====
+        const outType=cleanCsv(String(row[colMap.outType]||'').trim()).replace(/[\s\u3000\ufeff\u200b]+/g,'');
+        const otInfo=outType?`[${outType}] `:'';
+        // 模糊匹配出库类型
+        const isPF=outType.includes('批发')||outType==='批发';
+        const isNB=outType.includes('内部调拨')||outType==='内部调拨'||outType.includes('调拨')||outType.includes('移库');
+        // 规则说明：
+        // 对方来我库提油：出库类型=批发
+        //   中石化来提：提货方式=自提，提货单位含"广西石油分公司"
+        //   中海油来提：提货方式=自提/配送，提货单位含"中海油广西销售"
+        // 我去对方库提油：出库类型=内部调拨，提货方式=配送
+        if(isOwnDepot(deliver)){
+          // ===== 我方自有库发货 → 对方来我库提油 =====
+          if(isPF){
+            const isSHFrom=(pickup.includes('广西石油分公司')||pickup==='中国石化销售股份有限公司')&&mode==='自提';
+            const isCNFrom=pickup.includes('中海油广西销售');
+            const isSinoFrom=pickup.includes('中化');
+            if(isSHFrom){sinopecFrom.push(rec);diag.classified++;debugInfo.push(`${otInfo}[中石化来提] ${dts} ${deliver}→${pickup} ${product} ${tons}吨 (方式:${mode})`);}
+            else if(isCNFrom){cnoocFrom.push(rec);diag.classified++;debugInfo.push(`${otInfo}[中海油来提] ${dts} ${deliver}→${pickup} ${product} ${tons}吨 (方式:${mode})`);}
+            else if(isSinoFrom){sinochemFrom.push(rec);diag.classified++;debugInfo.push(`${otInfo}[中化来提] ${dts} ${deliver}→${pickup} ${product} ${tons}吨 (方式:${mode})`);}
+            else{waicai.push(rec);diag.classified++;debugInfo.push(`${otInfo}[外采] ${dts} 自有库${deliver}出库类型=批发但提货单位非中石化/海油/中化`);}
+          }else{
+            waicai.push(rec);diag.classified++;debugInfo.push(`${otInfo}[外采] ${dts} ${deliver}→${pickup} ${product} ${tons}吨 (自有库发货出库类型=${outType||'空'}非批发)`);
+          }
+        }else if(isSHDepot(deliver)){
+          // ===== 中石化互供库发货 → 我方去中石化提油 =====
+          if(isNB&&mode==='配送'){sinopecTo.push(rec);diag.classified++;debugInfo.push(`${otInfo}[去中石化提] ${dts} ${deliver}→${pickup} ${product} ${tons}吨 (方式:${mode})`);}
+          else{diag.classified++;debugInfo.push(`${otInfo}[跳过] ${dts} ${deliver} 出库类型=${outType||'空'} 方式=${mode} (需内部调拨+配送)`);}
+        }else if(isCNOilDepot(deliver)){
+          // ===== 中海油互供库发货 → 我方去中海油提油 =====
+          if(isNB&&mode==='配送'){cnoocTo.push(rec);diag.classified++;debugInfo.push(`${otInfo}[去中海油提] ${dts} ${deliver}→${pickup} ${product} ${tons}吨`);}
+          else{diag.classified++;debugInfo.push(`${otInfo}[跳过] ${dts} ${deliver} 出库类型=${outType||'空'} 方式=${mode} (需内部调拨+配送)`);}
+        }else if(isSinoDepot(deliver)){
+          // ===== 中化互供库发货 → 我方去中化提油 =====
+          if(isNB&&mode==='配送'){sinochemTo.push(rec);diag.classified++;debugInfo.push(`${otInfo}[去中化提] ${dts} ${deliver}→${pickup} ${product} ${tons}吨`);}
+          else{diag.classified++;debugInfo.push(`${otInfo}[跳过] ${dts} ${deliver} 出库类型=${outType||'空'} 方式=${mode} (需内部调拨+配送)`);}
+        }else if(isWCDepot(deliver)){
+          waicai.push(rec);diag.classified++;debugInfo.push(`${otInfo}[外采] ${dts} ${deliver}→${pickup} ${product} ${tons}吨`);
+        }else{
+          waicai.push(rec);diag.classified++;debugInfo.push(`${otInfo}[其他→外采] ${dts} ${deliver}→${pickup} ${product} ${tons}吨 (无法识别的发货单位)`);
+        }
+      });
+      const overwrite=document.getElementById('overwriteUpload')?.checked;
+      function mergeRecs(existing,newOnes,monthFilter){
+        if(overwrite&&monthFilter){
+          const kept=existing.filter(r=>!String(r.date||'').startsWith(monthFilter));
+          return kept.concat(newOnes);
+        }
+        return existing.concat(newOnes);
+      }
+      uploaded.sinopec.toThem=mergeRecs(uploaded.sinopec.toThem,sinopecTo,curYM);
+      uploaded.sinopec.fromThem=mergeRecs(uploaded.sinopec.fromThem,sinopecFrom,curYM);
+      uploaded.cnooc.toThem=mergeRecs(uploaded.cnooc.toThem,cnoocTo,curYM);
+      uploaded.cnooc.fromThem=mergeRecs(uploaded.cnooc.fromThem,cnoocFrom,curYM);
+      uploaded.sinochem.toThem=mergeRecs(uploaded.sinochem.toThem,sinochemTo,curYM);
+      uploaded.sinochem.fromThem=mergeRecs(uploaded.sinochem.fromThem,sinochemFrom,curYM);
+      uploaded.waicai=mergeRecs(uploaded.waicai,waicai,curYM);
+      // 保存debug日志到localStorage供查看
+      try{localStorage.setItem('recon_v12_debug',JSON.stringify(debugInfo));localStorage.setItem('recon_v12_diag',JSON.stringify(diag));}catch(e){}
+      saveAll();
+      const zu=document.getElementById('zu');
+      zu.className='up-mini done';
+      const modeText=overwrite?`✅ ${file.name} — 已覆盖${curYM}数据`:`✅ ${file.name} — 合并完成`;
+      document.getElementById('zfn').textContent=`${modeText} | 中石化:去${sinopecTo.length}/来${sinopecFrom.length} | 中海油:去${cnoocTo.length}/来${cnoocFrom.length} | 中化:去${sinochemTo.length}/来${sinochemFrom.length} | 外采:${waicai.length}`;
+      const summaryMsg=(overwrite?'覆盖':'新增')+` → 中石化:去${sinopecTo.length}/来${sinopecFrom.length} | 中海油:去${cnoocTo.length}/来${cnoocFrom.length} | 中化:去${sinochemTo.length}/来${sinochemFrom.length} | 外采:${waicai.length}`;
+      toast(summaryMsg+' <span style="cursor:pointer;text-decoration:underline" onclick="showUploadDebug()">[查看详情]</span>','s');
+      render();
+    }catch(err){console.error(err);const zu=document.getElementById('zu');if(zu){zu.className='up-mini err';document.getElementById('zfn').textContent='❌ 解析失败: '+err.message;}toast('解析失败: '+err.message,'e');}
+  };
+  reader.readAsArrayBuffer(file);
+  // 重置 input，确保下次选相同文件也能触发 onchange
+  e.target.value='';
+}
+
+function showDiag(){
+  let d={};
+  try{const j=localStorage.getItem('recon_v12_diag');if(j)d=JSON.parse(j);}catch(e){}
+  if(!d.total){alert('暂无诊断数据。请先上传CSV文件。');return;}
+  let h='<div style="position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.5);z-index:9999;display:flex;align-items:center;justify-content:center" onclick="this.remove()">';
+  h+='<div style="background:#fff;border-radius:10px;max-width:900px;width:95%;max-height:85vh;overflow:auto;padding:16px" onclick="event.stopPropagation()">';
+  h+='<h3 style="margin-bottom:10px">📊 CSV诊断报告</h3>';
+  h+=`<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:12px">`;
+  h+=`<div style="background:#e8f5e9;padding:10px;border-radius:6px"><div style="font-size:20px;font-weight:700">${d.total}</div><div style="font-size:12px;color:#555">CSV总行数</div></div>`;
+  h+=`<div style="background:#e3f2fd;padding:10px;border-radius:6px"><div style="font-size:20px;font-weight:700;color:#1565c0">${d.classified||0}</div><div style="font-size:12px;color:#555">已分类</div></div>`;
+  h+=`<div style="background:#fff3e0;padding:10px;border-radius:6px"><div style="font-size:20px;font-weight:700;color:#e65100">${d.total-(d.classified||0)}</div><div style="font-size:12px;color:#555">跳过/丢失</div></div>`;
+  h+=`</div>`;
+  h+=`<table style="width:100%;border-collapse:collapse;font-size:12px;margin-bottom:10px">`;
+  h+=`<tr style="background:#f5f5f5"><td style="padding:4px 8px;border:1px solid #ddd">行数过少</td><td style="padding:4px 8px;border:1px solid #ddd">${d.skipped||0}</td><td style="padding:4px 8px;border:1px solid #ddd;color:#888">CSV列数不满足字段索引要求</td></tr>`;
+  h+=`<tr><td style="padding:4px 8px;border:1px solid #ddd">无车号</td><td style="padding:4px 8px;border:1px solid #ddd">${d.noCar||0}</td><td style="padding:4px 8px;border:1px solid #ddd;color:#888">车号为空/0/无</td></tr>`;
+  h+=`<tr style="background:#f5f5f5"><td style="padding:4px 8px;border:1px solid #ddd">日期解析失败</td><td style="padding:4px 8px;border:1px solid #ddd">${d.badDate||0}</td><td style="padding:4px 8px;border:1px solid #ddd;color:#888">日期格式无法识别</td></tr>`;
+  h+=`<tr><td style="padding:4px 8px;border:1px solid #ddd">吨数&amp;lt;=0</td><td style="padding:4px 8px;border:1px solid #ddd">${d.noTons||0}</td><td style="padding:4px 8px;border:1px solid #ddd;color:#888">吨数无效或为0</td></tr>`;
+  h+=`</table>`;
+  // 显示列映射
+  if(d.colMap){
+    h+='<div style="font-weight:600;margin:8px 0 4px;font-size:12px">📌 列映射（H列=日期固定）：</div>';
+    h+='<div style="display:flex;flex-wrap:wrap;gap:4px;font-size:10px;margin-bottom:8px">';
+    const cmLabels={date:'日期',car:'车号',deliver:'发货单位',pickup:'提货单位',mode:'提货方式',outType:'出库类型',product:'油品',qtyTons:'吨数',qtyLiters:'升数'};
+    Object.entries(d.colMap).forEach(([k,v])=>{
+      const label=cmLabels[k]||k;
+      const colLetter=String.fromCharCode(65+(typeof v==='number'?v:0));
+      const hname=d.headers&&d.headers[v]?d.headers[v]:'';
+      h+=`<span style="background:#e3f2fd;padding:2px 6px;border-radius:3px">${label} → ${colLetter}列(${v}) ${hname?'「'+hname+'」':''}</span>`;
+    });
+    h+='</div>';
+  }
+  if(d.first5&&d.first5.length>0){
+    h+='<div style="font-weight:600;margin-bottom:4px;font-size:12px">📄 前5条记录样本：</div>';
+    h+='<table style="width:100%;border-collapse:collapse;font-size:10px">';
+    h+='<thead><tr style="background:#333;color:#fff"><th>行</th><th>车号</th><th>日期</th><th>发货单位</th><th>提货单位</th><th>品名</th><th>油品</th><th>方式</th><th>吨</th><th>出库类型</th></tr></thead><tbody>';
+    d.first5.forEach(r=>{
+      h+=`<tr><td style="padding:2px 4px;border:1px solid #ddd">${r.i}</td><td style="padding:2px 4px;border:1px solid #ddd">${r.car}</td><td style="padding:2px 4px;border:1px solid #ddd">${r.date}</td><td style="padding:2px 4px;border:1px solid #ddd">${r.deliver}</td><td style="padding:2px 4px;border:1px solid #ddd">${r.pickup}</td><td style="padding:2px 4px;border:1px solid #ddd">${r.productName}</td><td style="padding:2px 4px;border:1px solid #ddd">${r.product}</td><td style="padding:2px 4px;border:1px solid #ddd">${r.mode}</td><td style="padding:2px 4px;border:1px solid #ddd">${r.tons}</td><td style="padding:2px 4px;border:1px solid #ddd">${r.outType||'—'}</td></tr>`;
+    });
+    h+='</tbody></table>';
+    // Raw values
+    h+='<div style="font-weight:600;margin:6px 0 2px;font-size:11px;color:#c62828">🔍 原始列值（前3条）：</div>';
+    h+='<table style="width:100%;border-collapse:collapse;font-size:9px">';
+    h+='<thead><tr style="background:#c62828;color:#fff"><th>行</th><th>原始日期</th><th>原始车号</th><th>原始发货单位</th><th>原始提货单位</th><th>原始方式</th><th>原始吨数</th><th>原始出库类型</th></tr></thead><tbody>';
+    d.first5.slice(0,3).forEach(r=>{
+      h+=`<tr><td style="padding:2px 4px;border:1px solid #ddd">${r.i}</td><td style="padding:2px 4px;border:1px solid #ddd;max-width:120px;word-break:break-all">${r.rawDate}</td><td style="padding:2px 4px;border:1px solid #ddd;max-width:100px;word-break:break-all">${r.rawCar}</td><td style="padding:2px 4px;border:1px solid #ddd;max-width:150px;word-break:break-all">${r.rawDeliver}</td><td style="padding:2px 4px;border:1px solid #ddd;max-width:150px;word-break:break-all">${r.rawPickup}</td><td style="padding:2px 4px;border:1px solid #ddd">${r.rawMode}</td><td style="padding:2px 4px;border:1px solid #ddd">${r.rawTons}</td><td style="padding:2px 4px;border:1px solid #ddd">${r.rawOutType||'—'}</td></tr>`;
+    });
+    h+='</tbody></table>';
+  }
+  h+=`<div style="margin-top:10px;font-size:11px;color:#888">💡 如果跳过/丢失数量很多，说明CSV列索引可能对不上，请检查列头映射是否正确</div>`;
+  h+='</div></div>';
+  const el=document.createElement('div');el.innerHTML=h;document.body.appendChild(el);
+}
+
+function showUploadDebug(){
+  let debug=[];
+  try{const j=localStorage.getItem('recon_v12_debug');if(j)debug=JSON.parse(j);}catch(e){}
+  if(debug.length===0){alert('暂无分类日志。请先上传CSV文件。');return;}
+  let h='<div style="position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.5);z-index:9999;display:flex;align-items:center;justify-content:center" onclick="this.remove()">';
+  h+='<div style="background:#fff;border-radius:10px;max-width:1100px;width:95%;max-height:90vh;overflow:auto;padding:16px" onclick="event.stopPropagation()">';
+  h+='<h3 style="margin-bottom:6px;font-size:14px">📋 最近一次CSV分类详情 ('+debug.length+'条记录)</h3>';
+  h+='<div style="font-size:10px;color:#e67e22;margin-bottom:6px;background:#fff8e6;padding:4px 8px;border-radius:4px">💡 分类规则: 自有库发货→对方来提(中石化需自提/中海油不限) | 中石化/海油库→我方去提(仅配送) | 其他→外采</div>';
+  h+='<div style="margin-bottom:6px"><input id="dfilter" placeholder="🔍 筛选: 输入日期(06-16)或库名或吨数" style="width:100%;padding:6px 8px;border:1px solid #ddd;border-radius:4px;font-size:12px;box-sizing:border-box" oninput="filterDebugTable(this.value)"></div>';
+  h+='<div style="max-height:65vh;overflow-y:auto"><table id="dtbl" style="width:100%;border-collapse:collapse;font-size:11px">';
+  h+='<thead><tr style="background:#333;color:#fff;position:sticky;top:0">';
+  h+='<th style="padding:4px 6px;border:1px solid #555;text-align:left">出库类型</th>';
+  h+='<th style="padding:4px 6px;border:1px solid #555;text-align:left">分类</th>';
+  h+='<th style="padding:4px 6px;border:1px solid #555;text-align:left">日期</th>';
+  h+='<th style="padding:4px 6px;border:1px solid #555;text-align:left">发货单位</th>';
+  h+='<th style="padding:4px 6px;border:1px solid #555;text-align:left">提货单位</th>';
+  h+='<th style="padding:4px 6px;border:1px solid #555;text-align:left">油品</th>';
+  h+='<th style="padding:4px 6px;border:1px solid #555;text-align:right">吨数</th>';
+  h+='<th style="padding:4px 6px;border:1px solid #555;text-align:left">说明</th>';
+  h+='</tr></thead><tbody>';
+  debug.forEach(line=>{
+    // 解析格式: [出库类型][分类] 日期 发货单位→提货单位 油品 吨数吨 (说明)
+    const outTypeMatch=line.match(/^\[([^\]]*)\]/);
+    const outType=outTypeMatch?outTypeMatch[1]:'';
+    const afterOutType=outTypeMatch?line.slice(outTypeMatch[0].length):line;
+    const catMatch=afterOutType.match(/^\[([^\]]*)\]/);
+    const cat=catMatch?catMatch[1]:'';
+    const afterCat=catMatch?afterOutType.slice(catMatch[0].length):afterOutType;
+    const rest=afterCat.trim();
+    // 提取日期
+    const dateMatch=rest.match(/(\d{4}-\d{2}-\d{2})/);
+    const date=dateMatch?dateMatch[1]:'';
+    const afterDate=dateMatch?rest.slice(dateMatch[0].length).trim():rest;
+    // 提取发货单位→提货单位
+    const arrowMatch=afterDate.match(/^(\S+?)→(\S+?)\s/);
+    const deliver=arrowMatch?arrowMatch[1]:'';
+    const pickup=arrowMatch?arrowMatch[2]:'';
+    const afterArrow=arrowMatch?afterDate.slice(arrowMatch[0].length).trim():afterDate;
+    // 提取油品
+    const prodMatch=afterArrow.match(/^(\S+?)\s/);
+    const product=prodMatch?prodMatch[1]:'';
+    const afterProd=prodMatch?afterArrow.slice(prodMatch[0].length).trim():afterArrow;
+    // 提取吨数
+    const tonsMatch=afterProd.match(/^([\d.]+)吨/);
+    const tons=tonsMatch?tonsMatch[1]:'';
+    const afterTons=tonsMatch?afterProd.slice(tonsMatch[0].length).trim():afterProd;
+    // 剩余=说明
+    const note=afterTons.replace(/^\(|\)$/g,'');
+    // 颜色
+    const isSH=cat.includes('中石化');
+    const isCN=cat.includes('中海油');
+    const isSkip=cat.includes('跳过')||cat.includes('外采');
+    const color=isSkip?'#999':isSH?'#3A5C4A':isCN?'#e67e22':'#888';
+    const rowData=line.toLowerCase();
+    h+=`<tr class="drow" data-txt="${rowData.replace(/"/g,'&quot;')}">
+      <td style="padding:2px 6px;border:1px solid #eee;color:${color}">${outType||'—'}</td>
+      <td style="padding:2px 6px;border:1px solid #eee;color:${color};font-weight:600;white-space:nowrap">${cat}</td>
+      <td style="padding:2px 6px;border:1px solid #eee;color:${color};white-space:nowrap">${date}</td>
+      <td style="padding:2px 6px;border:1px solid #eee;color:${color};max-width:180px;overflow:hidden;text-overflow:ellipsis" title="${deliver}">${deliver}</td>
+      <td style="padding:2px 6px;border:1px solid #eee;color:${color};max-width:180px;overflow:hidden;text-overflow:ellipsis" title="${pickup}">${pickup}</td>
+      <td style="padding:2px 6px;border:1px solid #eee;color:${color}">${product}</td>
+      <td style="padding:2px 6px;border:1px solid #eee;color:${color};text-align:right;font-weight:600">${tons}</td>
+      <td style="padding:2px 6px;border:1px solid #eee;color:#999;font-size:10px">${note}</td>
+    </tr>`;
+  });
+  h+='</tbody></table></div></div></div>';
+  const el=document.createElement('div');el.innerHTML=h;document.body.appendChild(el);
+}
+function filterDebugTable(v){
+  const rows=document.querySelectorAll("#dtbl .drow");
+  rows.forEach(r=>{const ok=!v||r.getAttribute("data-txt").toLowerCase().includes(v.toLowerCase());r.style.display=ok?"":"none";});
+}
+
+function toast(m,t){const e=document.getElementById('tt');e.innerHTML=`<div class="toast ${t}">${m}</div>`;setTimeout(()=>e.innerHTML='',4000);}
+
+// ===== EXPORT FUNCTIONS =====
+function exportCurrentView(){
+  if(curTab==='waicai') return exportWaiCai();
+  if(viewMode==='summary') return exportSummary(curSub);
+  return exportCards(curSub);
+}
+
+function _buildSheetRows(cat,dir,ym){
+  const partnerName=cat==='sinopec'?'中石化':(cat==='sinochem'?'中化':'中海油');
+  const[y,m]=ym.split('-').map(Number);
+  const daysInMonth=new Date(y,m,0).getDate();
+  const weekDays=['日','一','二','三','四','五','六'];
+  const TO_ORDER=['鹧鸪江','玉林','羊角山','贵港','百色','河池'];
+  const FROM_ORDER=['柳州','百色','桂林','柳江'];
+  const isTo=dir==='toThem';
+  const order=isTo?TO_ORDER:FROM_ORDER;
+  const title=isTo?'我们去'+partnerName+'互供库提油':'对方来我库提油';
+
+  const data=getCombined(cat,dir,ym);
+  function sortDeps(deps){const list=[...deps];list.sort((a,b)=>{const ai=order.findIndex(o=>a.includes(o));const bi=order.findIndex(o=>b.includes(o));if(ai>=0&&bi>=0)return ai-bi;if(ai>=0)return -1;if(bi>=0)return 1;return a.localeCompare(b);});return list;}
+  const depots=sortDeps([...data.depots]);
+  const prods=selfProds(data.prods,depots,cat);
+
+  if(depots.length===0){
+    const pre=getPreload()[cat]?.[dir]||[];
+    if(pre.length===0)return{rows:[],title:title};
+    const agg={};
+    pre.filter(r=>r.month===ym).forEach(r=>{const k=r.deliver+':'+r.product;agg[k]=(agg[k]||0)+r.tons;});
+    const rows=[[title],[partnerName+' 月度预加载汇总']];
+    rows.push(['油库','品号','吨数']);
+    Object.entries(agg).sort().forEach(([k,v])=>{const[dp,p]=k.split(':');rows.push([dp,p,v]);});
+    return{rows:rows,title:title};
+  }
+
+  const monthly={};
+  depots.forEach(dp=>{monthly[dp]={};prods.forEach(p=>monthly[dp][p]=0);});
+  for(let d=1;d<=daysInMonth;d++){
+    depots.forEach(dp=>prods.forEach(p=>monthly[dp][p]+=(data.daily[d]?.[dp]?.[p]||0)));
+  }
+
+  const header=['日期','周'];
+  depots.forEach(dp=>prods.forEach(p=>header.push(dp+'\n'+p)));
+  header.push('日合计');
+  const rows=[header];
+  for(let d=1;d<=daysInMonth;d++){
+    const dayDate=new Date(y,m-1,d);
+    const wd=weekDays[dayDate.getDay()];
+    const dateKey=dayDate.toISOString().slice(0,10);
+    const holiday=HOLIDAYS[dateKey]||'';
+    let dayTotal=0,hasData=false;
+    const row=[`${m}月${d}日${holiday?'('+holiday+')':''}`,wd];
+    depots.forEach(dp=>{
+      prods.forEach(p=>{
+        const v=data.daily[d]?.[dp]?.[p]||0;
+        dayTotal+=v;
+        if(v>0)hasData=true;
+        row.push(v>0?v:'');
+      });
+    });
+    row.push(dayTotal);
+    rows.push(row);
+  }
+  const totalRow=['月合计',''];
+  let grandTotal=0;
+  depots.forEach(dp=>prods.forEach(p=>{const v=monthly[dp][p];grandTotal+=v;totalRow.push(v>0?v:'');}));
+  totalRow.push(grandTotal);
+  rows.push(totalRow);
+
+  const planRow=['开单量',''];
+  let planTotal=0;
+  depots.forEach(dp=>prods.forEach(p=>{const v=gp(cat,ym,dp,p);planTotal+=v;planRow.push(v>0?v:'');}));
+  planRow.push(planTotal);
+  rows.push(planRow);
+
+  const carryRow=['结转量',''];
+  let carryTotal=0;
+  depots.forEach(dp=>prods.forEach(p=>{const v=gc(cat,ym,dp,p);carryTotal+=v;carryRow.push(v>0?v:'');}));
+  carryRow.push(carryTotal);
+  rows.push(carryRow);
+
+  const remRow=['剩余量',''];
+  let remTotal=0;
+  depots.forEach(dp=>prods.forEach(p=>{
+    const pl=gp(cat,ym,dp,p);
+    const ca=gc(cat,ym,dp,p);
+    const mv=monthly[dp][p];
+    const rem=pl+ca-mv;
+    remTotal+=rem;
+    remRow.push(pl>0||ca>0?rem:'');
+  }));
+  remRow.push(remTotal);
+  rows.push(remRow);
+
+  return{rows:rows,title:title};
+}
+
+// 本月开单量（品号＼油库）导出网格
+function _buildOrderQtyRows(cat,ym){
+  const partnerName=cat==='sinopec'?'中石化':(cat==='sinochem'?'中化':'中海油');
+  // 内联油库列表（原 partnerDepots 已于 v2.3 删除）
+  const allDepots=(()=>{
+    const set=new Set();
+    try{
+      getAllDepots(cat,'toThem',curYM).forEach(d=>set.add(d));
+      getAllDepots(cat,'fromThem',curYM).forEach(d=>set.add(d));
+      Object.keys(DEPOT_PRODS).forEach(d=>{
+        if(cat==='sinopec'){ if(isSHDepot(d)||isOwnDepot(d))set.add(d); }
+        else { if(isCNDepot(d)||isOwnDepot(d))set.add(d); }
+      });
+    }catch(e){}
+    return [...set].sort();
+  })();
+  const allProds=[...ALL_PRODS];
+  const rows=[['本月开单量（'+partnerName+'）'],['品号＼油库']];
+  allDepots.forEach(dp=>rows[1].push(dp));
+  rows[1].push('油库合计');
+  allProds.forEach(p=>{const row=[p];let pt=0;allDepots.forEach(dp=>{const v=gp(cat,ym,dp,p);pt+=v;row.push(v>0?v:'');});row.push(pt);rows.push(row);});
+  const totRow=['油品合计'];let g=0;allDepots.forEach(dp=>{let d=0;allProds.forEach(p=>d+=gp(cat,ym,dp,p));g+=d;totRow.push(d);});totRow.push(g);rows.push(totRow);
+  return rows;
+}
+
+function exportSummary(cat){
+  const to=_buildSheetRows(cat,'toThem',curYM);
+  const from=_buildSheetRows(cat,'fromThem',curYM);
+  if(to.rows.length===0&&from.rows.length===0){toast('当前月份无数据可导出','w');return;}
+  const wb=XLSX.utils.book_new();
+  if(to.rows.length>0)XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(to.rows),to.title);
+  if(from.rows.length>0)XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(from.rows),from.title);
+  const oq=_buildOrderQtyRows(cat,curYM);
+  if(oq.length>2)XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(oq),'本月开单量');
+  const ts=new Date().toISOString().replace(/[:.]/g,'-').slice(0,19);
+  const fn=`互供对账_${cat==='sinopec'?'中石化':(cat==='sinochem'?'中化':'中海油')}_${curYM}_汇总_${ts}.xlsx`;
+  XLSX.writeFile(wb,fn);
+  toast('✅ 已导出Excel汇总表：'+fn,'s');
+}
+
+function exportCards(cat){
+  const partnerName=cat==='sinopec'?'中石化':(cat==='sinochem'?'中化':'中海油');
+  const ym=curYM;const[y,m]=ym.split('-').map(Number);
+  const TO_ORDER=['鹧鸪江','玉林','羊角山','贵港','百色','河池'];
+  const FROM_ORDER=['柳州','百色','桂林','柳江'];
+  const dirs=[{id:'toThem',label:'我们去'+partnerName+'提油',order:TO_ORDER},{id:'fromThem',label:'对方来我库提油',order:FROM_ORDER}];
+  const rows=[['方向','油库','品号','月合计(吨)','年累计(吨)','开单量(吨)','结转量(吨)','剩余量(吨)','进度%']];
+  dirs.forEach(dir=>{
+    const data=getCombined(cat,dir.id,ym);
+    function sortDeps(deps){const list=[...deps];list.sort((a,b)=>{const ai=dir.order.findIndex(o=>a.includes(o));const bi=dir.order.findIndex(o=>b.includes(o));if(ai>=0&&bi>=0)return ai-bi;if(ai>=0)return -1;if(bi>=0)return 1;return a.localeCompare(b);});return list;}
+    const depots=sortDeps([...data.depots]);
+    depots.forEach(dp=>{
+      const prodList=selfProds(data.prods,new Set([dp]),cat);
+      prodList.forEach(p=>{
+        const monthTotal=getDepotProdMonthly(cat,dir.id,ym,dp,p);
+        const ytdTotal=calcDepotProdYTD(cat,dir.id,ym,dp,p);
+        const plan=gp(cat,ym,dp,p);
+        const carry=gc(cat,ym,dp,p);
+        const remaining=plan+carry-monthTotal;
+        const avail=plan+carry;
+        const pct=avail>0?Math.round((monthTotal/avail)*100):0;
+        rows.push([dir.label,dp,p,monthTotal,ytdTotal,plan,carry,remaining,pct+'%']);
+      });
+    });
+  });
+  if(rows.length<=1){toast('当前月份无数据可导出','w');return;}
+  const wb=XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(rows),'看板数据');
+  const oq=_buildOrderQtyRows(cat,curYM);
+  if(oq.length>2)XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(oq),'本月开单量');
+  const ts=new Date().toISOString().replace(/[:.]/g,'-').slice(0,19);
+  const fn=`互供对账_${partnerName}_${curYM}_看板_${ts}.xlsx`;
+  XLSX.writeFile(wb,fn);
+  toast('✅ 已导出Excel看板：'+fn,'s');
+}
+
+function exportWaiCai(){
+  const ym=curYM;const[y,m]=ym.split('-').map(Number);
+  const all=uploaded.waicai||[];
+  const recs=all.filter(r=>String(r.date).startsWith(ym));
+  const monthMap={},depots=new Set(),prods=new Set();
+  recs.forEach(r=>{const dp=String(r.deliver||'未知油库').trim();const p=r.product;depots.add(dp);prods.add(p);monthMap[dp]=monthMap[dp]||{};monthMap[dp][p]=(monthMap[dp][p]||0)+r.tons;});
+  const depList=[...depots].sort();
+  const plList=[...prods].sort();if(plList.length===0)plList.push('0#');
+  const rows=[['外采油库汇总']];
+  const header=['油库'];plList.forEach(p=>header.push(p));header.push('合计');rows.push(header);
+  depList.forEach(dp=>{let s=0;const row=[dp];plList.forEach(p=>{const v=monthMap[dp]?.[p]||0;s+=v;row.push(v>0?v:'');});row.push(s);rows.push(row);});
+  let gt=0;const totalRow=['合计'];plList.forEach(p=>{let s=0;depList.forEach(dp=>s+=monthMap[dp]?.[p]||0);gt+=s;totalRow.push(s);});totalRow.push(gt);rows.push(totalRow);
+  // 本月提油量（品号＼油库）
+  const tqRows=[['外采本月提油量'],['品号＼油库']];
+  depList.forEach(dp=>tqRows[1].push(dp));tqRows[1].push('油库合计');
+  plList.forEach(p=>{const row=[p];let pt=0;depList.forEach(dp=>{const v=monthMap[dp]?.[p]||0;pt+=v;row.push(v>0?v:'');});row.push(pt);tqRows.push(row);});
+  const ttRow=['油品合计'];let g2=0;depList.forEach(dp=>{let d=0;plList.forEach(p=>d+=(monthMap[dp]?.[p]||0));g2+=d;ttRow.push(d);});ttRow.push(g2);tqRows.push(ttRow);
+  const detailRows=[['日期','车号','发货单位','品号','吨数']];
+  recs.slice().sort((a,b)=>String(a.date).localeCompare(String(b.date))).forEach(r=>{detailRows.push([r.date||'',r.car||'',r.deliver||'',r.product,r.tons]);});
+  const wb=XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(rows),'汇总');
+  XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(tqRows),'本月提油量');
+  if(detailRows.length>1)XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(detailRows),'明细');
+  const ts=new Date().toISOString().replace(/[:.]/g,'-').slice(0,19);
+  const fn=`外采对账_${curYM}_${ts}.xlsx`;
+  XLSX.writeFile(wb,fn);
+  toast('✅ 已导出Excel外采：'+fn,'s');
+}
+
+// ===== 对账单导出（左右分栏 + 差异量，逐日不跳，无数据留空）=====
+function exportReconStatement(cat){
+  const partnerName=cat==='sinopec'?'中石化':(cat==='sinochem'?'中化':'中海油');
+  const partnerFullName=cat==='sinopec'?'中石化广西石油分公司':(cat==='sinochem'?'中化石油广东有限公司':'中海油广西销售公司');
+  const ym=curYM;const[y,m]=ym.split('-').map(Number);
+  const daysInMonth=new Date(y,m,0).getDate();
+  const weekDays=['日','一','二','三','四','五','六'];
+  const toData=getCombined(cat,'toThem',ym);
+  const fromData=getCombined(cat,'fromThem',ym);
+  const TO_ORDER=cat==='sinopec'
+    ? ['鹧鸪江','玉林','羊角山','贵港','百色','河池','南宁','桂林','北海','崇左']
+    : (cat==='sinochem'
+      ? ['中化佛山华创油库','中化江门开平油库','中化东莞东洲油库']
+      : ['中海油广西油库','桂平','桂林','南宁']);
+  const FROM_ORDER=cat==='sinopec'
+    ? ['柳州','百色','桂林','柳江','兴业']
+    : (cat==='sinochem'
+      ? ['广西钦州广明油库','广西钦州东油库','广西石化直发库']
+      : ['广西钦州广明油库','广西钦州东油库','广西梧州新恒丰油库','广西石化直发库']);
+  function sortDeps(deps,order){const list=[...deps];list.sort((a,b)=>{const ai=order.findIndex(o=>a.includes(o));const bi=order.findIndex(o=>b.includes(o));if(ai>=0&&bi>=0)return ai-bi;if(ai>=0)return -1;if(bi>=0)return 1;return a.localeCompare(b);});return list;}
+  const toDepots=sortDeps([...toData.depots],TO_ORDER);
+  const fromDepots=sortDeps([...fromData.depots],FROM_ORDER);
+  const toProds=selfProds(toData.prods,new Set(toDepots),cat);
+  const fromProds=selfProds(fromData.prods,new Set(fromDepots),cat);
+  let useProds=ALL_PRODS.filter(p=>toData.prods.has(p)||fromData.prods.has(p));
+  if(useProds.length===0)useProds=ALL_PRODS;
+  const fmt=function(v){return (Math.abs(v)>0.005)?(Math.round(v*100)/100):'';};
+  const leftCols=toDepots.length*useProds.length;
+  const rightCols=fromDepots.length*useProds.length;
+  const totalCols=1+leftCols+rightCols+1;
+  const rows=[];
+  rows.push([partnerFullName+'与中石油广西销售公司互供提油对账单（公路）']);
+  rows.push(['日期：'+y+'年'+m+'月']);
+  rows.push(['单位：吨']);
+  const h1=new Array(totalCols).fill('');
+  h1[0]='日期';
+  h1[1]='我方去'+partnerName+'互供库提油';
+  h1[1+leftCols]=partnerName+'来我方提油';
+  h1[1+leftCols+rightCols]='差异量';
+  rows.push(h1);
+  const h2=new Array(totalCols).fill('');
+  h2[0]='';
+  let ci=1;toDepots.forEach(dp=>{h2[ci]=dp;ci+=useProds.length;});
+  ci=1+leftCols;fromDepots.forEach(dp=>{h2[ci]=dp;ci+=useProds.length;});
+  h2[1+leftCols+rightCols]='';
+  rows.push(h2);
+  const h3=new Array(totalCols).fill('');
+  h3[0]='';
+  ci=1;toDepots.forEach(dp=>{useProds.forEach(p=>{h3[ci]=p;ci++;});});
+  ci=1+leftCols;fromDepots.forEach(dp=>{useProds.forEach(p=>{h3[ci]=p;ci++;});});
+  h3[1+leftCols+rightCols]='';
+  rows.push(h3);
+  for(let d=1;d<=daysInMonth;d++){
+    const dayDate=new Date(y,m-1,d);
+    const wd=weekDays[dayDate.getDay()];
+    const row=[''];
+    let lT=0;
+    toDepots.forEach(dp=>{useProds.forEach(p=>{const v=toData.daily[d]?.[dp]?.[p]||0;lT+=v;row.push(fmt(v));});});
+    let rT=0;
+    fromDepots.forEach(dp=>{useProds.forEach(p=>{const v=fromData.daily[d]?.[dp]?.[p]||0;rT+=v;row.push(fmt(v));});});
+    row.push(fmt(lT-rT));
+    row[0]=m+'月'+d+'日('+wd+')';
+    rows.push(row);
+  }
+  const sumRow=['月合计',''];
+  let lS=0,rS=0;
+  toDepots.forEach(dp=>{useProds.forEach(p=>{const v=getDepotProdMonthly(cat,'toThem',ym,dp,p);lS+=v;sumRow.push(fmt(v));});});
+  fromDepots.forEach(dp=>{useProds.forEach(p=>{const v=getDepotProdMonthly(cat,'fromThem',ym,dp,p);rS+=v;sumRow.push(fmt(v));});});
+  sumRow.push(fmt(lS-rS));
+  rows.push(sumRow);
+  const planRow=['开单量',''];
+  let lP=0,rP=0;
+  toDepots.forEach(dp=>{useProds.forEach(p=>{const v=gp(cat,ym,dp,p);lP+=v;planRow.push(fmt(v));});});
+  fromDepots.forEach(dp=>{useProds.forEach(p=>{const v=gp(cat,ym,dp,p);rP+=v;planRow.push(fmt(v));});});
+  planRow.push(fmt(lP-rP));
+  rows.push(planRow);
+  const carryRow=['结转量',''];
+  let lC=0,rC=0;
+  toDepots.forEach(dp=>{useProds.forEach(p=>{const v=gc(cat,ym,dp,p);lC+=v;carryRow.push(fmt(v));});});
+  fromDepots.forEach(dp=>{useProds.forEach(p=>{const v=gc(cat,ym,dp,p);rC+=v;carryRow.push(fmt(v));});});
+  carryRow.push(fmt(lC-rC));
+  rows.push(carryRow);
+  const remRow=['剩余量',''];
+  let lR=0,rR=0;
+  toDepots.forEach(dp=>{useProds.forEach(p=>{const v=(gp(cat,ym,dp,p)+gc(cat,ym,dp,p))-getDepotProdMonthly(cat,'toThem',ym,dp,p);lR+=v;remRow.push(fmt(v));});});
+  fromDepots.forEach(dp=>{useProds.forEach(p=>{const v=(gp(cat,ym,dp,p)+gc(cat,ym,dp,p))-getDepotProdMonthly(cat,'fromThem',ym,dp,p);rR+=v;remRow.push(fmt(v));});});
+  remRow.push(fmt(lR-rR));
+  rows.push(remRow);
+  const ws=XLSX.utils.aoa_to_sheet(rows);
+  ws['!cols']=[{wch:14}];
+  for(let i=1;i<totalCols;i++)ws['!cols'].push({wch:9});
+  const merges=[{s:{r:0,c:0},e:{r:0,c:totalCols-1}},{s:{r:1,c:0},e:{r:1,c:totalCols-1}},{s:{r:2,c:0},e:{r:2,c:totalCols-1}},{s:{r:3,c:0},e:{r:5,c:0}},{s:{r:3,c:1},e:{r:3,c:leftCols}},{s:{r:3,c:1+leftCols},e:{r:3,c:1+leftCols+rightCols-1}},{s:{r:3,c:1+leftCols+rightCols},e:{r:5,c:1+leftCols+rightCols}}];
+  let di=1;toDepots.forEach(dp=>{merges.push({s:{r:4,c:di},e:{r:4,c:di+useProds.length-1}});di+=useProds.length;});
+  let fi=1+leftCols;fromDepots.forEach(dp=>{merges.push({s:{r:4,c:fi},e:{r:4,c:fi+useProds.length-1}});fi+=useProds.length;});
+  ws['!merges']=merges;
+  const wb=XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb,ws,'对账单');
+  const ts=new Date().toISOString().replace(/[:.]/g,'-').slice(0,19);
+  const fn='互供对账单_'+partnerName+'_'+curYM+'_'+ts+'.xlsx';
+  XLSX.writeFile(wb,fn);
+  toast('✅ 已导出对账单：'+fn,'s');
+}
+
+// ===== INIT =====
+loadAll();
+// 显示缓存记录数
+const totalRecs=uploaded.sinopec.toThem.length+uploaded.sinopec.fromThem.length+uploaded.cnooc.toThem.length+uploaded.cnooc.fromThem.length+uploaded.waicai.length;
+if(totalRecs>0){
+  document.getElementById('zu').className='up-mini done';
+  document.getElementById('zfn').textContent=`✅ 本地缓存 ${totalRecs} 条记录（刷新不丢失，可重新上传覆盖）`;
+}
+goSub('sinopec');
+goTab('husong');
+</script>
+</body>
+</html>

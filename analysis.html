@@ -1,0 +1,389 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>数据分析模块 · 每日日志</title>
+<style>
+:root{
+  --bg:#f4f1ea; --card:#fffdf8; --line:#e3ddd0; --ink:#3a352b; --mut:#8a8878;
+  --up:#c62828; --down:#2e7d32; --flat:#777; --blue:#2c6aa0; --accent:#b8860b;
+}
+*{box-sizing:border-box}
+body{margin:0;font-family:-apple-system,"Microsoft YaHei",sans-serif;background:var(--bg);color:var(--ink);font-size:13px}
+.wrap{max-width:1180px;margin:0 auto;padding:14px 16px 60px}
+.hd{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:10px}
+.hd h1{font-size:18px;margin:0}
+.hd .v{font-size:11px;color:#fff;background:var(--accent);padding:2px 8px;border-radius:10px}
+.tabs{display:flex;gap:6px;margin:8px 0 14px}
+.tab{padding:7px 18px;border:1px solid var(--line);background:#fff;border-radius:20px;cursor:pointer;color:var(--mut);font-weight:600}
+.tab.on{background:var(--blue);color:#fff;border-color:var(--blue)}
+.bar{display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;margin-bottom:14px;background:var(--card);border:1px solid var(--line);border-radius:10px;padding:12px}
+.bar label{font-size:12px;color:var(--mut);display:block;margin-bottom:3px}
+.bar input,.bar select{padding:6px 8px;border:1px solid var(--line);border-radius:6px;font-size:13px;background:#fff}
+.btn{padding:7px 14px;border:1px solid var(--blue);background:var(--blue);color:#fff;border-radius:6px;cursor:pointer;font-weight:600;font-size:12px}
+.btn.ghost{background:#fff;color:var(--blue)}
+.cards{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px}
+.sc{flex:1;min-width:150px;background:var(--card);border:1px solid var(--line);border-radius:10px;padding:12px}
+.sc .sl{font-size:12px;color:var(--mut)}
+.sc .sv{font-size:22px;font-weight:800;margin:4px 0}
+.sc .sub{font-size:11px;color:var(--mut);line-height:1.5}
+.chip{display:inline-block;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:700;margin-right:6px}
+.chip.up{background:#fdecea;color:var(--up)}
+.chip.down{background:#e8f5e9;color:var(--down)}
+.chip.flat{background:#f0f0f0;color:var(--flat)}
+.chip.na{background:#f5f0e6;color:var(--mut)}
+.panel{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:14px;margin-bottom:14px}
+.panel h3{margin:0 0 10px;font-size:14px;display:flex;align-items:center;gap:6px}
+.table-scroll{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:12px}
+th,td{padding:5px 8px;border:1px solid var(--line);text-align:right;white-space:nowrap}
+th{background:#f5f1e8;font-weight:700;position:sticky;top:0}
+td.l,th.l{text-align:left}
+tr.catrow td{background:#faf6ec;font-weight:700}
+.num.up{color:var(--up);font-weight:700}
+.num.down{color:var(--down);font-weight:700}
+.num.flat{color:var(--flat)}
+.num.na{color:#bbb}
+.analysis{background:linear-gradient(135deg,#fffdf8,#fbf6ea);border-left:4px solid var(--accent);border-radius:8px;padding:12px 14px;line-height:1.8;font-size:13px}
+.analysis .tag{display:inline-block;background:var(--accent);color:#fff;font-size:10px;padding:1px 6px;border-radius:8px;margin-right:6px;vertical-align:middle}
+.io-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+@media(max-width:760px){.io-grid{grid-template-columns:1fr}}
+.io-box{background:#fbf8f1;border:1px dashed var(--line);border-radius:8px;padding:10px}
+.io-box h4{margin:0 0 8px;font-size:13px}
+textarea,input.f{width:100%;padding:6px 8px;border:1px solid var(--line);border-radius:6px;font-size:12px;font-family:inherit;background:#fff;resize:vertical}
+.note{font-size:11px;color:var(--mut);margin-top:6px;line-height:1.5}
+.warn{background:#fff4e5;border:1px solid #ffd8a8;color:#a05a00;border-radius:8px;padding:10px 12px;font-size:12px;margin-bottom:14px}
+.empty{text-align:center;color:var(--mut);padding:40px;font-size:14px}
+.spin{display:inline-block;width:12px;height:12px;border:2px solid #ccc;border-top-color:var(--blue);border-radius:50%;animation:sp 0.7s linear infinite;vertical-align:-1px;margin-right:5px}
+@keyframes sp{to{transform:rotate(360deg)}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="hd">
+    <h1>📊 数据分析模块</h1>
+    <span class="v">每日日志 v1.0</span>
+    <span class="note" style="margin:0">数据源：互供工作（recon_v12）· 天气 Open-Meteo</span>
+  </div>
+
+  <div class="tabs">
+    <div class="tab on" id="tabDay" onclick="switchView('day')">📅 日视图</div>
+    <div class="tab" id="tabMonth" onclick="switchView('month')">📆 月视图</div>
+  </div>
+
+  <div class="bar" id="ctrlBar"></div>
+
+  <div id="overview"></div>
+  <div id="warnBox"></div>
+  <div class="panel" id="tablePanel" style="display:none">
+    <h3>📋 同比 / 环比明细（公司 × 出库点 × 品号）</h3>
+    <div class="table-scroll" id="cmpTable"></div>
+  </div>
+
+  <div class="panel">
+    <h3>🧠 当日 / 当月分析</h3>
+    <div class="analysis" id="analysisBox"><span class="tag">分析</span>选择日期后自动生成。</div>
+  </div>
+
+  <div class="io-grid">
+    <div class="io-box">
+      <h4>🌤️ 外部因素（按日期/月存）</h4>
+      <div id="weatherLine" class="note" style="margin:0 0 8px"></div>
+      <label class="note" style="display:block;margin-bottom:2px">天气（自动抓取，可手动覆盖）</label>
+      <input class="f" id="fWeather" placeholder="留空则使用自动天气；填写则以此为准">
+      <label class="note" style="display:block;margin:8px 0 2px">电车渗透率（%，如 45）</label>
+      <input class="f" id="fEv" placeholder="如 45，留空则不引用">
+      <label class="note" style="display:block;margin:8px 0 2px">成品油价格参考（元/吨或备注）</label>
+      <input class="f" id="fPrice" placeholder="如 汽油批发价 8800，留空则不引用">
+      <label class="note" style="display:block;margin:8px 0 2px">政策 / 行业备注</label>
+      <textarea id="fPolicy" rows="2" placeholder="如：新能源补贴退坡、国七标准传闻…"></textarea>
+      <button class="btn" style="margin-top:8px" onclick="saveFactors()">💾 保存外部因素</button>
+      <div class="note" id="facSaved"></div>
+    </div>
+    <div class="io-box">
+      <h4>⚠️ 特殊情况记录（炼厂故障 / 天气 / 政策等）</h4>
+      <textarea id="fSpecial" rows="6" placeholder="如：8月11日 钦州炼厂装置检修，影响98#供应；或 暴雨封路导致百色方向配送延迟…"></textarea>
+      <button class="btn" style="margin-top:8px" onclick="saveSpecial()">💾 保存特殊情况</button>
+      <div class="note" id="spSaved"></div>
+      <div class="note" style="margin-top:10px">💡 保存后分析文本会自动引用本日期/月的特殊情况。</div>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ============ 基础数据 ============ */
+const RECON_KEY='recon_v12';
+const CATS=['sinopec','cnooc','sinochem','waicai'];
+const CAT_NAME={sinopec:'中石化',cnooc:'中海油',sinochem:'中化',waicai:'外采'};
+const FACT_KEY='analysis_factors_v1';
+
+// 广西14地市坐标（Open-Meteo 用）
+const CITY_COORDS={
+  '南宁':[22.817,108.366],'柳州':[24.327,109.429],'桂林':[25.273,110.299],'梧州':[23.474,111.283],
+  '北海':[21.481,109.120],'防城港':[21.614,108.345],'钦州':[21.978,108.625],'贵港':[23.071,109.602],
+  '玉林':[22.631,110.175],'百色':[23.899,106.616],'贺州':[24.414,111.553],'河池':[24.697,108.077],
+  '来宾':[23.734,109.229],'崇左':[22.419,107.353]
+};
+const WMO={
+  0:'晴',1:'大致晴朗',2:'局部多云',3:'阴',45:'雾',48:'雾凇',
+  51:'毛毛雨',53:'小雨',55:'中雨',56:'冻毛毛雨',57:'冻雨',
+  61:'小雨',63:'中雨',65:'大雨',66:'冻雨',67:'强冻雨',
+  71:'小雪',73:'中雪',75:'大雪',77:'雪粒',
+  80:'阵雨',81:'阵雨',82:'强阵雨',85:'阵雪',86:'强阵雪',
+  95:'雷暴',96:'雷暴伴冰雹',99:'强雷暴伴冰雹'
+};
+
+let viewMode='day';
+let curDate=new Date();
+let weatherCity='南宁';
+
+/* ============ 取数 ============ */
+function loadUploaded(){
+  try{const j=localStorage.getItem(RECON_KEY);if(j){const o=JSON.parse(j);return o.uploaded||null;}}catch(e){}
+  return null;
+}
+function allRecs(u){
+  const out=[];
+  const push=(cat,dir,r)=>out.push({cat,catName:CAT_NAME[cat]||cat,dir,date:String(r.date),depot:String(r.deliver||'').trim(),product:r.product,t:Number(r.tons)||0});
+  CATS.forEach(c=>{
+    if(c==='waicai'){(u.waicai||[]).forEach(r=>push('waicai','',r));}
+    else{['toThem','fromThem'].forEach(d=>(u[c]?.[d]||[]).forEach(r=>push(c,d,r)));}
+  });
+  return out;
+}
+function recsOnDate(recs,ds){return recs.filter(r=>r.date===ds);}
+function recsOnMonth(recs,ms){return recs.filter(r=>r.date.startsWith(ms));}
+function aggMap(recs){
+  const m={};
+  recs.forEach(r=>{const k=r.cat+'|'+r.depot+'|'+r.product;m[k]=(m[k]||0)+r.t;});
+  return m;
+}
+function sumOf(recs){return recs.reduce((s,r)=>s+r.t,0);}
+function catSum(recs,cat){return recs.filter(r=>r.cat===cat).reduce((s,r)=>s+r.t,0);}
+
+/* ============ 日期工具 ============ */
+function ymd(y,m,d){return y+'-'+String(m).padStart(2,'0')+'-'+String(d).padStart(2,'0');}
+function ym(y,m){return y+'-'+String(m).padStart(2,'0');}
+function shift(y,m,d,dy,dm){const dt=new Date(y+dy, m-1+dm, d);return {y:dt.getFullYear(),m:dt.getMonth()+1,d:dt.getDate()};}
+function pct(a,b){if(b===0||b==null||isNaN(b))return null;return (a-b)/b*100;}
+
+/* ============ 渲染控制栏 ============ */
+function renderCtrl(){
+  const bar=document.getElementById('ctrlBar');
+  if(viewMode==='day'){
+    const ds=ymd(curDate.getFullYear(),curDate.getMonth()+1,curDate.getDate());
+    let cityOpts='';
+    Object.keys(CITY_COORDS).forEach(c=>{cityOpts+=`<option ${c===weatherCity?'selected':''}>${c}</option>`;});
+    bar.innerHTML=`
+      <div><label>选择日期</label><input type="date" id="dt" value="${ds}" onchange="onDateChange()"></div>
+      <div><label>天气城市</label><select id="wcity" onchange="onCityChange()">${cityOpts}</select></div>
+      <button class="btn ghost" onclick="refreshWeather()">🔄 刷新天气</button>
+      <button class="btn" onclick="render()">▶ 生成日志</button>`;
+  }else{
+    const ms=ym(curDate.getFullYear(),curDate.getMonth()+1);
+    bar.innerHTML=`
+      <div><label>选择年月</label><input type="month" id="dtm" value="${ms}" onchange="onMonthChange()"></div>
+      <button class="btn" onclick="render()">▶ 生成月报预览</button>`;
+  }
+}
+function onDateChange(){const v=document.getElementById('dt').value;if(v){const p=v.split('-');curDate=new Date(+p[0],+p[1]-1,+p[2]);}render();}
+function onMonthChange(){const v=document.getElementById('dtm').value;if(v){const p=v.split('-');curDate=new Date(+p[0],+p[1]-1,1);}render();}
+function onCityChange(){weatherCity=document.getElementById('wcity').value;refreshWeather();}
+
+function chip(p){
+  if(p===null||isNaN(p))return '<span class="chip na">— 无对比</span>';
+  const cls=p>5?'up':p<-5?'down':'flat';
+  const arrow=p>0?'▲':p<0?'▼':'■';
+  return `<span class="chip ${cls}">${arrow} ${p>=0?'+':''}${p.toFixed(1)}%</span>`;
+}
+
+function renderOverview(period,curRecs,baseRecs,baseLabels){
+  const total=sumOf(curRecs);
+  let chips='';
+  Object.keys(baseRecs).forEach(k=>{
+    const b=sumOf(baseRecs[k]);
+    chips+=`<div style="margin:2px 0">${baseLabels[k]}：${b.toFixed(1)} 吨 ${chip(pct(total,b))}</div>`;
+  });
+  let catCards='';
+  CATS.forEach(c=>{
+    const t=catSum(curRecs,c);
+    if(t===0&&catSum(baseRecs[Object.keys(baseRecs)[0]]||[],c)===0)return;
+    catCards+=`<div class="sc" style="min-width:120px"><div class="sl">${CAT_NAME[c]}</div><div class="sv">${t.toFixed(1)}</div><div class="sub">吨</div></div>`;
+  });
+  document.getElementById('overview').innerHTML=
+    `<div class="cards">
+      <div class="sc" style="flex:1.4">
+        <div class="sl">${period==='day'?'当日':'当月'}互供提油/出库总量</div>
+        <div class="sv">${total.toFixed(1)} <span style="font-size:13px;color:var(--mut)">吨</span></div>
+        <div class="sub">${chips}</div>
+      </div>
+      ${catCards}
+    </div>`;
+}
+
+function renderTable(period,curMap,baseMaps,baseLabels){
+  const keys=Object.keys(curMap).filter(k=>curMap[k]>0).sort();
+  if(keys.length===0){document.getElementById('cmpTable').innerHTML='<div class="empty">该'+(period==='day'?'日':'月')+'无提油/出库记录。</div>';return;}
+  const baseKeys=Object.keys(baseMaps);
+  let head='<tr><th class="l">公司</th><th class="l">出库点</th><th class="l">品号</th><th>'+ (period==='day'?'当日':'当月') +'量</th>';
+  baseKeys.forEach(k=>{head+=`<th class="l">${baseLabels[k]}量</th><th>环比</th>`;});
+  head+='</tr>';
+  let body='';
+  keys.forEach(k=>{
+    const [cat,depot,prod]=k.split('|');
+    const cur=curMap[k];
+    let tds='';
+    baseKeys.forEach(bk=>{
+      const bv=baseMaps[bk][k]||0;
+      const p=pct(cur,bv);
+      const cls=p===null?'na':p>5?'up':p<-5?'down':'flat';
+      tds+=`<td>${bv.toFixed(1)}</td><td class="num ${cls}">${p===null?'—':(p>=0?'+':'')+p.toFixed(1)+'%'}</td>`;
+    });
+    body+=`<tr><td class="l">${CAT_NAME[cat]||cat}</td><td class="l">${depot}</td><td class="l">${prod}</td><td><b>${cur.toFixed(1)}</b></td>${tds}</tr>`;
+  });
+  document.getElementById('cmpTable').innerHTML=`<table>${head}${body}</table>`;
+}
+
+/* ============ 分析文本（规则生成） ============ */
+function dirWord(p){if(p===null)return '无对比数据';if(p>5)return '显著增长';if(p<-5)return '显著下降';if(p>0)return '小幅增长';if(p<0)return '小幅下降';return '基本持平';}
+function renderAnalysis(period,curRecs,baseRecs,baseLabels,curKey){
+  const total=sumOf(curRecs);
+  const f=getFactors(curKey);
+  const parts=[];
+  // 1. 总量对比
+  let cmpTxt='';;
+  Object.keys(baseRecs).forEach(k=>{
+    const b=sumOf(baseRecs[k]);
+    const p=pct(total,b);
+    cmpTxt+=`较${baseLabels[k]} ${b.toFixed(1)} 吨（${p===null?'无对比':(p>=0?'+':'')+p.toFixed(1)+'%，'+dirWord(p)}）；`;
+  });
+  parts.push(`<span class="tag">总量</span>本${period==='day'?'日':'月'}互供提油/出库合计 <b>${total.toFixed(1)} 吨</b>，${cmpTxt}`);
+  // 2. 天气
+  const w=currentWeather;
+  if(f.weather && f.weather.trim()){
+    parts.push(`<span class="tag">天气</span>${f.weather.trim()}`);
+  }else if(w && w.desc){
+    let s=`当日（${weatherCity}）天气${w.desc}`;
+    if(w.precip>0.1)s+=`，降水量 ${w.precip} mm，可能对户外提油及公路配送造成不利影响`;
+    else if(w.tmax>=33)s+=`，最高气温 ${w.tmax}℃，高温天气需关注作业安全与车辆工况`;
+    else if(w.tmin<=5)s+=`，最低气温 ${w.tmin}℃，低温可能影响柴油流动与作业效率`;
+    else s+=`，气象条件总体利于正常作业`;
+    parts.push(`<span class="tag">天气</span>${s}。`);
+  }
+  // 3. 特殊情况
+  if(f.special && f.special.trim()){
+    parts.push(`<span class="tag">特殊情况</span>⚠️ ${f.special.trim()}`);
+  }
+  // 4. 电车渗透率
+  if(f.ev && !isNaN(parseFloat(f.ev))){
+    parts.push(`<span class="tag">政策/行业</span>区域电车渗透率约 ${parseFloat(f.ev)}%，新能源替代持续挤压汽柴油终端需求，需关注结构性下滑风险与纯枪销量波动。`);
+  }
+  // 5. 油价
+  if(f.price && f.price.trim()){
+    parts.push(`<span class="tag">价格</span>成品油价格参考：${f.price.trim()}，价格走势将影响终端提油节奏与库存策略，油价下行易引发观望、上行易促提前备货。`);
+  }
+  // 6. 政策
+  if(f.policy && f.policy.trim()){
+    parts.push(`<span class="tag">政策</span>${f.policy.trim()}`);
+  }
+  document.getElementById('analysisBox').innerHTML=parts.join('<br><br>');
+}
+
+/* ============ 天气（Open-Meteo） ============ */
+let currentWeather=null;
+function refreshWeather(){
+  if(viewMode!=='day'){document.getElementById('weatherLine').innerHTML='月视图天气按日抓取，请切换日视图查看。';return;}
+  const ds=ymd(curDate.getFullYear(),curDate.getMonth()+1,curDate.getDate());
+  const co=CITY_COORDS[weatherCity]||CITY_COORDS['南宁'];
+  const url=`https://api.open-meteo.com/v1/forecast?latitude=${co[0]}&longitude=${co[1]}&daily=temperature_2m_max,temperature_2m_min,precipitation_sum,weathercode&start_date=${ds}&end_date=${ds}&timezone=Asia%2FShanghai`;
+  document.getElementById('weatherLine').innerHTML='<span class="spin"></span>正在获取'+weatherCity+'天气…';
+  fetch(url).then(r=>r.json()).then(d=>{
+    const dy=d.daily;
+    if(dy&&dy.time&&dy.time.length){
+      const i=0;
+      currentWeather={desc:WMO[dy.weathercode[i]]||'未知',precip:dy.precipitation_sum[i]||0,tmax:dy.temperature_2m_max[i],tmin:dy.temperature_2m_min[i],code:dy.weathercode[i]};
+      document.getElementById('weatherLine').innerHTML=`🌤️ ${weatherCity} ${ds}：${currentWeather.desc}，最高 ${currentWeather.tmax}℃ / 最低 ${currentWeather.tmin}℃，降水 ${currentWeather.precip} mm`;
+      // 若用户未手填天气，则重算分析文本
+      const f=getFactors(ds);
+      if(!f.weather||!f.weather.trim()){renderAnalysis('day',lastCurRecs(),lastBaseRecs(),lastBaseLabels(),ds);}
+    }else{document.getElementById('weatherLine').innerHTML='天气获取失败，可手动填写。';}
+  }).catch(e=>{document.getElementById('weatherLine').innerHTML='⚠️ 天气获取失败（可能离线），可手动填写。';});
+}
+// 缓存最近一次 render 的 recs，供天气回填
+let _lastCur=null,_lastBase=null,_lastLabels=null;
+function lastCurRecs(){return _lastCur||[];}
+function lastBaseRecs(){return _lastBase||{};}
+function lastBaseLabels(){return _lastLabels||{};}
+
+/* ============ 外部因素 / 特殊情况 存储 ============ */
+function getAllFactors(){try{return JSON.parse(localStorage.getItem(FACT_KEY))||{};}catch(e){return {};}}
+function getFactors(key){const a=getAllFactors();return a[key]||{};}
+function setFactors(key,obj){const a=getAllFactors();a[key]=Object.assign(a[key]||{},obj);localStorage.setItem(FACT_KEY,JSON.stringify(a));}
+function saveFactors(){
+  const key=factorKey();
+  setFactors(key,{weather:document.getElementById('fWeather').value,ev:document.getElementById('fEv').value,price:document.getElementById('fPrice').value,policy:document.getElementById('fPolicy').value});
+  document.getElementById('facSaved').textContent='✅ 已保存（'+key+'）';
+  render();
+}
+function saveSpecial(){
+  const key=factorKey();
+  setFactors(key,{special:document.getElementById('fSpecial').value});
+  document.getElementById('spSaved').textContent='✅ 已保存（'+key+'）';
+  render();
+}
+function factorKey(){return viewMode==='day'?ymd(curDate.getFullYear(),curDate.getMonth()+1,curDate.getDate()):ym(curDate.getFullYear(),curDate.getMonth()+1);}
+function loadFactors(key){
+  const f=getFactors(key);
+  document.getElementById('fWeather').value=f.weather||'';
+  document.getElementById('fEv').value=f.ev||'';
+  document.getElementById('fPrice').value=f.price||'';
+  document.getElementById('fPolicy').value=f.policy||'';
+  document.getElementById('fSpecial').value=f.special||'';
+  document.getElementById('facSaved').textContent='';
+  document.getElementById('spSaved').textContent='';
+}
+
+/* ============ 视图切换 ============ */
+function switchView(v){
+  viewMode=v;
+  document.getElementById('tabDay').classList.toggle('on',v==='day');
+  document.getElementById('tabMonth').classList.toggle('on',v==='month');
+  renderCtrl();render();
+}
+
+/* ============ 启动 ============ */
+function render(){
+  // 包装：缓存 recs 供天气回填
+  const u=loadUploaded();
+  if(!u){document.getElementById('overview').innerHTML='<div class="empty">互供工作里还没有数据。<br>请先在「📦 互供工作」上传提油/出库数据，本模块才能取数。</div>';document.getElementById('tablePanel').style.display='none';document.getElementById('warnBox').innerHTML='';document.getElementById('analysisBox').innerHTML='<span class="tag">分析</span>暂无数据。';return;}
+  const recs=allRecs(u);
+  let curKey,baseKeys,baseLabels,period;
+  if(viewMode==='day'){
+    period='day';const y=curDate.getFullYear(),m=curDate.getMonth()+1,d=curDate.getDate();curKey=ymd(y,m,d);
+    const yd=shift(y,m,d,0,-1),lmd=shift(y,m,d,0,-1),lyd=shift(y,m,d,-1,0);
+    baseKeys={yesterday:ymd(yd.y,yd.m,yd.d),lastMonthDay:ymd(lmd.y,lmd.m,lmd.d),lastYearDay:ymd(lyd.y,lyd.m,lyd.d)};
+    baseLabels={yesterday:'昨日',lastMonthDay:'上月同日',lastYearDay:'去年同日'};
+  }else{
+    period='month';const y=curDate.getFullYear(),m=curDate.getMonth()+1;curKey=ym(y,m);
+    const pm=shift(y,m,1,0,-1),pym=shift(y,m,1,-1,0);
+    baseKeys={lastMonth:ym(pm.y,pm.m),lastYearMonth:ym(pym.y,pym.m)};
+    baseLabels={lastMonth:'上月',lastYearMonth:'去年同月'};
+  }
+  const curRecs=viewMode==='day'?recsOnDate(recs,curKey):recsOnMonth(recs,curKey);
+  const baseRecs={};Object.keys(baseKeys).forEach(k=>{baseRecs[k]=viewMode==='day'?recsOnDate(recs,baseKeys[k]):recsOnMonth(recs,baseKeys[k]);});
+  _lastCur=curRecs;_lastBase=baseRecs;_lastLabels=baseLabels;
+  renderOverview(period,curRecs,baseRecs,baseLabels);
+  renderTable(period,aggMap(curRecs),Object.fromEntries(Object.keys(baseRecs).map(k=>[k,aggMap(baseRecs[k])])),baseLabels);
+  document.getElementById('tablePanel').style.display='';
+  renderAnalysis(period,curRecs,baseRecs,baseLabels,curKey);
+  loadFactors(curKey);
+  refreshWeather();
+  const missing=Object.keys(baseRecs).filter(k=>sumOf(baseRecs[k])===0);
+  document.getElementById('warnBox').innerHTML=missing.length?'<div class="warn">⚠️ 以下对比基准暂无数据（'+missing.map(k=>baseLabels[k]).join('、')+'），对应环比/同比显示「—」。请在互供工作中上传对应月份数据后刷新。</div>':'';
+}
+
+renderCtrl();render();
+</script>
+</body>
+</html>

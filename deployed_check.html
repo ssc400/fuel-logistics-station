@@ -1,0 +1,1116 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>加油站出库量统计</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0/dist/chartjs-plugin-datalabels.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,'Microsoft YaHei',sans-serif;background:#F5F0EB;color:#333;padding:10px;font-size:12px}
+.mtabs{display:flex;gap:0;background:#fff;border-radius:8px;overflow:hidden;border:1px solid #E0D5C8;margin-bottom:8px}
+.mtab{padding:9px 24px;cursor:pointer;font-size:13px;color:#555;background:#fff;border-right:1px solid #E0D5C8;user-select:none}
+.mtab:last-child{border-right:none}.mtab:hover{background:#FBF0ED;color:#3A5C4A}
+.mtab.on{background:#3A5C4A;color:#fff;font-weight:600}
+.ubar{display:flex;align-items:center;gap:8px;padding:6px 12px;background:#fff;border-radius:6px;border:1px solid #E0D5C8;margin-bottom:8px}
+.ubtn{display:inline-flex;align-items:center;gap:4px;padding:5px 12px;border:1px dashed #aaa;border-radius:12px;cursor:pointer;background:#f9fafb;font-size:12px;color:#666}
+.ubtn:hover{border-color:#3A5C4A;color:#3A5C4A;background:#FBF0ED}
+.ubtn.ok{border-color:#C49A4A;color:#C49A4A;background:#f0faf5}
+.ubtn.del{border-color:#3A5C4A;color:#3A5C4A}
+.ubtn.del:hover{border-color:#c0392b;color:#c0392b;background:#fdf0ef}
+.uinfo{font-size:11px;color:#888;margin-left:auto}
+.fbar{display:flex;flex-wrap:wrap;gap:6px;align-items:center;padding:6px 10px;background:#fff;border-radius:6px;border:1px solid #E0D5C8;margin-bottom:8px}
+.fbar .fl{font-size:11px;color:#888;font-weight:500}.fbar .din{font-size:11px;padding:3px 6px;border:1px solid #ddd;border-radius:4px;width:115px}
+.ms-wrap{position:relative;display:inline-block;min-width:70px;max-width:160px}
+.ms-trigger{border:1px solid #e2e8f0;border-radius:5px;padding:4px 8px;font-size:11px;background:#fff;cursor:pointer;display:inline-flex;align-items:center;gap:4px;white-space:nowrap}
+.ms-trigger:hover{border-color:#3A5C4A}.ms-arrow{font-size:7px;color:#a0aec0}
+.ms-wrap.open .ms-trigger{border-color:#3A5C4A}
+.ms-wrap.open .ms-arrow{transform:rotate(180deg)}
+.ms-dd{position:absolute;top:100%;left:0;min-width:150px;background:#fff;border:1px solid #e2e8f0;border-radius:6px;box-shadow:0 4px 16px rgba(0,0,0,.12);z-index:1000;padding:4px 0;margin-top:3px;max-height:220px;overflow-y:auto;display:none}
+.ms-dd .ms-item{display:flex;align-items:center;gap:4px;padding:5px 10px;font-size:11px;cursor:pointer;color:#4a5568}
+.ms-dd .ms-item:hover{background:#ebf8ff}.ms-dd input{width:13px;height:13px;accent-color:#3A5C4A;cursor:pointer;margin:0;pointer-events:none}
+.ms-all{color:#3A5C4A;font-weight:500;border-bottom:1px solid #e2e8f0;padding:5px 10px 6px;margin-bottom:2px;cursor:pointer}
+.sg{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:6px;margin-bottom:8px}
+.sc{background:#fff;border-radius:6px;padding:10px 14px;text-align:center;box-shadow:0 1px 3px rgba(0,0,0,.05)}
+.sc .sl{font-size:10px;color:#888;margin-bottom:3px}
+.sc .sv{font-size:20px;font-weight:700;line-height:1.2}
+.sc .sv.bl{color:#3A5C4A}.sc .sv.or{color:#e67e22}.sc .sv.gr{color:#555}
+.sc .sv.rd{color:#3A5C4A}.sc .sv.pu{color:#7b1fa2}.sc .sv.gn{color:#C49A4A}
+.sc .sub{font-size:9px;color:#999;margin-top:2px}
+.cr{display:grid;grid-template-columns:2fr 1fr;gap:8px;margin-bottom:8px}
+.cr2{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px}
+.cb{background:#fff;border-radius:6px;padding:8px;box-shadow:0 1px 3px rgba(0,0,0,.05)}
+.cb .ct{font-size:12px;font-weight:600;margin-bottom:4px}
+.cb canvas{width:100%!important;height:auto!important;max-height:280px}
+.tw{background:#fff;border-radius:6px;overflow:auto;box-shadow:0 1px 3px rgba(0,0,0,.05);margin-bottom:8px}
+.tw table{width:100%;border-collapse:collapse;font-size:11px}
+.tw th{padding:6px 8px;background:#f5f7fa;border-bottom:2px solid #E0D5C8;font-weight:600;font-size:10px;color:#555;text-align:center;white-space:nowrap;cursor:pointer;user-select:none}
+.tw td{padding:5px 8px;border-bottom:1px solid #f0f0f0;text-align:center;white-space:nowrap}
+.tw tr:hover td{background:#fafbfc}.tw td.l{text-align:left}.tw td.r{text-align:right;font-weight:600}
+.vg{background:#fff;border-radius:6px;padding:8px;box-shadow:0 1px 3px rgba(0,0,0,.05);margin-bottom:8px}
+.vg .vt{font-size:12px;font-weight:600;margin-bottom:4px}
+.vg table{width:100%;border-collapse:collapse;font-size:11px}
+.vg th{padding:4px 6px;background:#f5f7fa;border-bottom:1px solid #E0D5C8;font-weight:600;font-size:10px;color:#555;text-align:center;cursor:pointer;user-select:none}
+.vg td{padding:3px 6px;border-bottom:1px solid #f0f0f0;text-align:center}
+.nod{padding:40px;text-align:center;color:#999;font-size:14px}
+/* period toggle */
+.prow{display:flex;align-items:center;gap:4px;margin-bottom:6px;flex-wrap:wrap}
+.pbtn{padding:3px 12px;border-radius:10px;font-size:11px;border:1px solid #ddd;background:#fff;color:#666;cursor:pointer}
+.pbtn.on{background:#3A5C4A;color:#fff;border-color:#3A5C4A}
+/* yoy badge */
+.yb{display:inline-block;padding:1px 5px;border-radius:3px;font-size:9px;font-weight:600;margin:0 1px}
+.yb.up{background:#e8f5e9;color:#2e7d32}.yb.down{background:#ffebee;color:#c62828}.yb.flat{background:#f5f5f5;color:#999}
+@media(max-width:768px){.cr,.cr2{grid-template-columns:1fr}}
+/* th sort indicators */
+.tw th.sort-asc::after,.vg th.sort-asc::after{content:'鈻?;font-size:8px;color:#3A5C4A;margin-left:3px}
+.tw th.sort-desc::after,.vg th.sort-desc::after{content:'鈻?;font-size:8px;color:#3A5C4A;margin-left:3px}
+</style>
+<script src="https://beacon.cdn.qq.com/sdk/4.5.9/beacon_web.min.js"></script>
+<script>
+(function(){
+  try{
+    var beacon=new BeaconAction({
+      appkey:'0WEB06U85YBSLJNL',
+      versionCode:'1.0.0',
+      channelID:'share',
+      delay:1000,
+      sessionDuration:30*60*1000,
+      isOversea:false,
+      needReportRqdEvent:false
+    });
+    beacon.onDirectUserAction('preview_page_view',{
+      'url':location.href,
+      'referrer':document.referrer,
+      'title':document.title,
+      'sandbox_id':'7182b6eed23d4f878f6579c537cfcdb4'
+    });
+  }catch(e){}
+})();
+</script></head>
+<body>
+<div class="mtabs" id="modTabs">
+  <div class="mtab" onclick="swMod(0)">📊 配送计划</div>
+  <div class="mtab" onclick="swMod(1)">🏭 油库出库</div>
+  <div class="mtab" onclick="swMod(2)">📚 数据库</div>
+</div>
+<div id="modBody"></div>
+<script>
+// ====== IndexedDB 数据库======
+var MODULES=['配送计划','油库出库','运距分析'];
+var DB={
+  _v:null,_r:false,_q:[],
+  open:function(cb){
+    var r=indexedDB.open('FuelStationDB',1);
+    r.onupgradeneeded=function(e){
+      var d=e.target.result;
+      if(!d.objectStoreNames.contains('uploads'))d.createObjectStore('uploads',{keyPath:'id',autoIncrement:true});
+      if(!d.objectStoreNames.contains('distMap'))d.createObjectStore('distMap');
+    };
+    r.onsuccess=function(e){DB._v=e.target.result;DB._r=true;DB._q.forEach(function(f){f()});DB._q=[];if(cb)cb()};
+    r.onerror=function(e){console.error('DB error',e);setTimeout(function(){if(!DB._r){DB._r=true;if(cb)cb()}},500)};
+    r.onblocked=function(){console.warn('DB blocked');setTimeout(function(){if(!DB._r){DB._r=true;if(cb)cb()}},1000)};
+  },
+  _ok:function(fn){if(DB._r)fn();else DB._q.push(fn)},
+  getAll:function(st,cb){DB._ok(function(){var t=DB._v.transaction(st,'readonly').objectStore(st),r=t.getAll();r.onsuccess=function(){cb(r.result)}})},
+  put:function(st,val,key){DB._ok(function(){var t=DB._v.transaction(st,'readwrite').objectStore(st);key?t.put(val,key):t.add(val)})},
+  upd:function(st,val){DB._ok(function(){var t=DB._v.transaction(st,'readwrite').objectStore(st);t.put(val)})},
+  del:function(st,id){DB._ok(function(){DB._v.transaction(st,'readwrite').objectStore(st).delete(id)})},
+  clear:function(st){DB._ok(function(){DB._v.transaction(st,'readwrite').objectStore(st).clear()})},
+  getUploadsByType:function(type,cb){DB.getAll('uploads',function(ups){cb(ups?ups.filter(function(u){return u.type===type}):[])})},
+  getUploadsByModule:function(mod,cb){DB.getAll('uploads',function(ups){cb(ups?ups.filter(function(u){return u.modules&&u.modules.indexOf(mod)>=0}):[])})},
+  saveUpload:function(type,name,records,modules,cb){
+    var data={type:type,fileName:name,records:records,modules:modules||[type==='delivery'?'配送计划':'油库出库'],recordCount:records.length,createdAt:new Date().toISOString()};
+    DB.put('uploads',data);
+    if(cb)cb()
+  },
+  saveDistMap:function(data,cb){DB._ok(function(){DB._v.transaction('distMap','readwrite').objectStore('distMap').put(data,'data');if(cb)cb()})},
+  loadDistMap:function(cb){DB._ok(function(){var t=DB._v.transaction('distMap','readonly').objectStore('distMap').get('data');t.onsuccess=function(){cb(t.result||{})}})},
+  // 鍏煎鏃ocalStorage数据杩佺Щ
+  migrate:function(){
+    try{
+      var ds=localStorage.getItem('ds_del');if(ds){var d=JSON.parse(ds);if(d&&d.records&&d.records.length){d.records.forEach(function(r){if(typeof r.dist!=='number')r.dist=0;if(typeof r.cang!=='number')r.cang=0;if(!r._src)r._src='历史数据'});DB.put('uploads',{type:'delivery',fileName:'[迁移]配送计划',records:d.records,modules:['配送计划'],recordCount:d.records.length})}}
+      var dp=localStorage.getItem('ds_dep');if(dp){var d2=JSON.parse(dp);if(d2&&d2.records&&d2.records.length)DB.put('uploads',{type:'depot',fileName:'[杩佺Щ]油库出库',records:d2.records,modules:['油库出库'],recordCount:d2.records.length})}
+      var dm=localStorage.getItem('ds_distMap');if(dm){var d3=JSON.parse(dm);if(d3&&Object.keys(d3).length)DB.saveDistMap(d3)}
+      localStorage.removeItem('ds_del');localStorage.removeItem('ds_dep');localStorage.removeItem('ds_distMap');
+    }catch(e){console.log('杩佺Щ:',e.message)}
+  }
+};
+// IndexedDB 鎵撳紑鍚庤嚜鍔ㄨ縼绉绘棫数据
+DB.open(function(){DB.migrate()});
+// 鍚戜笅鍏煎锛氫繚鐣?LS 瀵硅薄鐢ㄤ簬闈炴暟鎹被瀛樺偍
+var LS={g:function(k,d){try{var v=localStorage.getItem(k);return v?JSON.parse(v):d;}catch(e){return d;}},s:function(k,v){try{localStorage.setItem(k,JSON.stringify(v));}catch(e){}}};
+var curMod=0,delData=null,depData=null,delPeriod='月',depPeriod='月',distMap={};
+function dateKey(d){return d.toISOString().slice(0,10)}
+function fmtDate(d){return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')}
+function findIdx(hdr,names){for(var i=0;i<hdr.length;i++){for(var n=0;n<names.length;n++){if(String(hdr[i]).indexOf(names[n])>=0)return i}}return -1}
+function getMonthKey(d){var m=d.match(/^(\d{4})-(\d{2})/);return m?m[1]+'-'+m[2]:''}
+function getYearKey(d){return d.substring(0,4)}
+function getDateRange(recs){
+  if(!recs||!recs.length)return '';
+  var mn=null,mx=null;
+  recs.forEach(function(r){
+    if(!r.date)return;
+    if(mn===null||r.date<mn)mn=r.date;
+    if(mx===null||r.date>mx)mx=r.date;
+  });
+  return (mn||'?')+' ~ '+(mx||'?');
+}
+// 文件加载閬僵锛堢函CSS spinner锛屼笉浼氳JS闃诲鍐荤粨锛?var _flEl=null;
+function showFileLoading(msg){
+  if(_flEl)_flEl.remove();
+  _flEl=document.createElement('div');
+  _flEl.id='flLoading';
+  _flEl.style.cssText='position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.4);z-index:99999;display:flex;align-items:center;justify-content:center';
+  _flEl.innerHTML='<div style="background:#fff;border-radius:16px;padding:40px 48px;text-align:center;box-shadow:0 8px 40px rgba(0,0,0,.15)">'+
+    '<div style="width:48px;height:48px;margin:0 auto 16px;border:4px solid #E8E4DA;border-top-color:#3A5C4A;border-radius:50%;animation:flSpin 1s linear infinite"></div>'+
+    '<style>@keyframes flSpin{to{transform:rotate(360deg)}}</style>'+
+    '<div style="font-size:15px;color:#2C2A28;font-weight:500">'+(msg||'解析文件中，请稍候...')+'</div></div>';
+  document.body.appendChild(_flEl);
+}
+function hideFileLoading(){if(_flEl){_flEl.remove();_flEl=null}}
+// 同比环比璁＄畻
+function calcYoy(cur,prev){
+  if(!prev||prev===0)return{val:0,pct:0,dir:'flat',abs:0};
+  var diff=cur-prev;
+  return{val:diff,pct:Math.round(diff/prev*1000)/10,dir:diff>0?'up':diff<0?'down':'flat',abs:cur,prev:prev};
+}
+
+var PLATE_RX=/^[浜触娌笣鍐€璞簯杈介粦婀樼殩椴佹柊鑻忔禉璧ｉ剛妗傜敇鏅嬭挋闄曞悏闂借吹绮ゅ窛闈掕棌鐞煎畞'][A-Z][A-Z0-9]{4,6}$/;
+function isValidPlate(v){return PLATE_RX.test(v)}
+
+var EQUITY_COS=[];
+function isEquityCo(n){return EQUITY_COS.some(function(e){return n.indexOf(e)>=0||e.indexOf(n)>=0})}
+
+var DEPOT_CLASS=[
+  {k:['南宁油库','广西南宁油库'],t:'自有库',l:'自有库'},
+  {k:['柳江油库','广西柳江油库'],t:'自有库',l:'自有库'},
+  {k:['柳州油库','广西柳州油库'],t:'自有库',l:'自有库'},
+  {k:['桂林油库','广西桂林油库'],t:'自有库',l:'自有库'},
+  {k:['兴业油库','广西兴业油库'],t:'自有库',l:'自有库'},
+  {k:['百色油库','广西百色油库'],t:'自有库',l:'自有库'},
+  {k:['梧州新恒丰油库','新恒丰油库'],t:'自有库',l:'自有库'},
+  {k:['贺州城西油库','城西油库'],t:'自有库',l:'自有库'},
+  {k:['广西石化直发库'],t:'广西石化直发库',l:'广西石化直发库'},
+  {k:['中石化互供库'],t:'中石化互供库',l:'中石化互供库'},
+  {k:['中海油互供库'],t:'中海油互供库',l:'中海油互供库'},
+  {k:['外采库'],t:'外采库',l:'外采库'},
+];
+function classifyDepot(n){
+  if(!n) return {t:'外采库',l:'外采库'};
+  for(var i=0;i<DEPOT_CLASS.length;i++){for(var k=0;k<DEPOT_CLASS[i].k.length;k++){if(n.indexOf(DEPOT_CLASS[i].k[k])>=0)return{t:DEPOT_CLASS[i].t,l:DEPOT_CLASS[i].l}}}
+  if(n.indexOf('石化')>=0) return {t:'中石化互供库',l:'中石化互供库'};
+  if(n.indexOf('油库')>=0) return {t:'自有库',l:'自有库'};
+  return {t:'外采库',l:'外采库'};
+}
+
+// 澶氶€変笅鎷?var _msS={};
+function initMS(id,items,onChange){
+  var w=document.getElementById(id);if(!w)return;
+  var old=_msS[id],oldV=old?old.vals:[];
+  var nv=items.map(function(i){return i.value});
+  if(oldV.length){nv=oldV.filter(function(v){return items.some(function(i){return i.value===v})});if(!nv.length)nv=items.map(function(i){return i.value})}
+  _msS[id]={items:items||[],vals:nv,onChange:onChange||function(){},dd:'msdd_'+id};renderMS(id);
+}
+function getMSVals(id){var s=_msS[id];return s?s.vals.slice():[]}
+function getMSTxt(id,s){var c=s.vals.length,t=s.items.length;if(c===0)return'(日';if(c===t)return'鍏ㄩ儴('+t+')';var lbs=[];s.items.forEach(function(i){if(s.vals.indexOf(i.value)>=0)lbs.push(i.label)});return lbs.length<=2?lbs.join('銆?):'宸查€?+c+'椤?}
+function renderMS(id){var s=_msS[id];if(!s)return;var w=document.getElementById(id);if(!w)return;var c=s.vals.length,t=s.items.length;w.innerHTML='<div class="ms-trigger" onclick="tgMS(\''+id+'\')"><span>'+getMSTxt(id,s)+'</span><span class="ms-arrow">鈻?</span></div><div class="ms-dd" id="'+s.dd+'"><div class="ms-all" onclick="msAll(\''+id+'\')"><input type="checkbox"'+(c===t&&t>0?' checked':'')+'> 鍏ㄩ€?</div>'+s.items.map(function(i){var ck=s.vals.indexOf(i.value)>=0?' checked':'';return '<div class="ms-item" onclick="msTg(\''+id+'\',\''+i.value+'\')"><input type="checkbox"'+ck+'> '+i.label+'</div>'}).join('')+'</div>'}
+function tgMS(id){var s=_msS[id];if(!s)return;var dd=document.getElementById(s.dd);if(!dd)return;var show=dd.style.display!=='block';document.querySelectorAll('.ms-dd').forEach(function(e){e.style.display='none'});document.querySelectorAll('.ms-wrap').forEach(function(e){e.classList.remove('open')});if(show){dd.style.display='block';document.getElementById(id).classList.add('open')}}
+function msTg(id,val){var s=_msS[id];if(!s)return;var i=s.vals.indexOf(val);if(i>=0)s.vals.splice(i,1);else s.vals.push(val);var dd=document.getElementById(s.dd);if(dd){var cbs=dd.querySelectorAll('input');cbs.forEach(function(cb,i){if(i===0)cb.checked=s.vals.length===s.items.length;else{var it=s.items[i-1];if(it)cb.checked=s.vals.indexOf(it.value)>=0}})}var w=document.getElementById(id);if(w){var t=w.querySelector('.ms-trigger span:first-child');if(t)t.textContent=getMSTxt(id,s)}msChanged()}
+function msAll(id){var s=_msS[id];if(!s)return;var dd=document.getElementById(s.dd);var ac=dd&&dd.querySelector('.ms-all input');var ck=ac?!ac.checked:true;s.vals=ck?s.items.map(function(i){return i.value}):[];if(dd){dd.querySelectorAll('input').forEach(function(cb){cb.checked=ck})}var w=document.getElementById(id);if(w){var t=w.querySelector('.ms-trigger span:first-child');if(t)t.textContent=getMSTxt(id,s)}msChanged()}
+function msChanged(){if(curMod===0&&typeof renderDelStats==='function')renderDelStats();else if(curMod===1&&typeof renderDepStats==='function')renderDepStats()}
+document.addEventListener('click',function(e){if(!e.target.closest('.ms-wrap')){document.querySelectorAll('.ms-dd').forEach(function(e){e.style.display='none'});document.querySelectorAll('.ms-wrap').forEach(function(e){e.classList.remove('open')})}});
+
+// 閫氱敤文件解析
+function parseFile(file,cb){
+  var name=file.name.toLowerCase(),isExcel=name.indexOf('.xls')>=0;
+  var rd=new FileReader();
+  rd.onload=function(e){
+    try{
+      var buf=e.target.result;
+      if(isExcel){
+        try{
+          var worker=new Worker('js/xlsx-worker.js');
+          worker.onmessage=function(we){
+            var r=we.data;worker.terminate();
+            if(!r.success){alert('Excel解析失败：'+r.error);return}
+            var d=r.data;
+            if(!d||d.length<2){alert('Excel无数据');return}
+            var h=-1;for(var si=0;si<Math.min(15,d.length);si++){
+              var row=Array.isArray(d[si])?d[si].map(function(x){return String(x).trim()}):[];
+              if(row.some(function(c){return c.indexOf('配送日期')>=0||c.indexOf('出库验收单号')>=0||c.indexOf('出库类型')>=0||c.indexOf('业务类型')>=0||c.indexOf('计划状态')>=0||c.indexOf('提油机构')>=0||c.indexOf('运距')>=0})){h=si;break}
+            }
+            if(h<0)h=0;
+            var hdr=Array.isArray(d[h])?d[h].map(function(x){return String(x).trim()}):[];
+            var rows=[];
+            for(var ri=h+1;ri<d.length;ri++){
+              var vals=Array.isArray(d[ri])?d[ri].map(function(x){return String(x).trim()}):[];
+              if(vals.length>1&&vals.some(function(v){return v}))rows.push(vals.join('\t'))
+            }
+            cb({hdr:hdr,rows:rows,delim:'\t'})
+          };
+          worker.onerror=function(we){
+            worker.terminate();alert('Worker加载失败，使用同步解析');
+            fallbackXLSX(buf,cb)
+          };
+          worker.postMessage({buf:buf,fileName:file.name},[buf]);
+          return;
+        }catch(we){fallbackXLSX(buf,cb);return}
+      }
+      // CSV文件：同步解析
+      var v=new Uint8Array(buf),txt;
+      if(v[0]===0xFF&&v[1]===0xFE) txt=new TextDecoder('utf-16le').decode(buf);
+      else if(v[0]===0xEF&&v[1]===0xBB&&v[2]===0xBF) txt=new TextDecoder('utf-8').decode(buf);
+      else txt=new TextDecoder('gbk').decode(buf);
+      var al=txt.replace(/\r\n/g,'\n').replace(/\r/g,'\n').split('\n');
+      while(al.length&&!al[al.length-1].trim())al.pop();
+      var delim=',';var cc=0,tc=0;
+      for(var si=0;si<Math.min(10,al.length);si++){var t1=al[si].split(',').length,t2=al[si].split('\t').length;if(t1>cc)cc=t1;if(t2>tc)tc=t2}
+      if(tc>cc)delim='\t';
+      var h=-1;for(var si=0;si<Math.min(15,al.length);si++){var p=al[si].split(delim).map(function(x){return x.trim()});if(p.indexOf('配送日期')>=0||p.indexOf('出库验收单号')>=0||p.indexOf('出库类型')>=0||p.indexOf('业务类型')>=0||p.indexOf('计划状态')>=0||p.indexOf('提油机构')>=0||p.indexOf('运距')>=0){h=si;break}}
+      if(h<0){alert('未找到数据表头');return}
+      var hdr=al[h].split(delim).map(function(x){return x.trim()});var rows=[];for(var ri=h+1;ri<al.length;ri++){if(al[ri].trim())rows.push(al[ri])}
+      if(rows.length<1){alert('文件无有效数据');return}
+      cb({hdr:hdr,rows:rows,delim:delim});
+    }catch(er){alert('解析失败：'+er.message+'\n文件：'+file.name)}
+  };rd.readAsArrayBuffer(file);
+}
+// Worker不可用时回退到同步XLSX解析
+function fallbackXLSX(buf,cb){
+  try{
+    var wb=XLSX.read(buf,{type:'array',cellDates:false});
+    var ws=wb.Sheets[wb.SheetNames[0]];
+    var data=XLSX.utils.sheet_to_json(ws,{header:1,defval:'',raw:true});
+    if(!data||data.length<2){alert('Excel无数据');return}
+    var h=-1;for(var si=0;si<Math.min(15,data.length);si++){
+      var row=Array.isArray(data[si])?data[si].map(function(x){return String(x).trim()}):[];
+      if(row.some(function(c){return c.indexOf('配送日期')>=0||c.indexOf('出库验收单号')>=0||c.indexOf('出库类型')>=0||c.indexOf('业务类型')>=0||c.indexOf('计划状态')>=0||c.indexOf('提油机构')>=0||c.indexOf('运距')>=0})){h=si;break}
+    }
+    if(h<0)h=0;
+    var hdr=Array.isArray(data[h])?data[h].map(function(x){return String(x).trim()}):[];
+    var rows=[];for(var ri=h+1;ri<data.length;ri++){var vals=Array.isArray(data[ri])?data[ri].map(function(x){return String(x).trim()}):[];if(vals.length>1&&vals.some(function(v){return v}))rows.push(vals.join('\t'))}
+    cb({hdr:hdr,rows:rows,delim:'\t'})
+  }catch(xe){alert('Excel解析失败：'+xe.message)}
+}
+
+// Chart.js 数据标签插件注册
+Chart.register(ChartDataLabels);
+
+// 模块鍒囨崲
+function swMod(idx){curMod=idx;document.querySelectorAll('.mtab').forEach(function(t,i){t.classList.toggle('on',i===idx)});if(idx===2)renderDB();else reRender()}
+function reRender(){if(curMod===2)renderDB();else curMod===0?renderDel():renderDep()}
+
+// 閫氱敤杩囨护
+function filterRecs(recs,flt){return recs.filter(function(r){if(flt.from&&r.date<flt.from)return false;if(flt.to&&r.date>flt.to)return false;if(flt.branchVals&&flt.branchVals.length&&flt.branchVals.indexOf(r.branch)<0)return false;if(flt.pickupVals&&flt.pickupVals.length&&flt.pickupVals.indexOf(r.pickup)<0)return false;if(flt.oilVals&&flt.oilVals.length&&flt.oilVals.indexOf(r.oil)<0)return false;if(flt.deptVals&&flt.deptVals.length&&flt.deptVals.indexOf(r.dept)<0)return false;if(flt.shipVals&&flt.shipVals.length&&flt.shipVals.indexOf(r.ship)<0)return false;if(flt.outVals&&flt.outVals.length&&flt.outVals.indexOf(r.outType)<0)return false;return true})}
+
+// 同比环比HTML锛堟敮鎸佽嚜瀹氫箟单位锛?function yoyHtml(yoy,label){if(!yoy||yoy.dir==='flat')return'';return'<span class="yb '+yoy.dir+'">'+label+' '+yoy.label.replace('+','')+'</span>'}
+function buildYoyStr(yoy,prefix,unit){if(!yoy||yoy.dir==='flat')return'';unit=unit||'吨;var s=yoy.dir==='up'?'鈫?:'鈫?;return' <span class="yb '+yoy.dir+'">'+prefix+s+Math.abs(yoy.val).toFixed(unit==='杈??0:1)+unit+' ('+(yoy.pct>=0?'+':'')+yoy.pct+'%)</span>'}
+
+// 鍛ㄦ湡鑱氬悎锛堝惈计划閲忥級
+function aggByPeriod(recs,period){
+  var agg={};
+  recs.forEach(function(r){
+    var k=period==='日?r.date:period==='月?getMonthKey(r.date):getYearKey(r.date);
+    if(!agg[k])agg[k]={qty:0,plan:0,count:0};
+    agg[k].qty+=r.qty;
+    agg[k].plan+=(r.plan||0);
+    agg[k].count++;
+  });
+  return agg;
+}
+function getPeriodKeys(agg){return Object.keys(agg).sort()}
+
+// 星期鍜岃妭鍋囨棩
+var WEEKDAYS=['星期日','星期涓€','星期浜?,'星期涓?,'星期鍥?,'星期浜?,'星期鍏?];
+function getWeekday(dateStr){
+  var d=new Date(dateStr);
+  if(isNaN(d.getTime()))return'';
+  return WEEKDAYS[d.getDay()];
+}
+function isHoliday(dateStr){
+  // 妫€鏌ユ槸鍚︿负鍛ㄦ湯
+  var d=new Date(dateStr);
+  if(isNaN(d.getTime()))return'';
+  var day=d.getDay();
+  if(day===0||day===6)return'休息日;
+  // 娉曞畾节假鏃ョ畝鍖栫増
+  var m=dateStr.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if(!m)return'工作日;
+  var mm=+m[2],dd=+m[3];
+  // 元旦 1月日  if(mm===1&&dd===1)return'元旦';
+  // 鏄ヨ妭锛堢畝鍖栦负闄ゅ鍒板垵鍏紝鍐滃巻无法绮剧‘璁＄畻锛屼娇鐢ㄥ父瑙佹棩鏈熻寖鍥达級
+  if((mm===1&&dd>=28)||(mm===2&&dd<=3))return'鏄ヨ妭';
+  // 清明 4月-5日  if(mm===4&&(dd===4||dd===5))return'清明';
+  // 劳动鑺?5月日  if(mm===5&&dd===1)return'劳动鑺?;
+  // 端午锛堢害5鏈堝簳6鏈堝垵锛岀畝鍖栵級
+  if((mm===5&&dd>=30)||(mm===6&&dd<=2))return'端午';
+  // 中秋+国庆 9鏈堝簳-10鏈堝垵
+  if((mm===9&&dd>=29)||(mm===10&&dd<=7))return'国庆';
+  return'工作日;
+}
+
+// 车辆同比环比
+function calcVehYoy(recs,period,keys,agg){
+  var vehAgg={};
+  recs.forEach(function(r){
+    var k=period==='日?r.date:period==='月?getMonthKey(r.date):getYearKey(r.date);
+    if(!vehAgg[k])vehAgg[k]={};
+    vehAgg[k][r.vehicle]=1;
+  });
+  var result={};
+  keys.forEach(function(k){
+    result[k]=Object.keys(vehAgg[k]||{}).length;
+  });
+  return result;
+}
+function parseDeliveryRecords(res){
+  var hdr=res.hdr,delim=res.delim;
+  var idxDate=findIdx(hdr,['閰嶉€佹棩月']),idxBiz=findIdx(hdr,['业务绫诲类']),idxBranch=findIdx(hdr,['分公司']);
+  var idxPickup=findIdx(hdr,['提油机构']),idxOil=findIdx(hdr,['油品名称']),idxOutT=findIdx(hdr,['出库(吨','出库']);
+  var idxPlan=findIdx(hdr,['计划(吨','计划']);if(idxPlan<0&&hdr.length>10)idxPlan=10; // K列  var idxStatus=findIdx(hdr,['计划状态']),idxVehicle=findIdx(hdr,['车辆']),idxFleet=findIdx(hdr,['车队']),idxReceive=findIdx(hdr,['收油机构']),idxDist=findIdx(hdr,['运距','距离']);if(idxDist<0&&hdr.length>22)idxDist=22;var idxCang=findIdx(hdr,['车仓','仓位']);if(idxCang<0&&hdr.length>28)idxCang=28;
+  if(idxDate<0||idxBiz<0||idxStatus<0||idxOutT<0){alert('无法找到关键列);return null}
+  var recs=[];
+  for(var ri=0;ri<res.rows.length;ri++){
+    var c=res.rows[ri].split(delim);
+    if(c.length<=Math.max(idxDate,idxStatus,idxOutT))continue;
+    var st=(c[idxStatus]||'').replace(/^=/,'').replace(/"/g,'').trim();
+    if(st!=='澶嶆牳閫氳繃'&&st!=='宸蹭笅鍙?)continue;
+    var biz=(c[idxBiz]||'').replace(/^=/,'').replace(/"/g,'').trim();
+    if(biz.indexOf('内部閰嶉€?)<0)continue;
+    var veh=(c[idxVehicle]||'').replace(/^=/,'').replace(/"/g,'').trim();
+    if(!isValidPlate(veh))continue;
+    var qty=parseFloat(c[idxOutT])||0;if(qty<=0)continue;
+    var plan=idxPlan>=0?(parseFloat(c[idxPlan])||0):0;
+    var dist=idxDist>=0?(parseFloat(String(c[idxDist]).replace(/[^0-9.\-]/g,''))||0):0;
+    var cang=idxCang>=0?parseInt(c[idxCang])||0:0;
+    var ds=(c[idxDate]||'').replace(/^=/,'').replace(/"/g,'').trim();
+    var dm=ds.match(/(\d{4})[-\/\.](\d{1,2})[-\/\.](\d{1,2})/);
+    var date=dm?dm[1]+'-'+String(+dm[2]).padStart(2,'0')+'-'+String(+dm[3]).padStart(2,'0'):ds.substring(0,10).replace(/\//g,'-');
+    recs.push({date:date,branch:(c[idxBranch]||'').trim(),biz:biz,pickup:(c[idxPickup]||'').trim(),receive:(c[idxReceive]||'').trim(),oil:(c[idxOil]||'').trim(),qty:qty,plan:plan,vehicle:veh,fleet:(c[idxFleet]||'').trim(),dist:dist,cang:cang});
+  }
+  return recs;
+}
+function parseDistMapFile(input){
+  if(!input||!input.files||!input.files[0])return;
+  var f=input.files[0];
+  parseFile(f,function(res){
+    try{
+      var hdr=res.hdr,delim=res.delim;
+      // 尝试鍏堜綔涓轰笁鍒楁牸寮忥紙提油机构|收油机构|运距锛?      var idxP=findIdx(hdr,['提油机构','油库','发货单位','提油鐐?,'提油']);
+      var idxR=findIdx(hdr,['收油机构','加油站','到货','站点','娌圭珯','鍔犳补绔欏悕绉?,'鍔犳补绔欏悕']);
+      var idxD=findIdx(hdr,['运距','距离','鍏噷','閲岀▼','璺?]);
+      // 找到鍔犳补绔欏垪鈥斺€斿鏋滄槸矩阵格式
+      var idxStation=findIdx(hdr,['加油站','站点名称','绔欏悕']);
+      if(idxStation<0)idxStation=findIdx(hdr,['鍔犳补绔欏悕','鍔犳补绔欏悕绉?]);
+      var oldCnt=Object.keys(distMap).length,cnt=0;
+      
+      if(idxP>=0&&idxR>=0&&idxD>=0){
+        // === 三列格式 ===
+        for(var ri=0;ri<res.rows.length;ri++){
+          var c=res.rows[ri].split(delim);if(c.length<=Math.max(idxP,idxR,idxD))continue;
+          var pu=(c[idxP]||'').trim(),re=(c[idxR]||'').trim(),di=parseFloat(String(c[idxD]).replace(/[^0-9.\-]/g,''));
+          if(pu&&re&&di>0){distMap[pu+'||'+re]=di;cnt++}
+        }
+        var btn=document.getElementById('distMapBtn');if(btn){btn.textContent='鉁?运距宸茶浇鍏?'+cnt+'鏉?';btn.className='ubtn ok'}
+        alert('鉁?运距映射琛ㄥ凡加载锛堜笁鍒楁牸寮忥級锛?+cnt+' 鏉?);
+        DB.saveDistMap(distMap);reRender();return;
+      }
+      
+      // === 矩阵格式锛堟补绔櫭楁补搴撹窛绂荤煩闃碉級===
+      if(idxStation<0){alert('鏈壘列加油站鍒椾綔涓烘敹娌规満鏋勶紝璇风‘璁よ〃澶村垪鍚峔n表头锛?+hdr.join(' | '));return}
+      // 绗?鍒楄捣锛堢储寮?璧凤級涓烘补搴撳垪
+      var depCols=[];
+      for(var ci=3;ci<hdr.length;ci++){
+        var hn=(hdr[ci]||'').trim();
+        if(hn&&hn.indexOf('序号')<0&&hn.indexOf('地区')<0&&hn.indexOf('加油站)<0&&hn.indexOf('站点')<0)depCols.push(ci);
+      }
+      if(depCols.length===0){alert('鏈壘鍒版补搴撳垪锛?=绗?鍒楋級');return}
+      // 绗竴琛屾暟鎹牱鏈敤浜庡脊绐?      var firstRow=res.rows.length>0?res.rows[0].split(delim):[];
+      for(var ri=0;ri<res.rows.length;ri++){
+        var c=res.rows[ri].split(delim);if(c.length<=idxStation)continue;
+        var station=(c[idxStation]||'').trim();if(!station)continue;
+        for(var di=0;di<depCols.length;di++){
+          var ci2=depCols[di],depot=(hdr[ci2]||'').trim();
+          var dist=parseFloat(String(c[ci2]||'').replace(/[^0-9.\-]/g,''));
+          if(depot&&dist>0){distMap[depot+'||'+station]=dist;cnt++}
+        }
+      }
+      var depotNames=depCols.map(function(ci){return hdr[ci]}).join('銆?);
+      DB.saveDistMap(distMap);
+      var btn=document.getElementById('distMapBtn');if(btn){btn.textContent='鉁?运距宸茶浇鍏?'+cnt+'鏉?';btn.className='ubtn ok'}
+      alert('鉁?运距映射琛ㄥ凡加载锛堢煩闃垫牸寮忥級锛?+cnt+' 鏉n璇嗗埆鍒扮殑油库锛?+depotNames);
+      reRender();
+    }catch(er){alert('解析澶辫触锛?+er.message)}
+  });input.value='';
+}
+
+function loadDelFile(input){
+  if(!input||!input.files||!input.files[0])return;
+  var f=input.files[0];
+  showFileLoading('解析閰嶉€佽鍒掓枃浠?..');
+  setTimeout(function(){
+    showModulePicker('配送计划'function(mods){
+      parseFile(f,function(res){
+        try{
+          var recs=parseDeliveryRecords(res);
+          if(!recs||recs.length===0){hideFileLoading();alert('娌℃湁绗﹀悎条件鐨勬暟鎹?);return}
+          recs.forEach(function(r){r._src=f.name});
+          DB.saveUpload('delivery',f.name,recs,mods);
+          loadDelData(function(){hideFileLoading();renderDel()});
+          alert('鉁?宸蹭笂浼?'+recs.length+' 鏉″埌锛?+mods.join('銆?))
+        }catch(er){hideFileLoading();alert('解析澶辫触锛?+er.message)}
+      });input.value='';
+    });
+  },50);
+}
+function loadDepFile(input){
+  if(!input||!input.files||!input.files[0])return;
+  var f=input.files[0];
+  showModulePicker('油库出库',function(mods){
+    parseFile(f,function(res){try{var recs=parseDepotRecords(res);if(!recs||recs.length===0){alert('娌℃湁绗﹀悎条件鐨勬暟鎹?);return}
+      DB.saveUpload('depot',f.name,recs,mods);loadDepData(function(){renderDep()});alert('鉁?宸蹭笂浼?'+recs.length+' 鏉″埌锛?+mods.join('銆?))
+    }catch(er){alert('解析澶辫触锛?+er.message)}});input.value='';
+  })
+}
+function showModulePicker(defMod,cb){
+  var mods=MODULES.slice();
+  var html='<div id="mpOverlay" style="position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.4);z-index:9999;display:flex;align-items:center;justify-content:center" onclick="if(event.target===this)closeMp()">'+
+    '<div style="background:#fff;border-radius:8px;padding:20px;max-width:350px;width:90%">'+
+    '<div style="font-size:14px;font-weight:600;margin-bottom:10px">馃搶 选择数据引用模块</div>'+
+    '<div style="font-size:11px;color:#888;margin-bottom:8px">璇ユ暟鎹皢鍦ㄥ摢浜涙ā鍧椾腑鍙锛?</div>';
+  mods.forEach(function(m){
+    var ck=m===defMod?' checked':'';
+    html+='<label style="display:flex;align-items:center;gap:6px;padding:6px 0;font-size:12px;cursor:pointer"><input type="checkbox"'+ck+' value="'+m+'" style="width:14px;height:14px;accent-color:#3A5C4A;cursor:pointer"> '+m+'</label>'
+  });
+  var fileId='tmpF_'+Date.now();
+  html+='<div style="text-align:center;margin-top:12px;display:flex;gap:8px;justify-content:center">'+
+    '<span class="ubtn" onclick="confirmMp(\''+fileId+'\')" style="padding:6px 20px">鉁?纭</span>'+
+    '<span class="ubtn" onclick="closeMp()" style="padding:6px 14px">取消</span></div></div></div>'+
+    '<input type="file" id="'+fileId+'" style="display:none" accept=".csv,.xlsx,.xls,.xlsm">';
+  document.body.insertAdjacentHTML('beforeend',html);
+  document.getElementById('mpFileId')&&(document.getElementById('mpFileId').value=fileId);
+  window._mpCb=cb;
+  window._mpFileId=fileId;
+}
+function confirmMp(fid){
+  var mods=[];document.querySelectorAll('#mpOverlay input[type=checkbox]').forEach(function(cb){if(cb.checked)mods.push(cb.value)});
+  if(!mods.length){alert('至少选择涓€涓ā鍧?);return}
+  closeMp();
+  if(window._mpCb)window._mpCb(mods);
+}
+function closeMp(){var el=document.getElementById('mpOverlay');if(el)el.remove()}
+function clearAllDelData(){if(!delData)return;if(!confirm('确定清除鍏ㄩ儴閰嶉€佽鍒掓暟鎹紵鍏?'+delData.records.length+' 鏉?))return;DB.clear('uploads');delData=null;alert('宸叉竻闄ゆ墍鏈夋暟鎹?);loadAllData()}
+function showDelFiles(){
+  if(!delData||!delData.files||!delData.files.length){alert('娌℃湁鍙鐞嗙殑文件');return}
+  var html='<div id="delFileOverlay" style="position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.4);z-index:9999;display:flex;align-items:center;justify-content:center" onclick="if(event.target===this)closeDelFiles()">'+
+    '<div style="background:#fff;border-radius:8px;padding:16px 20px;max-width:450px;width:90%;max-height:70vh;overflow-y:auto">'+
+    '<div style="font-size:14px;font-weight:600;margin-bottom:10px">馃搵 宸蹭笂浼犵殑文件</div>'+
+    '<div style="font-size:11px;color:#888;margin-bottom:10px">鍏?'+delData.records.length+' 鏉¤褰曪紝'+delData.files.length+' 涓枃浠?</div>';
+  delData.files.forEach(function(fn){
+    var cnt=delData.records.filter(function(r){return r._src===fn}).length;
+    html+='<div style="display:flex;align-items:center;justify-content:space-between;padding:6px 8px;border-bottom:1px solid #f0f0f0;font-size:11px">'+
+      '<span>馃搫 '+fn+'</span><span style="color:#999">'+cnt+' 鏉?</span>'+
+      '<span class="ubtn del" style="padding:2px 8px;font-size:10px;margin:0" onclick="removeDelFile(\''+fn.replace(/'/g,"\\'")+'\');closeDelFiles()">鉁?删除</span></div>';
+  });
+  html+='<div style="text-align:center;margin-top:12px"><span class="ubtn" onclick="closeDelFiles()" style="padding:4px 20px">关闭</span></div></div></div>';
+  document.body.insertAdjacentHTML('beforeend',html);
+}
+function closeDelFiles(){var el=document.getElementById('delFileOverlay');if(el)el.remove()}
+function resetDelFilters(){var fm=document.getElementById('delFm'),to=document.getElementById('delTo');if(fm)fm.value='';if(to)to.value='';_msS['msDelBr']&&(_msS['msDelBr'].vals=_msS['msDelBr'].items.map(function(i){return i.value}));_msS['msDelPu']&&(_msS['msDelPu'].vals=_msS['msDelPu'].items.map(function(i){return i.value}));_msS['msDelOi']&&(_msS['msDelOi'].vals=_msS['msDelOi'].items.map(function(i){return i.value}));renderDel()}
+
+function renderDel(){
+  var body=document.getElementById('modBody'),d=delData;
+  var dmCnt=Object.keys(distMap).length;
+  var html='<div class="ubar"><span class="ubtn" id="delBtn" onclick="document.getElementById(\'delFile\').click()">馃搧 上传配送计划</span><span class="ubtn" id="distMapBtn" onclick="document.getElementById(\'distMapFile\').click()" style="color:'+(dmCnt?'#C49A4A':'#C49A4A')+';border-color:'+(dmCnt?'#C49A4A':'#C49A4A')+'"'+(dmCnt?' class="ubtn ok"':'')+'>'+(dmCnt?'鉁?运距宸茶浇鍏?'+dmCnt+'鏉?':'馃搹 运距映射表)+'</span><span class="uinfo" id="delInfo">'+(d?'宸插姞杞?'+d.records.length+' 鏉? 馃搮 '+getDateRange(d.records):'暂无数据')+'</span>'+(d?'<span class="ubtn" onclick="showDataMgr()" style="color:#e67e22;border-color:#e67e22">馃搵 文件管理</span>':'')+(d?'<span class="ubtn del" onclick="clearAllDelData()">馃棏 鍏ㄩ儴清除</span>':'')+'<input type="file" id="delFile" accept=".csv,.xlsx,.xls,.xlsm" style="display:none" onchange="loadDelFile(this)"><input type="file" id="distMapFile" accept=".csv,.xlsx,.xls" style="display:none" onchange="parseDistMapFile(this)"></div>';
+  if(!d||!d.records||d.records.length===0){html+='<div class="nod">璇蜂笂浼犻厤閫佽鍒掓枃浠讹紙CSV / Excel锛?</div>';body.innerHTML=html;return}
+  var branches={},pickups={},oils={};
+  d.records.forEach(function(r){branches[r.branch]=1;pickups[r.pickup]=1;oils[r.oil]=1});
+  html+='<div class="fbar"><span class="fl">日期</span><input class="din" id="delFm" type="date" onchange="msChanged()">~<input class="din" id="delTo" type="date" onchange="msChanged()"><span class="fl" style="margin-left:4px">分公司</span><div class="ms-wrap" id="msDelBr"></div><span class="fl">提油机构</span><div class="ms-wrap" id="msDelPu"></div><span class="fl">油品</span><div class="ms-wrap" id="msDelOi"></div><span class="ubtn" onclick="resetDelFilters()" style="color:#3A5C4A;border-color:#3A5C4A;padding:2px 8px;font-size:10px">鈫?閲嶇疆</span></div><div id="delStats"></div>';
+  body.innerHTML=html;
+  initMS('msDelBr',Object.keys(branches).sort().map(function(v){return{value:v,label:v}}),msChanged);
+  initMS('msDelPu',Object.keys(pickups).sort().map(function(v){return{value:v,label:v}}),msChanged);
+  initMS('msDelOi',Object.keys(oils).sort().map(function(v){return{value:v,label:v}}),msChanged);
+  renderDelStats();
+}
+function getDelFilters(){var fm=document.getElementById('delFm'),to=document.getElementById('delTo');return{from:fm?fm.value:'',to:to?to.value:'',branchVals:getMSVals('msDelBr'),pickupVals:getMSVals('msDelPu'),oilVals:getMSVals('msDelOi')}}
+
+var COLORS=['#3A5C4A','#EC935E','#8DA48E','#C65D52','#5A7B9E','#D4A057','#7B8F7A','#B87A6A','#5085C3','#A3B89A','#9A6B5A','#6A8A6E','#D4845A','#7A9A7E','#B0986A','#8A7A6A','#6A7A8E','#C09A7A'];
+
+function renderDelStats(){
+  var el=document.getElementById('delStats');if(!el)return;
+  var flt=getDelFilters();
+  var recs=filterRecs(delData.records,flt);
+  if(recs.length===0){el.innerHTML='<div class="nod">没有符合筛选条件的记录</div>';return}
+  // 鍛ㄦ湡选择鍣?  var html='<div class="prow"><span class="fl" style="margin-right:2px">馃搳 缁熻鍛ㄦ湡:</span>'+
+    ['日','月','年'].map(function(p){return'<span class="pbtn'+(delPeriod===p?' on':'')+'" onclick="setDelPeriod(\''+p+'\')">'+p+'</span>'}).join('')+
+  '</div>';
+  // 鍛ㄦ湡鑱氬悎
+  var agg=aggByPeriod(recs,delPeriod);
+  var keys=getPeriodKeys(agg);
+  var totalQty=0;keys.forEach(function(k){totalQty+=agg[k].qty});
+  // 缁熻卡片锛堝惈计划閲忥級
+  var totalPlan=0;keys.forEach(function(k){totalPlan+=agg[k].plan||0});
+  var totalUnexe=Math.max(0,totalPlan-totalQty);
+  // 璁＄畻日均出库閲?  var dayCount=0;
+  if(delPeriod==='日){dayCount=keys.length}
+  else{
+    var dateMin=null,dateMax=null;
+    recs.forEach(function(r){
+      if(!r.date)return;
+      if(!dateMin||r.date<dateMin)dateMin=r.date;
+      if(!dateMax||r.date>dateMax)dateMax=r.date;
+    });
+    if(dateMin&&dateMax){
+      var d1=new Date(dateMin),d2=new Date(dateMax);
+      dayCount=Math.round((d2-d1)/86400000)+1;
+    }
+  }
+  var dailyAvg=dayCount>0?(totalQty/dayCount).toFixed(1):'0';
+  html+='<div class="sg">'+
+    '<div class="sc"><div class="sl">计划閲忥紙鍚級</div><div class="sv bl">'+(totalPlan>0?totalPlan.toFixed(1):'-')+'</div><div class="sub">鎬诲嚭搴?'+totalQty.toFixed(1)+' 吨</div></div>'+
+    '<div class="sc"><div class="sl">出库閲忥紙鍚級</div><div class="sv or">'+totalQty.toFixed(1)+'</div><div class="sub">占比 100%</div></div>'+
+    '<div class="sc"><div class="sl">日均出库锛堝惃/澶╋級</div><div class="sv bl">'+dailyAvg+'</div><div class="sub">缁熻澶╂暟 '+dayCount+' 澶?</div></div>'+
+    '<div class="sc"><div class="sl">鏈墽琛岋紙鍚級</div><div class="sv rd">'+(totalUnexe>0?totalUnexe.toFixed(1):'0')+'</div><div class="sub">执行鐜?'+(totalPlan>0?(totalQty/totalPlan*100).toFixed(1):'-')+'%</div></div>'+
+    '<div class="sc"><div class="sl">总用车数锛堝幓閲嶏級</div><div class="sv gr">'+countUnique(recs,'vehicle')+'</div><div class="sub">'+delPeriod+'鍧?'+Math.round(countUnique(recs,'vehicle')/Math.max(1,keys.length))+' 杈?</div></div>'+
+    '<div class="sc"><div class="sl">鍒嗗叕鍙告暟</div><div class="sv gn">'+countUnique(recs,'branch')+'</div><div class="sub">鎬昏褰?'+recs.length+' 鏉?</div></div>'+
+    '<div class="sc"><div class="sl">鍔犳补绔欐暟</div><div class="sv pu">'+countUnique(recs,'receive')+'</div><div class="sub">收油机构去重</div></div>'+
+    '<div class="sc"><div class="sl">趟次(车仓=1)</div><div class="sv or">'+recs.filter(function(r){return r.cang===1}).length+'</div><div class="sub">车仓涓?鐨勮褰曟暟</div></div>'+
+  '</div>';
+  // 鏄剧ず褰撳墠选择鐨勬棩鏈熻寖鍥?  var fltFm=document.getElementById('delFm'),fltTo=document.getElementById('delTo');
+  var selRange=(fltFm&&fltFm.value?' 绛涢€? '+fltFm.value:'')+(fltTo&&fltTo.value?' ~ '+fltTo.value:'');
+  if(selRange)html+='<div style="font-size:11px;color:#3A5C4A;margin:-4px 0 6px 2px">馃搮 '+selRange+'</div>';
+  // 同比环比琛ㄦ牸锛堝惈计划閲?车辆锛?  var vehCnt=calcVehYoy(recs,delPeriod,keys);
+  var totalPlan=0;keys.forEach(function(k){totalPlan+=agg[k].plan||0});
+  var totalUnexe=Math.max(0,totalPlan-totalQty);
+  html+='<div class="tw"><table><thead><tr><th>'+(delPeriod==='日?'日期':'鏈堜唤')+'</th>'+
+    (delPeriod==='日?'<th>星期</th><th>绫诲类</th>':'')+
+    '<th>计划閲?吨</th><th>出库閲?吨</th><th>未执行吨</th><th>执行鐜?</th>'+
+    '<th>鐢ㄨ溅鏁?</th>'+
+    (delPeriod==='月||delPeriod==='日?'<th>出库环比</th><th>出库同比</th>':'<th>同比</th>')+
+    '<th>车辆环比</th><th>车辆同比</th></tr></thead><tbody>';
+  keys.forEach(function(k,i){
+    var q=agg[k].qty,pct=totalQty>0?(q/totalQty*100).toFixed(1):'0';
+    var pl=agg[k].plan||0,unexe=Math.max(0,pl-q),execRate=pl>0?(q/pl*100).toFixed(1):'-';
+    var vc=vehCnt[k]||0;
+    var wd='',hl='';
+    if(delPeriod==='日){wd=getWeekday(k);hl=isHoliday(k);}
+    // 出库环比/同比
+    var hQMoM='<td>-</td>',hQYoY='<td>-</td>';
+    if(delPeriod==='月||delPeriod==='日){
+      if(i>0){var pm=agg[keys[i-1]];if(pm){var y=calcYoy(q,pm.qty);hQMoM='<td>'+buildYoyStr(y,'','吨)+'</td>'}}
+      if(delPeriod==='月){
+        var parts=k.split('-');var yKey=(+parts[0]-1)+'-'+parts[1];
+        if(agg[yKey]){var yy=calcYoy(q,agg[yKey].qty);hQYoY='<td>'+buildYoyStr(yy,'','吨)+'</td>'}
+      }else{
+        var dp=k.split('-');var yKey2=(+dp[0]-1)+'-'+dp[1]+'-'+dp[2];
+        if(agg[yKey2]){var yy2=calcYoy(q,agg[yKey2].qty);hQYoY='<td>'+buildYoyStr(yy2,'','吨)+'</td>'}
+      }
+    }else{
+      if(i>0){var py=agg[keys[i-1]];if(py){var yy3=calcYoy(q,py.qty);hQYoY='<td>'+buildYoyStr(yy3,'','吨)+'</td>'}}
+      hQMoM='';
+    }
+    // 车辆环比/同比锛堢敤"杈?鍋氬崟浣嶏級
+    var hVMoM='<td>-</td>',hVYoY='<td>-</td>';
+    if(i>0){var pv=vehCnt[keys[i-1]];if(pv){var yv=calcYoy(vc,pv);hVMoM='<td>'+buildYoyStr(yv,'','杈?)+'</td>'}}
+    if(delPeriod==='月){
+      var parts=k.split('-');var yKey3=(+parts[0]-1)+'-'+parts[1];
+      if(vehCnt[yKey3]){var yv2=calcYoy(vc,vehCnt[yKey3]);hVYoY='<td>'+buildYoyStr(yv2,'','杈?)+'</td>'}
+    }else if(delPeriod==='日){
+      var dp=k.split('-');var yKey4=(+dp[0]-1)+'-'+dp[1]+'-'+dp[2];
+      if(vehCnt[yKey4]){var yv3=calcYoy(vc,vehCnt[yKey4]);hVYoY='<td>'+buildYoyStr(yv3,'','杈?)+'</td>'}
+    }else{
+      if(i>0){var pvy=vehCnt[keys[i-1]];if(pvy){var yv4=calcYoy(vc,pvy);hVYoY='<td>'+buildYoyStr(yv4,'','杈?)+'</td>'}}
+      hVMoM='';
+    }
+    html+='<tr><td class="l">'+k+'</td>'+(delPeriod==='日?'<td>'+wd+'</td><td>'+hl+'</td>':'')+
+      '<td class="r">'+(pl>0?pl.toFixed(1):'-')+'</td><td class="r">'+q.toFixed(1)+'</td><td class="r">'+(unexe>0?unexe.toFixed(1):'-')+'</td><td>'+execRate+'%</td>'+
+      '<td>'+vc+'</td>'+hQMoM+hQYoY+hVMoM+hVYoY+'</tr>';
+  });
+  html+='</tbody></table></div>';
+  // 鍘熸湁鐨勫垎鍏徃/提油机构/油品鑱氬悎
+  var brAgg={},puAgg={},oilAgg={},fleetAgg={},brVehicles={},puCatAgg={},puCatSet={};
+  // 运距鑱氬悎
+  var distAgg={branch:{},pickup:{},oil:{},zero:{cnt:0,list:[]}};
+  recs.forEach(function(r){
+    if(!brAgg[r.branch])brAgg[r.branch]={qty:0,vehicles:{},oils:{}};
+    brAgg[r.branch].qty+=r.qty;brAgg[r.branch].vehicles[r.vehicle]=1;
+    if(!brAgg[r.branch].oils[r.oil])brAgg[r.branch].oils[r.oil]=0;brAgg[r.branch].oils[r.oil]+=r.qty;
+    if(!puAgg[r.pickup])puAgg[r.pickup]={qty:0};puAgg[r.pickup].qty+=r.qty;
+    if(!oilAgg[r.oil])oilAgg[r.oil]=0;oilAgg[r.oil]+=r.qty;
+    if(!fleetAgg[r.fleet])fleetAgg[r.fleet]={vehicles:{}};fleetAgg[r.fleet].vehicles[r.vehicle]=1;
+    brVehicles[r.vehicle]=1;
+    // 提油机构油库鍒嗙被
+    var dc=classifyDepot(r.pickup);
+    if(!puCatAgg[dc.t])puCatAgg[dc.t]={qty:0};
+    puCatAgg[dc.t].qty+=r.qty;
+    puCatSet[r.pickup]=dc.t;
+    // 运距鑱氬悎锛堜紭鍏堢敤运距映射琛紝鍏舵鍙朇SV涓殑鍊硷級
+    var dval=distMap[r.pickup+'||'+r.receive]||(typeof r.dist==='number'?r.dist:0);
+    if(!distAgg.branch[r.branch])distAgg.branch[r.branch]={sum:0,cnt:0};
+    distAgg.branch[r.branch].sum+=dval;distAgg.branch[r.branch].cnt++;
+    if(!distAgg.pickup[r.pickup])distAgg.pickup[r.pickup]={sum:0,cnt:0};
+    distAgg.pickup[r.pickup].sum+=dval;distAgg.pickup[r.pickup].cnt++;
+    if(!distAgg.oil[r.oil])distAgg.oil[r.oil]={sum:0,cnt:0};
+    distAgg.oil[r.oil].sum+=dval;distAgg.oil[r.oil].cnt++;
+    if(dval===0){distAgg.zero.cnt++;if(distAgg.zero.list.length<50)distAgg.zero.list.push({branch:r.branch,pickup:r.pickup,oil:r.oil,qty:r.qty})}
+  });
+  var brSorted=Object.keys(brAgg).sort(function(a,b){return brAgg[b].qty-brAgg[a].qty});
+  var puSorted=Object.keys(puAgg).sort(function(a,b){return puAgg[b].qty-puAgg[a].qty}).slice(0,20);
+  var oilSorted=Object.keys(oilAgg).sort(function(a,b){return oilAgg[b]-oilAgg[a]});
+  var oilColorMap={};oilSorted.forEach(function(o,i){oilColorMap[o]=COLORS[i%COLORS.length]});
+  // 图表
+  html+='<div class="cr"><div class="cb"><div class="ct">鍚勫垎鍏徃出库閲忥紙鎸夋补鍝佸爢鍙狅級</div><canvas id="delBrChart"></canvas></div><div class="cb"><div class="ct">油品出库占比</div><canvas id="delOiChart"></canvas></div></div>';
+  html+='<div class="cr"><div class="cb"><div class="ct">鍚勬彁娌规満鏋勫嚭搴撻噺锛堟寜油品鍫嗗彔锛?</div><canvas id="delPuChart"></canvas></div><div class="cb"><div class="ct">鍚勫垎鍏徃出库占比</div><canvas id="delBrPiChart"></canvas></div></div>';
+  // 提油机构油库鍒嗙被卡片+图表
+  var puCatSorted=Object.keys(puCatAgg).sort(function(a,b){return puCatAgg[b].qty-puCatAgg[a].qty});
+  if(puCatSorted.length){
+    var catColor={'自有库':'#3A5C4A','广西石化直发库':'#EC935E','中石化互供库':'#8DA48E','中海油互供库':'#5085C3','外采库':'#C65D52'};
+    html+='<div class="sg" style="grid-template-columns:repeat(5,1fr)">';
+    puCatSorted.forEach(function(c){html+='<div class="sc"><div class="sl">提油-'+c+'</div><div class="sv" style="color:'+(catColor[c]||'#555')+'">'+puCatAgg[c].qty.toFixed(1)+'</div><div class="sub">占比 '+(totalQty>0?(puCatAgg[c].qty/totalQty*100).toFixed(1):0)+'%</div></div>'});
+    html+='</div>';
+    html+='<div class="cr"><div class="cb"><div class="ct">提油机构油库鍒嗙被出库閲?</div><canvas id="delPuCatChart"></canvas></div><div class="cb"><div class="ct">提油机构油库占比</div><canvas id="delPuCatPie"></canvas></div></div>';
+  }
+  // 鍚勫垎鍏徃褰撴棩出库閲忔渶澶у姞娌圭珯 + 鍚岃溅鍚岀珯鐜?  var topStationHtml='<div class="vg"><div class="vt">鉀?鍚勫垎鍏徃出库閲忔渶澶у姞娌圭珯</div><table><tr><th>分公司</th><th>鏈€澶у姞娌圭珯</th><th>出库閲?吨</th></tr>';
+  brSorted.forEach(function(br){
+    var stations={};recs.forEach(function(r){if(r.branch===br&&r.receive){if(!stations[r.receive])stations[r.receive]=0;stations[r.receive]+=r.qty}});
+    var stSorted=Object.keys(stations).sort(function(a,b){return stations[b]-stations[a]});
+    if(stSorted.length)topStationHtml+='<tr><td class="l">'+br+'</td><td class="l">'+stSorted[0]+'</td><td class="r">'+stations[stSorted[0]].toFixed(1)+'</td></tr>';
+  });
+  topStationHtml+='</table></div>';
+  // 鍚岃溅鍚岀珯鐜?  var sameCarStationHtml='<div class="vg"><div class="vt">馃殯 鍚岃溅鍚岀珯鐜囷紙Top 20锛?</div><table><tr><th>杞︾墝</th><th>甯稿幓加油站</th><th>娆℃暟</th><th>占比</th></tr>';
+  var carStation={};recs.forEach(function(r){if(!r.vehicle||!r.receive)return;var k=r.vehicle+'||'+r.receive;if(!carStation[k])carStation[k]={vehicle:r.vehicle,station:r.receive,count:0};carStation[k].count++});
+  var carTotal={};recs.forEach(function(r){if(!r.vehicle)return;if(!carTotal[r.vehicle])carTotal[r.vehicle]=0;carTotal[r.vehicle]++});
+  var csSorted=Object.keys(carStation).sort(function(a,b){return carStation[b].count-carStation[a].count}).slice(0,20);
+  csSorted.forEach(function(k){var cs=carStation[k];var total=carTotal[cs.vehicle]||1;sameCarStationHtml+='<tr><td class="l">'+cs.vehicle+'</td><td class="l">'+cs.station+'</td><td>'+cs.count+'</td><td>'+(cs.count/total*100).toFixed(1)+'%</td></tr>'});
+  sameCarStationHtml+='</table></div>';
+  html+='<div class="cr2">'+topStationHtml+sameCarStationHtml+'</div>';
+  // 鍒嗗叕鍙告槑缁嗚〃锛堟寜鍒嗗叕鍙歌仛鍚堬紝展示鍚勬彁娌规満鏋勫垪琛級
+  html+='<div class="tw"><table><thead><tr><th>分公司</th><th>提油机构</th><th>油库绫诲类</th><th>出库閲?吨</th><th>鐢ㄨ溅鏁?</th><th>占比(鍗犳€诲嚭搴?</th></tr></thead><tbody>';
+  // 鎸夊垎鍏徃鑱氬悎
+  var brDetails={};
+  recs.forEach(function(r){
+    if(!brDetails[r.branch])brDetails[r.branch]={qty:0,vehicles:{},pickups:{}};
+    brDetails[r.branch].qty+=r.qty;
+    brDetails[r.branch].vehicles[r.vehicle]=1;
+    brDetails[r.branch].pickups[r.pickup]=(brDetails[r.branch].pickups[r.pickup]||0)+r.qty;
+  });
+  var brDetailSorted=Object.keys(brDetails).sort(function(a,b){return brDetails[b].qty-brDetails[a].qty});
+  brDetailSorted.forEach(function(br){
+    var d=brDetails[br];
+    var pickups=Object.keys(d.pickups).sort(function(a,b){return d.pickups[b]-d.pickups[a]});
+    var puStr=pickups.join('銆?);
+    var types=[];pickups.forEach(function(p){var t=puCatSet[p];if(t&&types.indexOf(t)<0)types.push(t)});
+    var typeStr=types.join('銆?);
+    var pct=totalQty>0?' ('+(d.qty/totalQty*100).toFixed(1)+'%)':'';
+    html+='<tr><td class="l">'+br+'</td><td class="l" style="font-size:10px">'+puStr+'</td><td style="font-size:10px">'+typeStr+'</td><td class="r">'+d.qty.toFixed(1)+'</td><td>'+Object.keys(d.vehicles).length+'</td><td>'+(totalQty>0?(d.qty/totalQty*100).toFixed(1):0)+'%</td></tr>';
+  });
+  html+='</tbody></table></div>';
+  // ====== 运距分析 ======
+  var hasDist=Object.keys(distAgg.branch).length>0;
+  if(hasDist){
+    var totalDistSum=0,totalDistCnt=0;
+    Object.keys(distAgg.branch).forEach(function(b){totalDistSum+=distAgg.branch[b].sum;totalDistCnt+=distAgg.branch[b].cnt});
+    var overallAvg=totalDistCnt>0?(totalDistSum/totalDistCnt).toFixed(1):'0';
+    html+='<div class="prow" style="margin-top:6px"><span class="fl">馃殮 运距分析</span></div>';
+    // 姹囨€诲崱鐗?    html+='<div class="sg" style="grid-template-columns:repeat(4,1fr)">'+
+      '<div class="sc"><div class="sl">鎬诲钩鍧囪繍璺?</div><div class="sv bl">'+overallAvg+'<span style="font-size:11px;color:#888;font-weight:400"> km</span></div><div class="sub">鍏?'+totalDistCnt+' 鏉¤褰曞惈运距</div></div>'+
+      '<div class="sc"><div class="sl">鏈夎繍璺濇暟鎹殑记录</div><div class="sv gn">'+totalDistCnt+'</div><div class="sub">鎬昏褰?'+recs.length+' 鏉?</div></div>'+
+      '<div class="sc"><div class="sl" style="'+(distAgg.zero.cnt>0?'color:#3A5C4A':'')+'">运距涓?0 鐨勮褰?</div><div class="sv" style="'+(distAgg.zero.cnt>0?'color:#3A5C4A;font-weight:700':'color:#888')+'">'+distAgg.zero.cnt+'</div><div class="sub">占比 '+(totalDistCnt>0?(distAgg.zero.cnt/totalDistCnt*100).toFixed(1):0)+'%</div></div>'+
+    '</div>';
+    // 鍚勭淮搴﹀钩鍧囪繍璺濊〃
+    html+='<div class="cr" style="margin-top:4px">';
+    // 鎸夊垎鍏徃
+    html+='<div class="vg"><div class="vt">鎸夊垎鍏徃骞冲潎运距</div><table><tr><th>分公司</th><th>骞冲潎运距(km)</th><th>记录鏁?</th><th>出库閲?吨</th></tr>';
+    Object.keys(distAgg.branch).sort(function(a,b){return (distAgg.branch[b].sum/distAgg.branch[b].cnt)-(distAgg.branch[a].sum/distAgg.branch[a].cnt)}).forEach(function(b){
+      var avg=(distAgg.branch[b].cnt>0?(distAgg.branch[b].sum/distAgg.branch[b].cnt).toFixed(1):'0');
+      var qty=brAgg[b]?brAgg[b].qty:0;
+      html+='<tr><td class="l">'+b+'</td><td class="r">'+avg+'</td><td>'+distAgg.branch[b].cnt+'</td><td class="r">'+qty.toFixed(1)+'</td></tr>';
+    });
+    html+='</table></div>';
+    // 鎸夋彁娌规満鏋?    html+='<div class="vg"><div class="vt">鎸夋彁娌规満鏋勫钩鍧囪繍璺?</div><table><tr><th>提油机构</th><th>骞冲潎运距(km)</th><th>记录鏁?</th><th>出库閲?吨</th></tr>';
+    Object.keys(distAgg.pickup).sort(function(a,b){return (distAgg.pickup[b].sum/distAgg.pickup[b].cnt)-(distAgg.pickup[a].sum/distAgg.pickup[a].cnt)}).forEach(function(p){
+      var avg=(distAgg.pickup[p].cnt>0?(distAgg.pickup[p].sum/distAgg.pickup[p].cnt).toFixed(1):'0');
+      var qty=puAgg[p]?puAgg[p].qty:0;
+      html+='<tr><td class="l">'+p+'</td><td class="r">'+avg+'</td><td>'+distAgg.pickup[p].cnt+'</td><td class="r">'+qty.toFixed(1)+'</td></tr>';
+    });
+    html+='</table></div>';
+    html+='</div>';
+    // 鎸夋补鍝?    html+='<div class="vg"><div class="vt">鎸夋补鍝佸钩鍧囪繍璺?</div><table><tr><th>油品</th><th>骞冲潎运距(km)</th><th>记录鏁?</th><th>出库閲?吨</th></tr>';
+    Object.keys(distAgg.oil).sort(function(a,b){return (distAgg.oil[b].sum/distAgg.oil[b].cnt)-(distAgg.oil[a].sum/distAgg.oil[a].cnt)}).forEach(function(o){
+      var avg=(distAgg.oil[o].cnt>0?(distAgg.oil[o].sum/distAgg.oil[o].cnt).toFixed(1):'0');
+      var qty=oilAgg[o]||0;
+      html+='<tr><td class="l">'+o+'</td><td class="r">'+avg+'</td><td>'+distAgg.oil[o].cnt+'</td><td class="r">'+qty.toFixed(1)+'</td></tr>';
+    });
+    html+='</table></div>';
+    // 闆惰繍璺濇彁绀?    if(distAgg.zero.cnt>0){
+      html+='<div class="sg" style="grid-template-columns:1fr;background:#fff5f5;border:1px solid #f5c6cb;border-radius:6px;padding:6px 10px;margin-top:4px">'+
+        '<div style="color:#3A5C4A;font-size:11px;font-weight:600">鈿狅笍 浠ヤ笅运距涓?0 鐨勮褰曪紙鏈€澶氭樉绀?50 鏉★級</div>'+
+        '<div style="max-height:90px;overflow-y:auto;font-size:10px;color:#666;margin-top:2px">'+
+        distAgg.zero.list.map(function(z){return z.branch+' 鈫?'+z.pickup+' ('+z.oil+', '+z.qty.toFixed(1)+'吨'}).join('锛?')+
+      '</div></div>';
+    }
+  }
+  el.innerHTML=html;
+  // 鐢ㄨ溅表  var bV='<table><tr><th>分公司</th><th>鐢ㄨ溅鏁?</th></tr>';brSorted.forEach(function(b){bV+='<tr><td class="l">'+b+'</td><td>'+Object.keys(brAgg[b].vehicles).length+'</td></tr>'});bV+='</table>';
+  var be=document.getElementById('delBrVehTbl');if(be)be.innerHTML=bV;
+  var fS=Object.keys(fleetAgg).sort(function(a,b){return Object.keys(fleetAgg[b].vehicles).length-Object.keys(fleetAgg[a].vehicles).length});
+  var fV='<table><tr><th>车队</th><th>鐢ㄨ溅鏁?</th></tr>';fS.forEach(function(f){fV+='<tr><td class="l">'+f+'</td><td>'+Object.keys(fleetAgg[f].vehicles).length+'</td></tr>'});fV+='</table>';
+  var fe=document.getElementById('delFlVehTbl');if(fe)fe.innerHTML=fV;
+  // charts 鈥?鏍囩涓嶇洿鎺ユ樉绀猴紝闈犳偓娴?tooltip
+  ['delBrChart','delOiChart','delPuChart','delBrPiChart','delPuCatChart','delPuCatPie'].forEach(function(id){var ca=document.getElementById(id);if(ca&&ca.__chart)ca.__chart.destroy()});
+  // 鏌辩姸鍥撅紙分公司脳 油品鍫嗗彔锛夆€?鎮诞鏄剧ず鍚勬补鍝侀噺/占比鍙婂垎鍏徃鍚堣/鎬诲崰姣?  var c1=document.getElementById('delBrChart');if(c1)c1.__chart=new Chart(c1,{type:'bar',data:{labels:brSorted,datasets:oilSorted.map(function(o){return{label:o,data:brSorted.map(function(b){return brAgg[b].oils[o]||0}),backgroundColor:oilColorMap[o]}})},options:{responsive:true,plugins:{datalabels:{display:false},tooltip:{mode:'index',callbacks:{title:function(a){return a[0].label},label:function(a){var v=a.parsed.y;if(v===0)return '';var br=a.chart.data.labels[a.dataIndex];var bq=brAgg[br]?brAgg[br].qty:0;var pc=bq>0?(v/bq*100).toFixed(1):0;return a.dataset.label+': '+v.toFixed(1)+'吨('+pc+'%)'},afterBody:function(a){var br=a[0].chart.data.labels[a[0].dataIndex];var bq=brAgg[br]?brAgg[br].qty:0;var tp=totalQty>0?(bq/totalQty*100).toFixed(1):0;return '鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€\n鍒嗗叕鍙稿悎璁? '+bq.toFixed(1)+'吨(鍗犳€?'+tp+'%)'}}},legend:{position:'bottom',labels:{boxWidth:12,font:{size:8}}}},scales:{x:{stacked:true,grid:{display:false},ticks:{font:{size:7}}},y:{stacked:true,beginAtZero:true,grid:{color:'#f0f0f0'},ticks:{font:{size:9}}}}}});
+  // 饼图锛堟补鍝佸崰姣旓級鈥?鎮诞鏄剧ず閲?鐧惧垎姣?  var c2=document.getElementById('delOiChart');if(c2)c2.__chart=new Chart(c2,{type:'doughnut',data:{labels:oilSorted,datasets:[{data:oilSorted.map(function(o){return oilAgg[o]}),backgroundColor:oilSorted.map(function(o){return oilColorMap[o]})}]},options:{responsive:true,plugins:{datalabels:{display:false},tooltip:{callbacks:{label:function(a){var v=a.parsed,t=a.dataset.data.reduce(function(x,y){return x+y},0);var pc=t>0?(v/t*100).toFixed(1):0;return a.label+': '+v.toFixed(1)+'吨('+pc+'%)'}}},legend:{position:'right',labels:{boxWidth:10,font:{size:8}}}}}});
+  // 鏌辩姸鍥撅紙提油机构 脳 油品鍫嗗彔锛夆€?鎮诞鏄剧ず
+  var c3=document.getElementById('delPuChart');if(c3){var po={};recs.forEach(function(r){if(!po[r.pickup])po[r.pickup]={};if(!po[r.pickup][r.oil])po[r.pickup][r.oil]=0;po[r.pickup][r.oil]+=r.qty});c3.__chart=new Chart(c3,{type:'bar',data:{labels:puSorted,datasets:oilSorted.map(function(o){return{label:o,data:puSorted.map(function(p){return(po[p]&&po[p][o])||0}),backgroundColor:oilColorMap[o]}})},options:{responsive:true,plugins:{datalabels:{display:false},tooltip:{mode:'index',callbacks:{title:function(a){return a[0].label},label:function(a){var v=a.parsed.y;if(v===0)return '';var pu=a.chart.data.labels[a.dataIndex];var pq=puAgg[pu]?puAgg[pu].qty:0;var pc=pq>0?(v/pq*100).toFixed(1):0;return a.dataset.label+': '+v.toFixed(1)+'吨('+pc+'%)'},afterBody:function(a){var pu=a[0].chart.data.labels[a[0].dataIndex];var pq=puAgg[pu]?puAgg[pu].qty:0;var tp=totalQty>0?(pq/totalQty*100).toFixed(1):0;return '鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€\n机构鍚堣: '+pq.toFixed(1)+'吨(鍗犳€?'+tp+'%)'}}},legend:{position:'bottom',labels:{boxWidth:12,font:{size:8}}}},scales:{x:{stacked:true,grid:{display:false},ticks:{font:{size:7}}},y:{stacked:true,beginAtZero:true,grid:{color:'#f0f0f0'},ticks:{font:{size:9}}}}}})}
+  // 饼图锛堝垎鍏徃占比锛夆€?鎮诞鏄剧ず閲?鐧惧垎姣?  var c4=document.getElementById('delBrPiChart');if(c4)c4.__chart=new Chart(c4,{type:'doughnut',data:{labels:brSorted,datasets:[{data:brSorted.map(function(b){return brAgg[b].qty}),backgroundColor:brSorted.map(function(b,i){return COLORS[i%COLORS.length]})}]},options:{responsive:true,plugins:{datalabels:{display:false},tooltip:{callbacks:{label:function(a){var v=a.parsed,t=a.dataset.data.reduce(function(x,y){return x+y},0);var pc=t>0?(v/t*100).toFixed(1):0;return a.label+': '+v.toFixed(1)+'吨('+pc+'%)'}}},legend:{position:'right',labels:{boxWidth:10,font:{size:8}}}}}});
+  // 提油机构油库鍒嗙被图表锛堟煴鐘讹級鈥?鎮诞鏄剧ず閲?鐧惧垎姣?  var c5=document.getElementById('delPuCatChart');if(c5&&puCatSorted.length){var cclr={'自有库':'#3A5C4A','广西石化直发库':'#EC935E','中石化互供库':'#8DA48E','中海油互供库':'#5085C3','外采库':'#C65D52'};c5.__chart=new Chart(c5,{type:'bar',data:{labels:puCatSorted,datasets:[{label:'出库閲?,data:puCatSorted.map(function(c){return puCatAgg[c].qty}),backgroundColor:puCatSorted.map(function(c){return cclr[c]||'#999'}),borderRadius:3}]},options:{responsive:true,plugins:{datalabels:{display:false},tooltip:{callbacks:{label:function(a){var v=a.parsed.y;var tp=totalQty>0?(v/totalQty*100).toFixed(1):0;return a.dataset.label+': '+v.toFixed(1)+'吨('+tp+'%)'}}},legend:{display:false}},scales:{y:{beginAtZero:true,grid:{color:'#f0f0f0'}},x:{grid:{display:false},ticks:{font:{size:9}}}}}})}
+  // 饼图锛堟彁娌规満鏋勬补搴撳垎绫诲崰姣旓級鈥?鎮诞鏄剧ず閲?鐧惧垎姣?  var c6=document.getElementById('delPuCatPie');if(c6&&puCatSorted.length){var cclr2={'自有库':'#3A5C4A','广西石化直发库':'#EC935E','中石化互供库':'#8DA48E','中海油互供库':'#5085C3','外采库':'#C65D52'};c6.__chart=new Chart(c6,{type:'doughnut',data:{labels:puCatSorted,datasets:[{data:puCatSorted.map(function(c){return puCatAgg[c].qty}),backgroundColor:puCatSorted.map(function(c){return cclr2[c]||'#999'})}]},options:{responsive:true,plugins:{datalabels:{display:false},tooltip:{callbacks:{label:function(a){var v=a.parsed,t=a.dataset.data.reduce(function(x,y){return x+y},0);var pc=t>0?(v/t*100).toFixed(1):0;return a.label+': '+v.toFixed(1)+'吨('+pc+'%)'}}},legend:{position:'right',labels:{boxWidth:10,font:{size:8}}}}}})}
+}
+function countUnique(recs,field){var s={};recs.forEach(function(r){s[r[field]]=1});return Object.keys(s).length}
+function setDelPeriod(p){delPeriod=p;renderDel()}
+
+// ================================================================
+// 模块2: 油库出库缁熻
+// ================================================================
+function parseDepotRecords(res){
+  var hdr=res.hdr,delim=res.delim;
+  var idxDate=findIdx(hdr,['记账日期','业务时间']),idxCar=findIdx(hdr,['杞﹁埞编号']),idxDept=findIdx(hdr,['编制单位','分公司']);
+  var idxShip=findIdx(hdr,['发货单位']),idxPickup=findIdx(hdr,['鎻愯揣单位']),idxMode=findIdx(hdr,['提货方式','提油鏂瑰紡']);
+  var idxOutType=findIdx(hdr,['出库绫诲类']),idxDest=findIdx(hdr,['到货地点']),idxOil=findIdx(hdr,['油品名称','鍝佸悕']);
+  var idxQty=findIdx(hdr,['实际记账閲?吨','实际记账閲?,'鏈出库数量']);
+  if(idxDate<0||idxOutType<0||idxQty<0){alert('无法找到关键列);return null}
+  var recs=[];
+  for(var ri=0;ri<res.rows.length;ri++){
+    var c=res.rows[ri].split(delim);if(c.length<=Math.max(idxDate,idxOutType,idxQty))continue;
+    var ds=(c[idxDate]||'').replace(/^=/,'').replace(/"/g,'').trim();var dm=ds.match(/(\d{4})[-\/\.](\d{1,2})[-\/\.](\d{1,2})/);var date=dm?dm[1]+'-'+String(+dm[2]).padStart(2,'0')+'-'+String(+dm[3]).padStart(2,'0'):'';if(!date)continue;
+    var ot=(c[idxOutType]||'').replace(/^=/,'').replace(/"/g,'').trim();if(!ot)continue;var qty=parseFloat(c[idxQty])||0;if(qty<=0)continue;
+    var dt='';if(ot.indexOf('内部调拨')>=0)dt='内部调拨';else if(ot.indexOf('内部移库')>=0)dt='内部移库';else if(ot.indexOf('批发')>=0)dt='批发';else dt=ot;
+    var dept=(c[idxDept]||'').trim(),ship=(c[idxShip]||'').trim(),pickup=(c[idxPickup]||'').trim();
+    var dc=classifyDepot(ship);
+    recs.push({date:date,car:(c[idxCar]||'').trim(),dept:dept,ship:ship,pickup:pickup,mode:(c[idxMode]||'').trim(),outType:ot,dest:(c[idxDest]||'').trim(),oil:(c[idxOil]||'').trim(),qty:qty,depotType:dt,isEquity:isEquityCo(dept)||isEquityCo(pickup),depotCategory:dc.t,depotCatLabel:dc.l});
+  }
+  return recs;
+}
+function loadDepFile(input){
+  if(!input||!input.files||!input.files[0])return;var f=input.files[0];
+  showFileLoading('解析出库明细文件...');
+  setTimeout(function(){
+    parseFile(f,function(res){try{var recs=parseDepotRecords(res);if(!recs||recs.length===0){hideFileLoading();alert('娌℃湁绗﹀悎条件鐨勬暟鎹?);return}
+      DB.saveUpload('depot',f.name,recs);loadDepData(function(){hideFileLoading();renderDep()})}catch(er){hideFileLoading();alert('解析澶辫触锛?+er.message)}});input.value='';
+  },50);
+}
+function resetDepData(){if(!confirm('确定清除鍏ㄩ儴出库数据锛?))return;DB.clear('uploads');loadDepData(function(){renderDep()})}
+function resetDepFilters(){var fm=document.getElementById('depFm'),to=document.getElementById('depTo');if(fm)fm.value='';if(to)to.value='';_msS['msDepSh']&&(_msS['msDepSh'].vals=_msS['msDepSh'].items.map(function(i){return i.value}));_msS['msDepOt']&&(_msS['msDepOt'].vals=_msS['msDepOt'].items.map(function(i){return i.value}));_msS['msDepDp']&&(_msS['msDepDp'].vals=_msS['msDepDp'].items.map(function(i){return i.value}));renderDep()}
+
+function renderDep(){
+  var body=document.getElementById('modBody'),d=depData;
+  var html='<div class="ubar"><span class="ubtn" id="depBtn" onclick="document.getElementById(\'depFile\').click()">馃搧 上传出库明细</span><span class="uinfo" id="depInfo">'+(d?'宸插姞杞?'+d.records.length+' 鏉? 馃搮 '+getDateRange(d.records):'暂无数据')+'</span>'+(d?'<span class="ubtn del" onclick="resetDepData()">馃棏 清除</span>':'')+'<input type="file" id="depFile" accept=".csv,.xlsx,.xls" style="display:none" onchange="loadDepFile(this)"></div>';
+  if(!d||!d.records||d.records.length===0){html+='<div class="nod">璇蜂笂浼犲嚭搴撴槑缁嗘枃浠?</div>';body.innerHTML=html;return}
+  var ships={},modes={},outTypes={},depts={};
+  d.records.forEach(function(r){ships[r.ship]=1;modes[r.mode]=1;outTypes[r.outType]=1;depts[r.dept]=1});
+  html+='<div class="fbar"><span class="fl">日期</span><input class="din" id="depFm" type="date" onchange="msChanged()">~<input class="din" id="depTo" type="date" onchange="msChanged()"><span class="fl" style="margin-left:4px">发货单位</span><div class="ms-wrap" id="msDepSh"></div><span class="fl">出库绫诲类</span><div class="ms-wrap" id="msDepOt"></div><span class="fl">编制单位</span><div class="ms-wrap" id="msDepDp"></div><span class="ubtn" onclick="resetDepFilters()" style="color:#3A5C4A;border-color:#3A5C4A;padding:2px 8px;font-size:10px">鈫?閲嶇疆</span></div><div id="depStats"></div>';
+  body.innerHTML=html;
+  initMS('msDepSh',Object.keys(ships).sort().map(function(v){return{value:v,label:v}}),msChanged);
+  initMS('msDepOt',Object.keys(outTypes).sort().map(function(v){return{value:v,label:v}}),msChanged);
+  initMS('msDepDp',Object.keys(depts).sort().map(function(v){return{value:v,label:v}}),msChanged);
+  renderDepStats();
+}
+function getDepFilters(){var fm=document.getElementById('depFm'),to=document.getElementById('depTo');return{from:fm?fm.value:'',to:to?to.value:'',shipVals:getMSVals('msDepSh'),outVals:getMSVals('msDepOt'),deptVals:getMSVals('msDepDp')}}
+
+function renderDepStats(){
+  var el=document.getElementById('depStats');if(!el)return;
+  var flt=getDepFilters();var recs=filterRecs(depData.records,flt);
+  if(recs.length===0){el.innerHTML='<div class="nod">没有符合筛选条件的记录</div>';return}
+  // 鍛ㄦ湡选择
+  var html='<div class="prow"><span class="fl">馃搳 缁熻鍛ㄦ湡:</span>'+['日','月','年'].map(function(p){return'<span class="pbtn'+(depPeriod===p?' on':'')+'" onclick="setDepPeriod(\''+p+'\')">'+p+'</span>'}).join('')+'</div>';
+  // 鏄剧ず褰撳墠选择鐨勬棩鏈熻寖鍥?  var dFm=document.getElementById('depFm'),dTo=document.getElementById('depTo');
+  var dSel=(dFm&&dFm.value?' 绛涢€? '+dFm.value:'')+(dTo&&dTo.value?' ~ '+dTo.value:'');
+  if(dSel)html+='<div style="font-size:11px;color:#3A5C4A;margin:-4px 0 6px 2px">馃搮 '+dSel+'</div>';
+  var agg=aggByPeriod(recs,depPeriod);
+  var keys=getPeriodKeys(agg);
+  var total=0;keys.forEach(function(k){total+=agg[k].qty});
+  // 出库绫诲类鑱氬悎
+  var typeAgg={},deptAgg={},shipAgg={},oilAgg={},catAgg={};
+  var nbQty=0,ykQty=0,pfQty=0,eqQty=0;
+  recs.forEach(function(r){
+    if(!typeAgg[r.depotType])typeAgg[r.depotType]={qty:0,count:0};typeAgg[r.depotType].qty+=r.qty;typeAgg[r.depotType].count++;
+    if(!deptAgg[r.dept])deptAgg[r.dept]={qty:0,oils:{}};deptAgg[r.dept].qty+=r.qty;if(!deptAgg[r.dept].oils[r.oil])deptAgg[r.dept].oils[r.oil]=0;deptAgg[r.dept].oils[r.oil]+=r.qty;
+    if(!shipAgg[r.ship])shipAgg[r.ship]={qty:0};shipAgg[r.ship].qty+=r.qty;
+    if(!oilAgg[r.oil])oilAgg[r.oil]=0;oilAgg[r.oil]+=r.qty;
+    var cat=r.depotCategory||'外采库';if(!catAgg[cat])catAgg[cat]={qty:0,count:0};catAgg[cat].qty+=r.qty;catAgg[cat].count++;
+    if(r.depotType==='内部调拨')nbQty+=r.qty;else if(r.depotType==='内部移库')ykQty+=r.qty;else if(r.depotType==='批发'){pfQty+=r.qty;if(r.isEquity)eqQty+=r.qty}
+  });
+  var shipSorted=Object.keys(shipAgg).sort(function(a,b){return shipAgg[b].qty-shipAgg[a].qty}).slice(0,12);
+  var oilSorted=Object.keys(oilAgg).sort(function(a,b){return oilAgg[b]-oilAgg[a]});
+  var deptSorted=Object.keys(deptAgg).sort(function(a,b){return deptAgg[b].qty-deptAgg[a].qty}).slice(0,20);
+  var catSorted=Object.keys(catAgg).sort(function(a,b){return catAgg[b].qty-catAgg[a].qty});
+  var oilColorMap={};oilSorted.forEach(function(o,i){oilColorMap[o]=COLORS[i%COLORS.length]});
+  var catColors={'自有库':'#3A5C4A','广西石化直发库':'#EC935E','中石化互供库':'#8DA48E','中海油互供库':'#5085C3','外采库':'#C65D52'};
+  // 卡片
+  html+='<div class="sg">'+
+    '<div class="sc"><div class="sl">鎬诲嚭搴撻噺（吨）</div><div class="sv bl">'+total.toFixed(1)+'</div><div class="sub">占比 100%</div></div>'+
+    '<div class="sc"><div class="sl">'+depPeriod+'鍧囧嚭搴擄紙鍚級</div><div class="sv or">'+(keys.length>0?(total/keys.length).toFixed(1):'0')+'</div><div class="sub">鍏?'+keys.length+' '+(depPeriod==='日?'澶?:depPeriod==='月?'涓湀':'年)+'</div></div>'+
+    '<div class="sc"><div class="sl">内部调拨(加油站)</div><div class="sv gn">'+nbQty.toFixed(1)+'</div><div class="sub">占比 '+(total>0?(nbQty/total*100).toFixed(1):0)+'%</div></div>'+
+    '<div class="sc"><div class="sl">内部移库(鍊掑簱)</div><div class="sv or">'+ykQty.toFixed(1)+'</div><div class="sub">占比 '+(total>0?(ykQty/total*100).toFixed(1):0)+'%</div></div>'+
+    '<div class="sc"><div class="sl">批发</div><div class="sv pu">'+pfQty.toFixed(1)+'</div><div class="sub">占比 '+(total>0?(pfQty/total*100).toFixed(1):0)+'%</div></div>'+
+    '<div class="sc"><div class="sl">批发-参控股</div><div class="sv rd">'+eqQty.toFixed(1)+'</div><div class="sub">鍙傝偂姣?'+(pfQty>0?(eqQty/pfQty*100).toFixed(1):0)+'%</div></div>'+
+  '</div>';
+  // 油库鍒嗙被卡片
+  html+='<div class="sg" style="grid-template-columns:repeat(5,1fr)">';
+  catSorted.forEach(function(c){html+='<div class="sc"><div class="sl">'+c+'</div><div class="sv" style="color:'+(catColors[c]||'#555')+'">'+catAgg[c].qty.toFixed(1)+'</div><div class="sub">占比 '+(total>0?(catAgg[c].qty/total*100).toFixed(1):0)+'%</div></div>'});
+  html+='</div>';
+  // 同比环比表  html+='<div class="tw"><table><thead><tr><th>'+(depPeriod==='日?'日期':'鏈堜唤')+'</th>'+
+    (depPeriod==='日?'<th>星期</th><th>绫诲类</th>':'')+
+    '<th>出库閲?吨</th><th>占比</th>'+
+    '<th>出库环比</th><th>出库同比</th></tr></thead><tbody>';
+  keys.forEach(function(k,i){
+    var q=agg[k].qty,pct=total>0?(q/total*100).toFixed(1):'0';
+    var wd='',hl='';
+    if(depPeriod==='日){wd=getWeekday(k);hl=isHoliday(k);}
+    var hQMoM='<td>-</td>',hQYoY='<td>-</td>';
+    // 环比
+    if(i>0){var pm=agg[keys[i-1]];if(pm){var y=calcYoy(q,pm.qty);hQMoM='<td>'+buildYoyStr(y,'')+'</td>'}}
+    // 同比
+    if(depPeriod==='月){
+      var parts=k.split('-');var yKey=(+parts[0]-1)+'-'+parts[1];var yy=agg[yKey];
+      if(yy){var yy2=calcYoy(q,yy.qty);hQYoY='<td>'+buildYoyStr(yy2,'')+'</td>'}
+    }else if(depPeriod==='日){
+      var dp=k.split('-');var ykd=(+dp[0]-1)+'-'+dp[1]+'-'+dp[2];
+      if(agg[ykd]){var yyd=calcYoy(q,agg[ykd].qty);hQYoY='<td>'+buildYoyStr(yyd,'')+'</td>'}
+    }else{
+      if(i>0){var py=agg[keys[i-1]];if(py){var yy3=calcYoy(q,py.qty);hQYoY='<td>'+buildYoyStr(yy3,'')+'</td>'}}
+      hQMoM='';
+    }
+    html+='<tr><td class="l">'+k+'</td>'+(depPeriod==='日?'<td>'+wd+'</td><td>'+hl+'</td>':'')+'<td class="r">'+q.toFixed(1)+'</td><td>'+pct+'%</td>'+hQMoM+hQYoY+'</tr>';
+  });
+  html+='</tbody></table></div>';
+  // 图表
+  html+='<div class="cr"><div class="cb"><div class="ct">鍚勬补搴撳嚭搴撻噺</div><canvas id="depShipChart"></canvas></div><div class="cb"><div class="ct">油品出库占比</div><canvas id="depOilChart"></canvas></div></div>';
+  html+='<div class="cr"><div class="cb"><div class="ct">油库鍒嗙被出库閲?</div><canvas id="depCatChart"></canvas></div><div class="cb"><div class="ct">出库绫诲类占比</div><canvas id="depTypeChart"></canvas></div></div>';
+  html+='<div class="cr"><div class="cb"><div class="ct">鍚勭紪鍒跺崟浣嶅嚭搴撻噺锛堟寜油品鍫嗗彔锛?</div><canvas id="depDeptChart"></canvas></div><div class="cb"><div class="ct">鍚勬补搴撳嚭搴撳崰姣?</div><canvas id="depShipPie"></canvas></div></div>';
+  // 明细表  html+='<div class="tw"><table><thead><tr><th>编制单位</th><th>油库鍒嗙被</th><th>出库绫诲类</th><th>参控股</th><th>鍚ㄦ暟</th><th>占比</th></tr></thead><tbody>';
+  deptSorted.forEach(function(dp){var dq=deptAgg[dp].qty,eq=isEquityCo(dp);var cat='-';for(var ci=0;ci<recs.length;ci++){if(recs[ci].dept===dp&&recs[ci].depotCategory){cat=recs[ci].depotCatLabel;break}}html+='<tr><td class="l">'+dp+'</td><td>'+cat+'</td><td>'+(eq?'批发(参控股)':'-')+'</td><td>'+(eq?'鉁?:'')+'</td><td class="r">'+dq.toFixed(1)+'</td><td>'+(total>0?(dq/total*100).toFixed(1):0)+'%</td></tr>'});
+  html+='</tbody></table></div>';
+  el.innerHTML=html;
+  // Charts 鈥?鏍囩涓嶇洿鎺ユ樉绀猴紝闈犳偓娴?tooltip
+  ['depShipChart','depOilChart','depDeptChart','depTypeChart','depCatChart','depShipPie'].forEach(function(id){var ca=document.getElementById(id);if(ca&&ca.__chart)ca.__chart.destroy()});
+  // 鏌辩姸鍥撅紙鍚勬补搴撳嚭搴撻噺锛夆€?鎮诞鏄剧ず閲?鐧惧垎姣?  var d1=document.getElementById('depShipChart');if(d1)d1.__chart=new Chart(d1,{type:'bar',data:{labels:shipSorted,datasets:[{label:'出库閲?,data:shipSorted.map(function(s){return shipAgg[s].qty}),backgroundColor:COLORS.slice(0,shipSorted.length),borderRadius:3}]},options:{responsive:true,plugins:{datalabels:{display:false},tooltip:{callbacks:{label:function(a){var v=a.parsed.y,tp=total>0?(v/total*100).toFixed(1):0;return a.label+': '+v.toFixed(1)+'吨('+tp+'%)'}}},legend:{display:false}},scales:{y:{beginAtZero:true,grid:{color:'#f0f0f0'}},x:{grid:{display:false},ticks:{font:{size:8}}}}}});
+  // 饼图锛堟补鍝佸崰姣旓級鈥?鎮诞鏄剧ず閲?鐧惧垎姣?  var d2=document.getElementById('depOilChart');if(d2)d2.__chart=new Chart(d2,{type:'doughnut',data:{labels:oilSorted,datasets:[{data:oilSorted.map(function(o){return oilAgg[o]}),backgroundColor:oilSorted.map(function(o){return oilColorMap[o]})}]},options:{responsive:true,plugins:{datalabels:{display:false},tooltip:{callbacks:{label:function(a){var v=a.parsed,t=a.dataset.data.reduce(function(x,y){return x+y},0);var pc=t>0?(v/t*100).toFixed(1):0;return a.label+': '+v.toFixed(1)+'吨('+pc+'%)'}}},legend:{position:'right',labels:{boxWidth:10,font:{size:8}}}}}});
+  // 鏌辩姸鍥撅紙编制单位 脳 油品鍫嗗彔锛夆€?鎮诞鏄剧ず鍚勬补鍝侀噺/占比鍙婂崟浣嶅悎璁?鎬诲崰姣?  var d3=document.getElementById('depDeptChart');if(d3&&deptSorted.length){var ds3=oilSorted.map(function(o){return{label:o,data:deptSorted.map(function(d){return(deptAgg[d].oils[o])||0}),backgroundColor:oilColorMap[o]}});d3.__chart=new Chart(d3,{type:'bar',data:{labels:deptSorted,datasets:ds3},options:{responsive:true,plugins:{datalabels:{display:false},tooltip:{mode:'index',callbacks:{title:function(a){return a[0].label},label:function(a){var v=a.parsed.y;if(v===0)return '';var dp=a.chart.data.labels[a.dataIndex];var dq=deptAgg[dp]?deptAgg[dp].qty:0;var pc=dq>0?(v/dq*100).toFixed(1):0;return a.dataset.label+': '+v.toFixed(1)+'吨('+pc+'%)'},afterBody:function(a){var dp=a[0].chart.data.labels[a[0].dataIndex];var dq=deptAgg[dp]?deptAgg[dp].qty:0;var tp=total>0?(dq/total*100).toFixed(1):0;return '鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€\n单位鍚堣: '+dq.toFixed(1)+'吨(鍗犳€?'+tp+'%)'}}},legend:{position:'bottom',labels:{boxWidth:12,font:{size:8}}}},scales:{x:{stacked:true,grid:{display:false},ticks:{font:{size:7}}},y:{stacked:true,beginAtZero:true,grid:{color:'#f0f0f0'},ticks:{font:{size:9}}}}}})}
+  // 饼图锛堝嚭搴撶被鍨嬪崰姣旓級鈥?鎮诞鏄剧ず閲?鐧惧垎姣?  var d4=document.getElementById('depTypeChart');if(d4){var tl=[],td=[],tcl=[];var tcm={'内部调拨':'#C49A4A','内部移库':'#e67e22','批发':'#7b1fa2'};['内部调拨','内部移库','批发'].forEach(function(t){if(typeAgg[t]&&typeAgg[t].qty>0){tl.push(t);td.push(typeAgg[t].qty);tcl.push(tcm[t]||'#999')}});d4.__chart=new Chart(d4,{type:'doughnut',data:{labels:tl,datasets:[{data:td,backgroundColor:tcl}]},options:{responsive:true,plugins:{datalabels:{display:false},tooltip:{callbacks:{label:function(a){var v=a.parsed,t=a.dataset.data.reduce(function(x,y){return x+y},0);var pc=t>0?(v/t*100).toFixed(1):0;return a.label+': '+v.toFixed(1)+'吨('+pc+'%)'}}},legend:{position:'right',labels:{boxWidth:10,font:{size:8}}}}}})}
+  // 鏌辩姸鍥撅紙油库鍒嗙被出库閲忥級鈥?鎮诞鏄剧ず閲?鐧惧垎姣?  var d5=document.getElementById('depCatChart');if(d5)d5.__chart=new Chart(d5,{type:'bar',data:{labels:catSorted,datasets:[{label:'出库閲?,data:catSorted.map(function(c){return catAgg[c].qty}),backgroundColor:catSorted.map(function(c){return catColors[c]||'#999'}),borderRadius:3}]},options:{responsive:true,plugins:{datalabels:{display:false},tooltip:{callbacks:{label:function(a){var v=a.parsed.y,tp=total>0?(v/total*100).toFixed(1):0;return a.label+': '+v.toFixed(1)+'吨('+tp+'%)'}}},legend:{display:false}},scales:{y:{beginAtZero:true,grid:{color:'#f0f0f0'}},x:{grid:{display:false},ticks:{font:{size:9}}}}}});
+  // 饼图锛堝悇油库出库占比锛夆€?鎮诞鏄剧ず閲?鐧惧垎姣?  var d6=document.getElementById('depShipPie');if(d6)d6.__chart=new Chart(d6,{type:'doughnut',data:{labels:shipSorted,datasets:[{data:shipSorted.map(function(s){return shipAgg[s].qty}),backgroundColor:COLORS.slice(0,shipSorted.length)}]},options:{responsive:true,plugins:{datalabels:{display:false},tooltip:{callbacks:{label:function(a){var v=a.parsed,t=a.dataset.data.reduce(function(x,y){return x+y},0);var pc=t>0?(v/t*100).toFixed(1):0;return a.label+': '+v.toFixed(1)+'吨('+pc+'%)'}}},legend:{position:'right',labels:{boxWidth:10,font:{size:8}}}}}});
+}
+function setDepPeriod(p){depPeriod=p;renderDep()}
+
+// ====== 琛ㄦ牸排序 ======
+var _sortSt={};
+function sortTable(th){
+  var tbl=th.closest('table'),tbody=tbl.querySelector('tbody');
+  if(!tbody)return;
+  var thead=tbl.querySelector('thead'),ths=thead?[].slice.call(thead.querySelectorAll('tr:first-child th')):[];
+  var idx=ths.indexOf(th);if(idx<0)return;
+  var key=tbl.id||(tbl.parentNode.className+'_'+idx);
+  _sortSt[key]=_sortSt[key]||{dir:1};
+  _sortSt[key].dir=_sortSt[key].col===idx?-_sortSt[key].dir:1;_sortSt[key].col=idx;
+  ths.forEach(function(h){h.classList.remove('sort-asc','sort-desc')});
+  th.classList.add(_sortSt[key].dir>0?'sort-asc':'sort-desc');
+  var rows=[].slice.call(tbody.querySelectorAll('tr'));
+  rows.sort(function(a,b){
+    var va=a.cells[idx]?a.cells[idx].textContent.trim():'',vb=b.cells[idx]?b.cells[idx].textContent.trim():'';
+    var na=parseFloat(va.replace(/[^0-9.\-]/g,'')),nb=parseFloat(vb.replace(/[^0-9.\-]/g,''));
+    if(!isNaN(na)&&!isNaN(nb))return(na-nb)*_sortSt[key].dir;
+    return va.localeCompare(vb,'zh-CN')*_sortSt[key].dir;
+  });
+  rows.forEach(function(r){tbody.appendChild(r)});
+}
+document.addEventListener('click',function(e){
+  var th=e.target.closest('.tw th,.vg th');
+  if(th)sortTable(th);
+});
+
+// ====== 数据搴撶鐞嗛〉 ======
+function renderDB(){
+  var el=document.getElementById('modBody');
+  el.innerHTML='<div style="padding:8px;font-size:12px;color:#888"><span class="fl">馃摎 姝ｅ湪加载数据库..</span></div>';
+  // 闃叉鏃犻檺加载
+  var to=setTimeout(function(){el.innerHTML='<div style="padding:20px;text-align:center;color:#C65D52">鈿狅笍 数据搴撳姞杞借秴鏃讹紝璇峰埛鏂伴〉闈㈤噸璇?</div>'},3000);
+  DB.getAll('uploads',function(ups){
+    clearTimeout(to);
+    DB.loadDistMap(function(dm){
+      var dmCnt=Object.keys(dm||{}).length;
+      var html='<div class="prow"><span class="fl">馃摎 数据搴撶鐞?</span> <span class="ubtn" onclick="showDbUpload()" style="color:#3A5C4A;border-color:#3A5C4A;margin-left:8px">馃搧 上传鍒版暟鎹簱</span></div>'+
+        '<div class="sg" style="grid-template-columns:repeat(5,1fr)">'+
+        '<div class="sc"><div class="sl">上传记录</div><div class="sv bl">'+(ups?ups.length:0)+'</div><div class="sub">浠芥枃浠?</div></div>'+
+        '<div class="sc"><div class="sl">配送计划</div><div class="sv or">'+(ups?ups.filter(function(u){return u.modules&&u.modules.indexOf('配送计划')>=0}).reduce(function(s,u){return s+(u.records?u.records.length:0)},0):0)+'</div><div class="sub">鏉?</div></div>'+
+        '<div class="sc"><div class="sl">油库出库</div><div class="sv pu">'+(ups?ups.filter(function(u){return u.modules&&u.modules.indexOf('油库出库')>=0}).reduce(function(s,u){return s+(u.records?u.records.length:0)},0):0)+'</div><div class="sub">鏉?</div></div>'+
+        '<div class="sc"><div class="sl">运距映射</div><div class="sv gn">'+dmCnt+'</div><div class="sub">鏉?</div></div>'+
+        '<div class="sc"><div class="sl">鎬昏褰曟暟</div><div class="sv gr">'+(ups?ups.reduce(function(s,u){return s+(u.records?u.records.length:0)},0):0)+'</div><div class="sub">琛屾暟鎹?</div></div>'+
+        '</div>';
+      if(!ups||!ups.length){
+        html+='<div class="nod">数据搴撲负绌猴紝璇风偣鍑讳笂鏂?馃搧 上传鍒版暟鎹簱"鎸夐挳娣诲姞数据</div>';el.innerHTML=html;return
+      }
+      html+='<div class="tw" style="margin-top:4px"><table><thead><tr><th>文件吨</th><th>绫诲类</th><th>记录鏁?</th><th>引用模块</th><th>上传时间</th><th>鎿嶄綔</th></tr></thead><tbody>';
+      ups.forEach(function(u){
+        var typeLabel={'delivery':'馃摝閰嶉€?,'depot':'🏭出库','distMap':'馃搹运距'}[u.type]||u.type;
+        var modHtml='';MODULES.forEach(function(m){
+          var ck=u.modules&&u.modules.indexOf(m)>=0;
+          modHtml+='<label style="display:inline-flex;align-items:center;gap:2px;margin:1px 4px;font-size:10px;cursor:pointer;'+(ck?'color:#3A5C4A;font-weight:600':'color:#999')+'" onclick="event.stopPropagation();togMod('+u.id+',\''+m+'\',this)"><input type="checkbox" '+(ck?'checked':'')+' style="width:10px;height:10px;margin:0">'+m+'</label>'
+        });
+        html+='<tr><td class="l">馃搫 '+(u.fileName||'鏈煡')+'</td><td>'+typeLabel+'</td><td>'+(u.recordCount||(u.records?u.records.length:0))+'</td><td style="font-size:10px">'+modHtml+'</td><td style="font-size:10px;color:#999">'+(u.createdAt?u.createdAt.slice(0,10):'-')+'</td>'+
+          '<td><span class="ubtn del" style="padding:2px 8px;font-size:9px" onclick="DB.del(\'uploads\','+u.id+');renderDB();loadAllData()">鉁?</span></td></tr>'
+      });
+      html+='</tbody></table></div>';
+      if(dmCnt>0){
+        var dk=Object.keys(dm).slice(0,8);
+        html+='<div class="vg" style="margin-top:4px"><div class="vt">馃搹 运距映射 ('+dmCnt+' 鏉★紝预览鍓?鏉?</div><table><tr><th>提油机构</th><th>加油站</th><th>运距</th></tr>';
+        dk.forEach(function(k){var p=k.split('||');html+='<tr><td class="l">'+(p[0]||'')+'</td><td class="l">'+(p[1]||'')+'</td><td class="r">'+dm[k].toFixed(1)+'</td></tr>'});
+        html+='</table></div>'
+      }
+      html+='<div style="text-align:center;margin:10px 0"><span class="ubtn del" onclick="if(confirm(\'确定清空鏁翠釜数据搴擄紵\')){DB.clear(\'uploads\');DB.clear(\'distMap\');loadAllData();renderDB()}">馃棏 清空数据库</span></div>';
+      el.innerHTML=html
+    })
+  })
+}
+function togMod(id,mod,el){
+  DB._ok(function(){
+    var t=DB._v.transaction('uploads','readwrite'),o=t.objectStore('uploads'),r=o.get(id);
+    r.onsuccess=function(){
+      var d=r.result;
+      if(!d.modules)d.modules=[];
+      var idx=d.modules.indexOf(mod);
+      if(idx>=0)d.modules.splice(idx,1);else d.modules.push(mod);
+      o.put(d);
+      var cb=el.querySelector('input[type=checkbox]');
+      if(cb){cb.checked=idx<0;el.style.color=idx<0?'#3A5C4A':'#999';el.style.fontWeight=idx<0?'600':'400'}
+    }
+  })
+}
+function showDbUpload(){
+  var html='<div id="dbUpOverlay" style="position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.4);z-index:9999;display:flex;align-items:center;justify-content:center" onclick="if(event.target===this)closeDbUp()">'+
+    '<div style="background:#fff;border-radius:8px;padding:20px;max-width:400px;width:90%">'+
+    '<div style="font-size:14px;font-weight:600;margin-bottom:8px">馃搧 上传鍒版暟鎹簱</div>'+
+    '<div style="font-size:11px;color:#888;margin-bottom:12px">选择文件绫诲类鍜屾暟鎹潵婧?</div>'+
+    '<div style="margin-bottom:10px"><label style="font-size:11px;font-weight:600;color:#555">数据绫诲类</label>'+
+    '<select id="dbUpType" style="width:100%;margin-top:4px;padding:6px 8px;border:1px solid #ddd;border-radius:4px;font-size:12px">'+
+    '<option value="delivery">馃摝 配送计划</option><option value="depot">🏭 油库出库</option><option value="distMap">馃搹 运距映射表</option></select></div>'+
+    '<div style="margin-bottom:10px"><label style="font-size:11px;font-weight:600;color:#555">引用模块锛堝閫夛級</label>';
+  MODULES.forEach(function(m){
+    html+='<label style="display:flex;align-items:center;gap:4px;padding:3px 0;font-size:11px;cursor:pointer"><input type="checkbox" checked value="'+m+'" style="width:12px;height:12px;accent-color:#3A5C4A;cursor:pointer"> '+m+'</label>'
+  });
+  html+='</div><div style="text-align:center;margin-top:12px">'+
+    '<span class="ubtn" onclick="doDbUpload()" style="padding:6px 20px">馃搧 选择文件上传</span></div></div></div>';
+  document.body.insertAdjacentHTML('beforeend',html);
+}
+function closeDbUp(){var el=document.getElementById('dbUpOverlay');if(el)el.remove()}
+function doDbUpload(){
+  var type=document.getElementById('dbUpType').value;
+  var mods=[];document.querySelectorAll('#dbUpOverlay input[type=checkbox]').forEach(function(cb){if(cb.checked)mods.push(cb.value)});
+  if(!mods.length){alert('至少选择涓€涓紩鐢ㄦā鍧?);return}
+  closeDbUp();
+  var inp=document.createElement('input');inp.type='file';inp.accept='.csv,.xlsx,.xls,.xlsm';
+  inp.onchange=function(){
+    if(!inp.files||!inp.files[0])return;
+    var f=inp.files[0];
+    if(type==='distMap'){
+      // 运距映射琛ㄧ敤涓撻棬鐨勮В鏋?      parseFile(f,function(res){
+        try{
+          var hdr=res.hdr,delim=res.delim;
+          var idxP=findIdx(hdr,['提油机构','油库','发货单位','提油鐐?,'提油']);
+          var idxR=findIdx(hdr,['收油机构','加油站','到货','站点','娌圭珯','鍔犳补绔欏悕绉?,'鍔犳补绔欏悕']);
+          var idxD=findIdx(hdr,['运距','距离','鍏噷','閲岀▼','璺?]);
+          var idxStation=findIdx(hdr,['加油站','站点名称','绔欏悕']);
+          if(idxStation<0)idxStation=findIdx(hdr,['鍔犳补绔欏悕','鍔犳补绔欏悕绉?]);
+          var cnt=0;
+          if(idxP>=0&&idxR>=0&&idxD>=0){
+            for(var ri=0;ri<res.rows.length;ri++){var c=res.rows[ri].split(delim);if(c.length<=Math.max(idxP,idxR,idxD))continue;var pu=(c[idxP]||'').trim(),re=(c[idxR]||'').trim(),di=parseFloat(String(c[idxD]).replace(/[^0-9.\-]/g,''));if(pu&&re&&di>0){distMap[pu+'||'+re]=di;cnt++}}
+          }else if(idxStation>=0){
+            var depCols=[];for(var ci=3;ci<hdr.length;ci++){var hn=(hdr[ci]||'').trim();if(hn&&hn.indexOf('序号')<0&&hn.indexOf('地区')<0&&hn.indexOf('加油站)<0&&hn.indexOf('站点')<0)depCols.push(ci)}
+            for(var ri=0;ri<res.rows.length;ri++){var c=res.rows[ri].split(delim);if(c.length<=idxStation)continue;var station=(c[idxStation]||'').trim();if(!station)continue;for(var di=0;di<depCols.length;di++){var ci2=depCols[di],depot=(hdr[ci2]||'').trim(),dist=parseFloat(String(c[ci2]||'').replace(/[^0-9.\-]/g,''));if(depot&&dist>0){distMap[depot+'||'+station]=dist;cnt++}}}
+          }
+          if(!cnt){alert('鏈В鏋愬埌鏈夋晥运距数据');return}
+          DB.saveDistMap(distMap);
+          var btn=document.getElementById('distMapBtn');if(btn){btn.textContent='鉁?运距宸茶浇鍏?'+cnt+'鏉?';btn.className='ubtn ok'}
+          alert('鉁?运距映射宸叉洿鏂帮細'+cnt+' 鏉?);
+          loadAllData();
+        }catch(er){alert('解析澶辫触锛?+er.message)}
+      });
+    }else{
+      parseFile(f,function(res){
+        try{
+          var recs=type==='delivery'?parseDeliveryRecords(res):parseDepotRecords(res);
+          if(!recs||recs.length===0){alert('娌℃湁绗﹀悎条件鐨勬暟鎹?);return}
+          recs.forEach(function(r){r._src=f.name});
+          DB.saveUpload(type,f.name,recs,mods);
+          alert('鉁?宸蹭笂浼?'+recs.length+' 鏉″埌锛?+mods.join('銆?));
+          loadAllData();
+        }catch(er){alert('解析澶辫触锛?+er.message)}
+      });
+    }
+    inp.value='';
+  };
+  inp.click();
+}
+
+// ====== 浠庢暟鎹簱加载数据 ======
+function loadDelData(cb){
+  DB.getUploadsByModule('配送计划'function(ups){
+    if(!ups||!ups.length){delData=null;if(cb)cb();return}
+    var all=[],files=[];
+    ups.forEach(function(u){
+      u.records.forEach(function(r){r._src=u.fileName});Array.prototype.push.apply(all,u.records);
+      if(files.indexOf(u.fileName)<0)files.push(u.fileName)
+    });
+    delData={records:all,files:files};
+    if(cb)cb()
+  })
+}
+function loadDepData(cb){
+  DB.getUploadsByModule('油库出库',function(ups){
+    if(!ups||!ups.length){depData=null;if(cb)cb();return}
+    var all=[];
+    ups.forEach(function(u){Array.prototype.push.apply(all,u.records)});
+    depData={records:all};
+    if(cb)cb()
+  })
+}
+function loadDistMap(cb){
+  DB.loadDistMap(function(dm){distMap=dm||{};if(cb)cb()})
+}
+function loadAllData(cb){
+  loadDelData(function(){loadDepData(function(){loadDistMap(function(){reRender();if(cb)cb()})})})
+}
+// ====== 数据管理 ======
+function showDataMgr(){
+  DB.getAll('uploads',function(ups){
+    if(!ups||!ups.length){alert('数据搴撲腑娌℃湁数据');return}
+    var html='<div id="dbOverlay" style="position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.4);z-index:9999;display:flex;align-items:center;justify-content:center" onclick="if(event.target===this)closeDbMgr()">'+
+      '<div style="background:#fff;border-radius:8px;padding:16px 20px;max-width:550px;width:90%;max-height:75vh;overflow-y:auto">'+
+      '<div style="font-size:14px;font-weight:600;margin-bottom:8px">馃摎 数据库- 宸蹭笂浼犵殑数据</div>'+
+      '<div style="font-size:11px;color:#888;margin-bottom:10px">鍏?'+ups.length+' 鏉′笂浼犺褰曪紝鎬昏 '+ups.reduce(function(s,u){return s+(u.records?u.records.length:0)},0)+' 鏉℃暟鎹?</div>';
+    ['delivery','depot','distMap'].forEach(function(tp){
+      var pool=ups.filter(function(u){return u.type===tp}),label={'delivery':'配送计划','depot':'油库出库','distMap':'运距映射表'}[tp];
+      if(!pool.length)return;
+      html+='<div style="margin:6px 0;font-size:11px;font-weight:600;color:#3A5C4A">馃搨 '+label+' ('+pool.length+' 浠?</div>';
+      pool.forEach(function(u){
+        var cnt=u.records?u.records.length:Object.keys(u.data||{}).length;
+        html+='<div style="display:flex;align-items:center;justify-content:space-between;padding:4px 8px;border-bottom:1px solid #f0f0f0;font-size:10px">'+
+          '<span>馃搫 '+(u.fileName||'鏈煡')+'</span><span style="color:#999">'+cnt+' 鏉?</span><span style="color:#bbb;font-size:9px">'+(u.createdAt?u.createdAt.slice(0,10):'')+'</span>'+
+          '<span class="ubtn del" style="padding:1px 6px;font-size:9px;margin:0" onclick="DB.del(\'uploads\','+u.id+');showDataMgr();loadAllData()">鉁?</span></div>'
+      })
+    });
+    html+='<div style="text-align:center;margin-top:12px"><span class="ubtn" onclick="closeDbMgr()" style="padding:4px 20px">关闭</span> <span class="ubtn del" onclick="if(confirm(\'确定清除数据搴撲腑鎵€鏈夋暟鎹紵\')){DB.clear(\'uploads\');DB.clear(\'distMap\');closeDbMgr();loadAllData()}" style="padding:4px 14px">馃棏 清空数据库</span></div></div></div>';
+    document.body.insertAdjacentHTML('beforeend',html);
+  })
+}
+function closeDbMgr(){var el=document.getElementById('dbOverlay');if(el)el.remove()}
+
+// ====== 初始鍖?======
+function init(){
+  loadAllData()
+}
+init();
+</script>
+</body>
+</html>

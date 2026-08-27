@@ -1,0 +1,1657 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>加油站智能配送 Agent · 调度决策系统</title>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+<style>
+/* ===== Reset & Variables ===== */
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#F2F0EB;
+  --card:#fff;
+  --primary:#3A5C4A;
+  --primary-dark:#2A4A38;
+  --danger:#C65D52;
+  --orange:#EC935E;
+  --warning:#fdd835;
+  --success:#3A5C4A;
+  --green:#2e7d32;
+  --gray:#64748b;
+  --gray-light:#E8F0E8;
+  --border:#E8E4DA;
+  --radius:10px;
+  --shadow:0 2px 12px rgba(58,92,74,.08);
+  --text:#2C2A28;
+  --text-light:#8A8878;
+  --t-red:#C65D52;
+  --t-orange:#EC935E;
+  --t-yellow:#f9a825;
+  --t-green:#3A5C4A;
+}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,'Noto Sans SC',sans-serif;background:var(--bg);color:var(--text);min-height:100vh}
+/* ===== Layout ===== */
+.app-header{background:#3A5C4A;color:#fff;padding:20px 28px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px}
+.app-header h1{font-size:22px;font-weight:700;letter-spacing:.5px}
+.app-header .sub{font-size:13px;opacity:.8;margin-top:2px}
+.header-actions{display:flex;gap:10px;align-items:center}
+.header-actions .time-badge{background:rgba(255,255,255,.15);border-radius:6px;padding:4px 12px;font-size:13px}
+.btn{padding:8px 18px;border:none;border-radius:6px;cursor:pointer;font-size:13px;font-weight:600;transition:all .2s;display:inline-flex;align-items:center;gap:6px}
+.btn-primary{background:#3A5C4A;color:#fff}.btn-primary:hover{background:#2A4A38}
+.btn-sm{padding:5px 12px;font-size:12px}
+.btn-danger{background:var(--danger);color:#fff}.btn-danger:hover{background:#c62828}
+.btn-outline{background:transparent;border:1.5px solid var(--border);color:var(--text)}.btn-outline:hover{background:var(--gray-light)}
+.btn-success{background:var(--success);color:#fff}.btn-success:hover{background:#2e7d32}
+.container{max-width:1440px;margin:0 auto;padding:16px 20px 40px}
+/* ===== Summary Cards ===== */
+.summary-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:14px;margin-bottom:20px}
+.summary-card{background:#fff;border-radius:var(--radius);padding:16px 20px;box-shadow:var(--shadow);border-left:4px solid #3A5C4A}
+.summary-card .label{font-size:12px;color:var(--text-light);text-transform:uppercase;letter-spacing:.5px}
+.summary-card .value{font-size:26px;font-weight:700;margin-top:4px}
+.summary-card.danger{border-left-color:var(--danger)}.summary-card.danger .value{color:var(--danger)}
+.summary-card.warning{border-left-color:var(--orange)}.summary-card.warning .value{color:var(--orange)}
+.summary-card.success{border-left-color:var(--success)}.summary-card.success .value{color:var(--success)}
+.summary-card.info{border-left-color:var(--primary)}
+/* ===== Tabs ===== */
+.tabs{display:flex;gap:4px;background:#fff;border-radius:var(--radius);padding:4px;box-shadow:var(--shadow);margin-bottom:20px;overflow-x:auto;border:1px solid #E8E4DA}
+.tab{padding:10px 20px;border:none;border-radius:6px;cursor:pointer;font-size:13px;font-weight:600;background:transparent;color:#8A8878;white-space:nowrap;transition:all .2s}
+.tab:hover{background:#E8F0E8;color:#3A5C4A}
+.tab.active{background:#3A5C4A;color:#fff}
+.tab .badge{display:inline-block;background:var(--danger);color:#fff;border-radius:10px;padding:1px 7px;font-size:11px;margin-left:4px}
+/* ===== Table ===== */
+.table-wrap{background:#fff;border-radius:var(--radius);box-shadow:var(--shadow);overflow-x:auto;overflow-y:visible;margin-bottom:20px;border:1px solid #E8E4DA}
+.table-wrap h2{font-size:15px;font-weight:700;padding:16px 20px 0;color:var(--text)}
+.table-wrap .note{font-size:12px;color:var(--text-light);padding:4px 20px 12px}
+.table-wrap table{width:100%;border-collapse:collapse;font-size:13px;min-width:500px;white-space:nowrap}
+.table-wrap th,.table-wrap td{padding:7px 8px;text-align:left;border-bottom:1px solid #f0eee8}
+/* ===== Urgent Summary ===== */
+.urgent-summary{display:flex;flex-direction:column;gap:8px;margin-bottom:14px}
+.urgent-item{display:flex;align-items:flex-start;gap:10px;padding:12px 16px;border-radius:var(--radius);box-shadow:var(--shadow);border-left:5px solid}
+.urgent-item.red{background:#fff5f5;border-color:var(--danger)}
+.urgent-item.orange{background:#fff8e1;border-color:var(--orange)}
+.urgent-item.gray{background:#f5f5f5;border-color:#9e9e9e}
+.urgent-icon{font-size:20px;line-height:1.4;flex-shrink:0}
+.urgent-body{flex:1;min-width:0}
+.urgent-title{font-size:13px;margin-bottom:6px}
+.urgent-list{display:flex;flex-wrap:wrap;gap:6px}
+.urgent-tag{display:inline-block;font-size:11px;background:rgba(255,255,255,.85);border:1px solid #ddd;border-radius:4px;padding:3px 8px;cursor:pointer;transition:all .15s;white-space:nowrap}
+.urgent-tag:hover{background:var(--primary);color:#fff;border-color:var(--primary)}
+table{width:100%;border-collapse:collapse;font-size:13px}
+thead{background:#F2F0EB}
+th{padding:10px 12px;text-align:left;font-weight:600;color:#5A5852;font-size:12px;white-space:nowrap;border-bottom:2px solid #E8E4DA}
+td{padding:9px 12px;border-bottom:1px solid #EDE9E1;white-space:nowrap}
+tr:hover{background:#E8F0E8}
+.badge-risk{display:inline-block;padding:2px 10px;border-radius:12px;font-size:12px;font-weight:600}
+.badge-risk.red{background:#ffebee;color:var(--danger)}
+.badge-risk.orange{background:#fff3e0;color:var(--orange)}
+.badge-risk.yellow{background:#fff8e1;color:#f57f17}
+.badge-risk.green{background:#e8f5e9;color:var(--success)}
+.badge-risk.gray{background:#f5f5f5;color:var(--gray)}
+/* ===== Chart Row ===== */
+.chart-row{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:16px}
+.chart-card{background:var(--card);border-radius:var(--radius);box-shadow:var(--shadow);padding:12px 14px}
+.chart-card h3{font-size:13px;margin-bottom:6px;color:var(--text)}
+.chart-card canvas{width:100%!important}
+/* ===== Forms ===== */
+.modal-overlay{display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.4);z-index:1000;justify-content:center;align-items:center}
+.modal-overlay.show{display:flex}
+.modal{background:var(--card);border-radius:12px;padding:28px;width:560px;max-width:94vw;max-height:90vh;overflow-y:auto;box-shadow:0 8px 40px rgba(0,0,0,.2)}
+.modal h2{font-size:18px;margin-bottom:18px}
+.form-row{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px}
+.form-group{display:flex;flex-direction:column;gap:3px}
+.form-group label{font-size:12px;font-weight:600;color:var(--gray)}
+.form-group input,.form-group select{padding:8px 10px;border:1.5px solid var(--border);border-radius:6px;font-size:13px;transition:border-color .2s}
+.form-group input:focus,.form-group select:focus{outline:none;border-color:var(--primary)}
+.form-actions{display:flex;justify-content:flex-end;gap:10px;margin-top:18px;padding-top:14px;border-top:1px solid #eee}
+/* ===== Modal Table Preview ===== */
+.modal-preview{max-height:360px;overflow-y:auto;margin-bottom:14px}
+/* ===== Responsive ===== */
+@media(max-width:768px){
+  .chart-row{grid-template-columns:1fr}
+  .summary-row{grid-template-columns:repeat(2,1fr)}
+  .form-row{grid-template-columns:1fr}
+  .app-header h1{font-size:18px}
+}
+@media(max-width:480px){
+  .summary-row{grid-template-columns:1fr}
+}
+/* ===== Loading ===== */
+.loading{text-align:center;padding:40px;color:var(--text-light)}
+/* ===== Animations ===== */
+@keyframes fadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+.fade-in{animation:fadeIn .3s ease}
+</style>
+<script src="https://beacon.cdn.qq.com/sdk/4.5.9/beacon_web.min.js"></script>
+<script>
+(function(){
+  try{
+    var beacon=new BeaconAction({
+      appkey:'0WEB06U85YBSLJNL',
+      versionCode:'1.0.0',
+      channelID:'share',
+      delay:1000,
+      sessionDuration:30*60*1000,
+      isOversea:false,
+      needReportRqdEvent:false
+    });
+    beacon.onDirectUserAction('preview_page_view',{
+      'url':location.href,
+      'referrer':document.referrer,
+      'title':document.title,
+      'sandbox_id':'e80826d6ce4f4458b06932eda2f2bf69'
+    });
+  }catch(e){}
+})();
+</script></head>
+<body>
+
+<!-- ===== Header ===== -->
+<header class="app-header">
+  <div>
+    <h1>⛽ 加油站智能配送 Agent</h1>
+    <div class="sub">罐底油 · 安全罐容 · 次日库存预测 · 可维持天数 · 车型配送 · 销量预测 · 运力评估</div>
+  </div>
+  <div class="header-actions">
+    <span class="time-badge" id="timeBadge"></span>
+    <span id="versionBadge" class="version-badge" title="工作站版本号" style="background:#3A5C4A;color:#fff;padding:2px 9px;border-radius:10px;font-size:11px;font-weight:600;letter-spacing:.5px">v2.7</span>
+    <button class="btn btn-primary" onclick="showAddStation()">+ 新增站点</button>
+    <button class="btn" style="background:rgba(255,255,255,.15);color:#fff" onclick="document.getElementById('invFile').click()">📥 导入库存</button>
+    <input type="file" id="invFile" accept=".csv,.xlsx,.xls" style="display:none" onchange="importInventoryFile(this)">
+    <button class="btn" style="background:rgba(255,255,255,.15);color:#fff" onclick="fetchWeatherForAll()">🌤 实时天气</button>
+    <button class="btn" style="background:rgba(255,255,255,.15);color:#fff" onclick="clearAllData()">🗑️ 清空</button>
+    <button class="btn" style="background:rgba(255,255,255,.15);color:#fff" onclick="exportData()">📤 导出CSV</button>
+    <button class="btn" style="background:rgba(255,255,255,.15);color:#fff" onclick="showFleetSettings()">🚛 运力设置</button>
+  </div>
+</header>
+
+<div class="container">
+
+  <!-- Summary Cards -->
+  <div class="summary-row" id="summaryCards"></div>
+
+  <!-- Tabs -->
+  <div class="tabs" id="tabBar"></div>
+
+  <!-- Content Area -->
+  <div id="urgentSummary" class="urgent-summary"></div>
+  <div id="tabContent"></div>
+
+</div>
+
+<!-- ===== Modal ===== -->
+<div class="modal-overlay" id="modalOverlay">
+  <div class="modal">
+    <h2 id="modalTitle">新增站点</h2>
+    <div class="form-row">
+      <div class="form-group"><label>加油站名称</label><input id="fName" placeholder="如：城东加油站"></div>
+      <div class="form-group"><label>油品</label><select id="fOil"><option>汽油</option><option>柴油</option></select></div>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label>油罐总容 (t)</label><input id="fTotalCap" type="number" step="0.1" placeholder="如：50"></div>
+      <div class="form-group"><label>当日7点库存 (t)</label><input id="fCurStock" type="number" step="0.1" placeholder="如：30"></div>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label>日销量 (t)</label><input id="fDailySales" type="number" step="0.1" placeholder="如：8"></div>
+      <div class="form-group"><label>最优出库油库</label><input id="fDepot" placeholder="如：城北油库"></div>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label>运距 (km)</label><input id="fDist" type="number" step="0.1" placeholder="如：45"></div>
+      <div class="form-group"><label>适配车型</label><select id="fVehicle">
+        <option value="单仓车">单仓车（28吨/车）</option><option value="双仓车">双仓车（14吨/仓×2仓）</option><option value="三仓车">三仓车（10吨/仓×3仓）</option>
+      </select></div>
+    </div>
+    <div style="margin:14px 0 10px;font-weight:700;font-size:13px;color:var(--primary);border-bottom:1px solid #e0e0e0;padding-bottom:6px">🔮 预测模型参数</div>
+    <div class="form-row">
+      <div class="form-group"><label>去年同日销量 (t)</label><input id="fLastYear" type="number" step="0.1" placeholder="如：7.5"></div>
+      <div class="form-group"><label>上周同日销量 (t)</label><input id="fLastWeek" type="number" step="0.1" placeholder="如：8.2"></div>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label>昨日实际销量 (t)</label><input id="fYesterdaySales" type="number" step="0.1" placeholder="默认=日销量"></div>
+      <div class="form-group"><label>当日属地天气</label><select id="fWeather">
+        <option value="">-- 请选择 --</option>
+        <option>☀️ 晴天</option><option>⛅ 多云</option><option>🌧️ 雨天</option><option>⛈️ 暴雨</option>
+        <option>❄️ 雪天</option><option>🌫️ 雾霾</option><option>🌡️ 高温(≥35°C)</option><option>🥶 严寒(≤0°C)</option>
+      </select></div>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label>促销情报</label><select id="fPromotion">
+        <option value="">-- 请选择 --</option>
+        <option>无促销</option><option>小幅优惠(0.2元/L)</option><option>中等优惠(0.5元/L)</option>
+        <option>大幅优惠(0.8元/L)</option><option>会员日/周年庆</option><option>竞对也在促销</option>
+      </select></div>
+      <div class="form-group"><label>促销强度备注</label><input id="fPromoNote" placeholder="如：满200减20"></div>
+    </div>
+    <input type="hidden" id="editIdx" value="-1">
+    <div class="form-actions">
+      <button class="btn btn-outline" onclick="closeModal()">取消</button>
+      <button class="btn btn-success" onclick="saveStation()">保存</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== Fleet Settings Modal ===== -->
+<div class="modal-overlay" id="fleetModal">
+  <div class="modal" style="width:520px">
+    <h2>🚛 运力设置</h2>
+    <div class="note" style="margin:-10px 0 14px;color:var(--gray);font-size:12px">设置车队实际车型配置 · 仓数=一趟可配送油站数 · 每车每日最大趟次默认2趟</div>
+    <div class="form-row">
+      <div class="form-group"><label>🚚 双仓车（14吨/仓×2仓=28吨）数量</label><input id="fDualNum" type="number" min="0" step="1"></div>
+      <div class="form-group"><label>每车每日最大趟次</label><input id="fDualTrips" type="number" min="1" step="1"></div>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label>🚛 三仓车（10吨/仓×3仓=30吨）数量</label><input id="fTripleNum" type="number" min="0" step="1"></div>
+      <div class="form-group"><label>每车每日最大趟次</label><input id="fTripleTrips" type="number" min="1" step="1"></div>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label>🚐 单仓车（28吨/车）数量</label><input id="fSingleNum" type="number" min="0" step="1"></div>
+      <div class="form-group"><label>每车每日最大趟次</label><input id="fSingleTrips" type="number" min="1" step="1"></div>
+    </div>
+    <div class="form-actions">
+      <button class="btn btn-outline" onclick="closeFleetModal()">取消</button>
+      <button class="btn btn-success" onclick="saveFleetSettings()">保存</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ============================================================
+// DATA STORE
+// ============================================================
+let stations = [];
+
+// ============================================================
+// FLEET SETTINGS （运力设置）
+// ============================================================
+let fleetSettings = {
+  dualVehicles: 3,        // 双仓车数量（14吨/仓×2仓=28吨/车，一趟可配2站）
+  dualTripsPerDay: 2,     // 双仓车每日每车最大趟次
+  tripleVehicles: 2,      // 三仓车数量（10吨/仓×3仓=30吨/车，一趟可配3站）
+  tripleTripsPerDay: 2,   // 三仓车每日每车最大趟次
+  singleVehicles: 2,      // 单仓车数量（28吨/车，一趟配1站）
+  singleTripsPerDay: 2,   // 单仓车每日每车最大趟次
+  workHours: 16,          // 每日作业时长（小时）
+};
+
+// ============================================================
+// CONSTANTS
+// ============================================================
+const SAFE_RATIO = 0.9;       // 安全罐容比例
+const BOTTOM_RATIO = 0.09;    // 罐底油 = 总容 × 9%
+const TARGET_RATIO = 0.7;     // 标准补库目标 = 安全罐容 × 70%
+
+// ============================================================
+// WEATHER FACTOR 天气影响系数
+// ============================================================
+const WEATHER_FACTORS = {
+  '☀️ 晴天': 1.0,
+  '⛅ 多云': 0.95,
+  '🌧️ 雨天': 0.78,
+  '⛈️ 暴雨': 0.55,
+  '❄️ 雪天': 0.65,
+  '🌫️ 雾霾': 0.85,
+  '🌡️ 高温(≥35°C)': 1.12,
+  '🥶 严寒(≤0°C)': 0.88,
+};
+
+// ============================================================
+// PROMOTION FACTOR 促销影响系数
+// ============================================================
+const PROMO_FACTORS = {
+  '无促销': 1.0,
+  '小幅优惠(0.2元/L)': 1.08,
+  '中等优惠(0.5元/L)': 1.18,
+  '大幅优惠(0.8元/L)': 1.30,
+  '会员日/周年庆': 1.40,
+  '竞对也在促销': 1.10,
+};
+
+// ============================================================
+// PREDICTION WEIGHTS 预测权重
+// ============================================================
+const PRED_WEIGHTS = {
+  lastYear: 0.20,   // 去年同日
+  lastWeek: 0.30,   // 上周同日
+  yesterday: 0.50,  // 昨日（最近趋势）
+};
+
+// ============================================================
+// COMPUTED FIELDS per station + cache
+// ============================================================
+let computeCache = {};
+
+function invalidateCache() {
+  computeCache = {};
+}
+
+function compute(s) {
+  // Use station object identity or name+oil as key
+  const cacheKey = s._cacheId || (s._cacheId = s.name + '||' + (s.oilRaw || s.oil));
+  if (computeCache[cacheKey]) return computeCache[cacheKey];
+  const safeCap = s.totalCap * SAFE_RATIO;           // 安全罐容
+  const bottomOil = s.totalCap * BOTTOM_RATIO;       // 罐底油
+  const maxDischarge = safeCap - s.curStock;          // 最大可卸量
+  const effectiveStock = s.curStock - bottomOil;       // 有效可消耗库存
+  const sustainDays = s.dailySales > 0 ? effectiveStock / s.dailySales : 999;
+  const predStock = s.curStock - s.dailySales;         // 次日预测库存
+  const targetStock = safeCap * TARGET_RATIO;          // 目标库存
+  const theoreticalNeed = targetStock - s.curStock;    // 理论需补量
+  let suggestedDelivery = 0;
+  if (theoreticalNeed > 0) {
+    suggestedDelivery = Math.min(theoreticalNeed, maxDischarge);
+  }
+  // 车型适配车次：根据站点配属车型计算
+  const vehicleType = s.vehicleType || '单仓车';
+  const compCaps = { '双仓车': 14, '三仓车': 10, '单仓车': 28 };
+  const compCounts = { '双仓车': 2, '三仓车': 3, '单仓车': 1 };
+  const compCap = compCaps[vehicleType] || 28;
+  const compCount = compCounts[vehicleType] || 1;
+  // 每趟可配送吨位 = 仓载重 × 仓数（一趟可配多个站，但本站用一个仓）
+  const trips = suggestedDelivery > 0 ? Math.ceil(suggestedDelivery / compCap) : 0;
+
+  // 断档判定：库存为0视为数据异常，非断油
+  let status, riskLevel;
+  if (s.curStock === 0) {
+    status = '⚠️ 数据异常（库存为0）';
+    riskLevel = 'gray';
+  } else if (s.curStock <= bottomOil) {
+    status = '🔴 已断档';
+    riskLevel = 'red';
+  } else if (predStock <= bottomOil) {
+    status = '🟠 即将断档';
+    riskLevel = 'orange';
+  } else if (predStock <= safeCap * 0.3) {
+    status = '🟡 预警';
+    riskLevel = 'yellow';
+  } else {
+    status = '🟢 正常';
+    riskLevel = 'green';
+  }
+
+  // 紧急等级 (表3) - curStock=0归入"数据异常"，不判定为紧急
+  let urgency, urgencyClass;
+  if (s.curStock === 0) {
+    urgency = '⚠️ 数据异常';
+    urgencyClass = 'gray';
+  } else if (s.curStock > 0 && s.curStock <= bottomOil) {
+    urgency = '🔴 无法补救';
+    urgencyClass = 'red';
+  } else if (predStock <= bottomOil) {
+    urgency = '🟠 可紧急补救';
+    urgencyClass = 'orange';
+  } else if (sustainDays < 4) {
+    urgency = '🟡 常规配送';
+    urgencyClass = 'yellow';
+  } else {
+    urgency = '🟢 暂缓配送';
+    urgencyClass = 'green';
+  }
+
+  const breakTime = effectiveStock > 0 && s.dailySales > 0
+    ? (new Date(Date.now() + effectiveStock / (s.dailySales / 24) * 3600000)).toLocaleString('zh-CN',{month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'})
+    : (s.curStock === 0 ? '数据异常' : '已断档');
+
+  return computeCache[cacheKey] = {
+    safeCap: Math.round(safeCap * 100) / 100,
+    bottomOil: Math.round(bottomOil * 100) / 100,
+    maxDischarge: Math.round(maxDischarge * 100) / 100,
+    effectiveStock: Math.round(effectiveStock * 100) / 100,
+    sustainDays: Math.round(sustainDays * 10) / 10,
+    predStock: Math.round(predStock * 100) / 100,
+    targetStock: Math.round(targetStock * 100) / 100,
+    theoreticalNeed: Math.round(theoreticalNeed * 100) / 100,
+    suggestedDelivery: Math.round(suggestedDelivery * 100) / 100,
+    trips,
+    status,
+    riskLevel,
+    urgency,
+    urgencyClass,
+    breakTime,
+    compCap: compCap,
+    compCount: compCount,
+  };
+}
+
+// ============================================================
+// PREDICTION ALGORITHM 销量预测模型
+// ============================================================
+function predictSales(s) {
+  // 若无历史数据，直接用日销量
+  if (!s.lastYearSales && !s.lastWeekSales) {
+    return { predicted: s.dailySales, factors: '缺少历史数据，以当前日销量为基准' };
+  }
+
+  const ly = s.lastYearSales || s.dailySales;
+  const lw = s.lastWeekSales || s.dailySales;
+  const yd = s.yesterdaySales || s.dailySales;
+
+  // 加权基准销量
+  const base =
+    ly * PRED_WEIGHTS.lastYear +
+    lw * PRED_WEIGHTS.lastWeek +
+    yd * PRED_WEIGHTS.yesterday;
+
+  // 天气系数
+  const wf = WEATHER_FACTORS[s.weather] || 1.0;
+
+  // 促销系数
+  const pf = PROMO_FACTORS[s.promotion] || 1.0;
+
+  const predicted = Math.round(base * wf * pf * 100) / 100;
+
+  // 构建影响因子说明
+  const parts = [];
+  if (s.weather) parts.push(`天气(${s.weather}×${wf})`);
+  if (s.promotion) parts.push(`促销(${s.promotion}×${pf})`);
+  if (ly !== yd) parts.push(`去年同日${ly}t`);
+  if (lw !== yd) parts.push(`上周${lw}t`);
+  const factors = parts.join(' ') || '基准日销量';
+
+  return {
+    predicted,
+    base: Math.round(base * 100) / 100,
+    weatherFactor: wf,
+    promoFactor: pf,
+    uplift: Math.round((predicted - s.dailySales) * 100) / 100,
+    upliftPct: Math.round(((predicted - s.dailySales) / s.dailySales) * 1000) / 10,
+    factors,
+  };
+}
+
+// ============================================================
+// VEHICLE CAPACITY ANALYSIS 运力评估（优化版）
+// ============================================================
+function analyzeFleet(predictedDeliveries) {
+  // 车队配置：每车每趟可配送"仓数"个站
+  // 双仓车(14t/仓×2仓) 一趟可配2站，三仓车(10t/仓×3仓)一趟可配3站，单仓车(28t/车)一趟配1站
+  const { dualVehicles, dualTripsPerDay, tripleVehicles, tripleTripsPerDay, singleVehicles, singleTripsPerDay } = fleetSettings;
+
+  // 仓级运力计算
+  const dualCompsPerDay = dualVehicles * dualTripsPerDay * 2; // 双仓车总仓数/日
+  const tripleCompsPerDay = tripleVehicles * tripleTripsPerDay * 3; // 三仓车总仓数/日
+  const singleCompsPerDay = singleVehicles * singleTripsPerDay * 1; // 单仓车总仓数/日
+  const totalCompsPerDay = dualCompsPerDay + tripleCompsPerDay + singleCompsPerDay;
+
+  // 吨位运力
+  const dualCapTonPerDay = dualVehicles * dualTripsPerDay * 28;  // 28t/车
+  const tripleCapTonPerDay = tripleVehicles * tripleTripsPerDay * 30; // 30t/车
+  const singleCapTonPerDay = singleVehicles * singleTripsPerDay * 28; // 28t/车
+  const maxVolume = dualCapTonPerDay + tripleCapTonPerDay + singleCapTonPerDay;
+
+  // 按油品拆分配送需求
+  const gasDeliveries = stations.filter(s => (s.oilKey||s.oil) === '汽油').map(s => compute(s));
+  const dieselDeliveries = stations.filter(s => (s.oilKey||s.oil) === '柴油').map(s => compute(s));
+  const gasTrips = gasDeliveries.reduce((s, d) => s + d.trips, 0);
+  const dieselTrips = dieselDeliveries.reduce((s, d) => s + d.trips, 0);
+  const gasVolume = gasDeliveries.reduce((s, d) => s + d.suggestedDelivery, 0);
+  const dieselVolume = dieselDeliveries.reduce((s, d) => s + d.suggestedDelivery, 0);
+
+  // 所需车次与吨位
+  const neededTrips = predictedDeliveries.reduce((s, d) => s + d.trips, 0);
+  const neededVolume = predictedDeliveries.reduce((s, d) => s + d.volume, 0);
+
+  // 按出库油库分组测算片区运力
+  const depotGroups = {};
+  stations.forEach(function(s) {
+    var depot = s.depot || '未指定油库';
+    if (!depotGroups[depot]) depotGroups[depot] = { stations: 0, volume: 0, trips: 0, maxDist: 0 };
+    var c = compute(s);
+    depotGroups[depot].stations++;
+    depotGroups[depot].volume += c.suggestedDelivery;
+    depotGroups[depot].trips += c.trips;
+    if ((s.dist || 0) > depotGroups[depot].maxDist) depotGroups[depot].maxDist = s.dist || 0;
+  });
+
+  // 考虑运距因素
+  const AVG_SPEED = 60;
+  const LOAD_UNLOAD = 1.5;
+  const WORK_HOURS = 16;
+  const totalVehicles = dualVehicles + tripleVehicles + singleVehicles;
+  let effectiveTrips = 0;
+  Object.keys(depotGroups).forEach(function(depot) {
+    var g = depotGroups[depot];
+    var tripHours = g.maxDist > 0 ? (g.maxDist * 2 / AVG_SPEED + LOAD_UNLOAD) : 2;
+    var tripsPerVehicle = Math.max(1, Math.floor(WORK_HOURS / tripHours));
+    effectiveTrips += Math.min(g.trips, tripsPerVehicle * Math.ceil(g.trips / Math.max(tripsPerVehicle, 1)));
+  });
+
+  // 优化车型匹配方案
+  // 双仓车(14t/仓)适合8~14t站点，三仓车(10t/仓)适合5~10t，单仓车(28t)适合15t+大站
+  const dualSuitable = stations.filter(function(s) {
+    var c = compute(s);
+    return c.suggestedDelivery > 0 && c.suggestedDelivery <= 16 && c.suggestedDelivery >= 8;
+  });
+  const tripleSuitable = stations.filter(function(s) {
+    var c = compute(s);
+    return c.suggestedDelivery > 0 && c.suggestedDelivery <= 12 && c.suggestedDelivery >= 5;
+  });
+  const singleSuitable = stations.filter(function(s) {
+    var c = compute(s);
+    return c.suggestedDelivery > 15;
+  });
+
+  const dualOptimalVehicles = Math.ceil(dualSuitable.reduce(function(s, st) { return s + compute(st).trips; }, 0) / (dualTripsPerDay * 2));
+  const tripleOptimalVehicles = Math.ceil(tripleSuitable.reduce(function(s, st) { return s + compute(st).trips; }, 0) / (tripleTripsPerDay * 3));
+  const singleOptimalVehicles = Math.ceil(singleSuitable.reduce(function(s, st) { return s + compute(st).trips; }, 0) / singleTripsPerDay);
+
+  const tripShortfall = neededTrips - totalCompsPerDay;
+  // 注意：这里的tripShortfall是比较仓数需求与可用仓数
+  // 但实际上每个站的配送量不同，用仓数更准确
+  const volumeShortfall = neededVolume - maxVolume;
+
+  let verdict, verdictClass, detail;
+  if (volumeShortfall <= 0 && tripShortfall <= 0) {
+    verdict = '✅ 运力充足';
+    verdictClass = 'green';
+    detail = '现有车队可满足配送需求，富余车次' + Math.abs(tripShortfall) + '次，富余运力' + Math.abs(Math.round(volumeShortfall * 10) / 10) + 't';
+  } else if (volumeShortfall <= 30 && tripShortfall <= 3) {
+    verdict = '⚠️ 运力偏紧（可调剂）';
+    verdictClass = 'orange';
+    detail = '缺口较小，可通过加班或调车解决，缺' + Math.max(tripShortfall, 0) + '车次/' + Math.round(Math.max(volumeShortfall, 0) * 10) / 10 + 't';
+  } else {
+    verdict = '🔴 运力不足';
+    verdictClass = 'red';
+    detail = '需立即增加运力，缺口' + Math.max(tripShortfall, 0) + '车次/' + Math.round(Math.max(volumeShortfall, 0) * 10) / 10 + 't';
+  }
+
+  return {
+    maxTrips: totalCompsPerDay,
+    maxVolume: Math.round(maxVolume * 10) / 10,
+    neededTrips: neededTrips,
+    neededVolume: Math.round(neededVolume * 10) / 10,
+    tripShortfall: Math.max(tripShortfall, 0),
+    volumeShortfall: Math.max(volumeShortfall, 0),
+    verdict: verdict,
+    verdictClass: verdictClass,
+    detail: detail,
+    utilization: maxVolume > 0 ? Math.round((neededVolume / maxVolume) * 100) : 0,
+    // 新增车型级指标
+    dualCompsPerDay: dualCompsPerDay,
+    tripleCompsPerDay: tripleCompsPerDay,
+    singleCompsPerDay: singleCompsPerDay,
+    totalCompsPerDay: totalCompsPerDay,
+    gasTrips: gasTrips,
+    dieselTrips: dieselTrips,
+    gasVolume: Math.round(gasVolume * 10) / 10,
+    dieselVolume: Math.round(dieselVolume * 10) / 10,
+    optimalDualVehicles: Math.max(dualOptimalVehicles, 0),
+    optimalTripleVehicles: Math.max(tripleOptimalVehicles, 0),
+    optimalSingleVehicles: Math.max(singleOptimalVehicles, 0),
+    effectiveTrips: effectiveTrips,
+    depotGroups: depotGroups,
+    totalVehicles: totalVehicles,
+    avgTripHours: Object.keys(depotGroups).length > 0
+      ? Math.round(Object.values(depotGroups).reduce(function(s, g) { return s + (g.maxDist > 0 ? (g.maxDist * 2 / AVG_SPEED + LOAD_UNLOAD) : 2); }, 0) / Object.keys(depotGroups).length * 10) / 10
+      : 2,
+  };
+}
+
+// ============================================================
+// RENDER
+// ============================================================
+function updateTime() {
+  document.getElementById('timeBadge').textContent = new Date().toLocaleString('zh-CN');
+}
+
+function renderAll() {
+  renderUrgentSummary();
+  renderSummary();
+  renderTabs();
+  renderActiveTab();
+}
+
+// ============================================================
+// 紧急摘要面板 - 直接显示哪些站/油品需要关注
+// ============================================================
+function renderUrgentSummary() {
+  const el = document.getElementById('urgentSummary');
+  if (!el || !stations.length) { if (el) el.innerHTML = ''; return; }
+
+  // 按紧急程度分组
+  const red = [], orange = [], gray = [];
+  stations.forEach(function(s) {
+    const c = compute(s);
+    if (c.urgency === '🔴 无法补救') red.push({ s, c });
+    else if (c.urgency === '🟠 可紧急补救') orange.push({ s, c });
+    else if (c.urgency === '⚠️ 数据异常') gray.push({ s, c });
+  });
+
+  let html = '';
+
+  // 红色紧急摘要
+  if (red.length > 0) {
+    const gasRed = red.filter(function(o) { return (o.s.oilKey||o.s.oil) === '汽油'; });
+    const dieselRed = red.filter(function(o) { return (o.s.oilKey||o.s.oil) === '柴油'; });
+    html += '<div class="urgent-item red"><div class="urgent-icon">🔴</div><div class="urgent-body">';
+    html += '<div class="urgent-title"><strong>' + red.length + '站·已断档需立即配送</strong>';
+    if (gasRed.length > 0) html += ' ⛽汽油' + gasRed.length + '站';
+    if (dieselRed.length > 0) html += ' 🛢️柴油' + dieselRed.length + '站';
+    html += '</div><div class="urgent-list">';
+    red.forEach(function(o) {
+      html += '<span class="urgent-tag" onclick="switchTabs(2)" title="点击查看紧急任务表">' + o.s.name + ' (' + (o.s.oilRaw || o.s.oil) + ') 库存' + o.s.curStock + 't 可维持' + o.c.sustainDays + '天</span>';
+    });
+    html += '</div></div></div>';
+  }
+
+  // 橙色预警摘要
+  if (orange.length > 0) {
+    html += '<div class="urgent-item orange"><div class="urgent-icon">🟠</div><div class="urgent-body">';
+    html += '<div class="urgent-title"><strong>' + orange.length + '站·即将断档需紧急补救</strong></div><div class="urgent-list">';
+    orange.forEach(function(o) {
+      html += '<span class="urgent-tag" onclick="switchTabs(2)" title="点击查看紧急任务表">' + o.s.name + ' (' + (o.s.oilRaw || o.s.oil) + ') 库存' + o.s.curStock + 't→次日' + o.c.predStock + 't 可维持' + o.c.sustainDays + '天</span>';
+    });
+    html += '</div></div></div>';
+  }
+
+  // 数据异常摘要
+  if (gray.length > 0) {
+    html += '<div class="urgent-item gray"><div class="urgent-icon">⚠️</div><div class="urgent-body">';
+    html += '<div class="urgent-title"><strong>' + gray.length + '站·库存为0（数据异常，需手工核对）</strong></div><div class="urgent-list">';
+    gray.forEach(function(o) {
+      html += '<span class="urgent-tag" onclick="switchTabs(2)" title="点击查看紧急任务表"><strong>' + o.s.name + '</strong> (' + (o.s.oilRaw || o.s.oil) + ') 上报库存为0，请核实数据</span>';
+    });
+    html += '</div></div></div>';
+  }
+
+  el.innerHTML = html;
+}
+
+function renderSummary() {
+  const total = stations.length;
+  const broken = stations.filter(s => s.curStock <= s.totalCap * BOTTOM_RATIO).length;
+  const warn = stations.filter(s => {
+    const p = s.curStock - s.dailySales;
+    return p > s.totalCap * BOTTOM_RATIO && p <= s.totalCap * SAFE_RATIO * 0.3;
+  }).length;
+  const urgent = stations.filter(s => {
+    const p = s.curStock - s.dailySales;
+    return p <= s.totalCap * BOTTOM_RATIO && s.curStock > s.totalCap * BOTTOM_RATIO;
+  }).length;
+  const totalDelivery = stations.reduce((sum, s) => {
+    const c = compute(s);
+    return sum + c.suggestedDelivery;
+  }, 0);
+  const totalTrips = stations.reduce((sum, s) => sum + compute(s).trips, 0);
+  const avgSustain = stations.length > 0
+    ? stations.reduce((sum, s) => sum + compute(s).sustainDays, 0) / stations.length
+    : 0;
+
+  document.getElementById('summaryCards').innerHTML = `
+    <div class="summary-card info"><div class="label">总站点数</div><div class="value">${total}</div></div>
+    <div class="summary-card ${urgent > 0 ? 'warning' : 'info'}"><div class="label">🔴 即将断档 / 需紧急配送</div><div class="value">${urgent + broken}</div></div>
+    <div class="summary-card ${broken > 0 ? 'danger' : 'success'}"><div class="label">⛔ 已断档站点</div><div class="value">${broken}</div></div>
+    <div class="summary-card info"><div class="label">📦 建议配送总量 (t)</div><div class="value">${Math.round(totalDelivery * 10) / 10}</div></div>
+    <div class="summary-card info"><div class="label">🚛 所需总车次</div><div class="value">${totalTrips}</div></div>
+    <div class="summary-card ${avgSustain < 3 ? 'danger' : avgSustain < 7 ? 'warning' : 'success'}"><div class="label">📊 平均可维持天数</div><div class="value">${avgSustain.toFixed(1)}</div></div>
+  `;
+}
+
+function renderTabs() {
+  const tabs = ['表1:库存预测&风险预警', '表2:次日配送需求', '表3:紧急任务分类', '表4:区域运力测算', '📈 数据看板', '🔮 销量预测&运力'];
+  const active = localStorage.getItem('activeTab') || '0';
+  document.getElementById('tabBar').innerHTML = tabs.map((t, i) =>
+    `<button class="tab ${i === +active ? 'active' : ''}" onclick="switchTab(${i})">${t}</button>`
+  ).join('');
+}
+
+function switchTab(idx) {
+  localStorage.setItem('activeTab', idx);
+  renderTabs();
+  renderActiveTab();
+}
+
+function renderActiveTab() {
+  const idx = +(localStorage.getItem('activeTab') || '0');
+  const map = [renderTable1, renderTable2, renderTable3, renderTable4, renderDashboard, renderPrediction];
+  if (map[idx]) map[idx]();
+}
+
+// ============================================================
+// TABLE 1: 单站库存预测&风险预警总表
+// ============================================================
+function renderTable1() {
+  const el = document.getElementById('tabContent');
+  if (!stations.length) {
+    el.innerHTML = '<div class="table-wrap"><div class="loading">暂无数据，请新增站点或加载示例数据</div></div>';
+    return;
+  }
+    el.innerHTML = `<div class="table-wrap fade-in">
+    <h2>📋 表1：单站库存预测 & 风险预警总表</h2>
+    <div class="note">每日7点自动生成 · 罐底油 = 总容×9% · 安全罐容 = 总容×90% · 点击「🔽 查看油罐」展开罐级明细</div>
+    <table>
+      <thead><tr>
+        <th>操作</th><th>加油站</th><th>油品</th><th>总容(t)</th><th>安全罐容(t)</th><th>罐底油(t)</th>
+        <th>7点库存(t)</th><th>最大可卸(t)</th><th>日销量(t)</th><th>有效库存(t)</th>
+        <th>可维持天数</th><th>次日预测(t)</th><th>预计断档</th><th>风险状态</th><th>油罐明细</th>
+      </tr></thead>
+      <tbody>${stations.map((s, idx) => {
+        const c = compute(s);
+        const hasTanks = s.tanks && s.tanks.length > 0;
+        const tankDetails = hasTanks ? s.tanks.map(function(t, ti) {
+          return '<div style="font-size:11px;padding:2px 0;border-bottom:' + (ti < s.tanks.length - 1 ? '1px solid #eee' : 'none') + '"><span style="color:var(--gray)">#' + t.no + '</span> 库存:' + t.stock + 't 罐容:' + t.cap + 't</div>';
+        }).join('') : '<span style="color:var(--gray);font-size:11px">无罐级数据</span>';
+        return `<tr>
+          <td style="white-space:nowrap">
+            <button class="btn btn-sm btn-outline" onclick="showAddStation(stations[${idx}])" style="padding:2px 6px;font-size:11px" title="编辑">✏️</button>
+            <button class="btn btn-sm btn-danger" onclick="deleteStation(${idx})" style="padding:2px 6px;font-size:11px" title="删除">🗑️</button>
+          </td>
+          <td><strong>${s.name}</strong></td>
+          <td>${s.oilRaw || s.oil}</td>
+          <td>${s.totalCap}</td>
+          <td>${c.safeCap}</td>
+          <td style="color:var(--danger);font-weight:600">${c.bottomOil}</td>
+          <td>${s.curStock}</td>
+          <td>${c.maxDischarge}</td>
+          <td>${s.dailySales}</td>
+          <td style="font-weight:600">${c.effectiveStock}</td>
+          <td style="font-weight:600;color:${c.sustainDays < 2 ? 'var(--danger)' : c.sustainDays < 5 ? 'var(--orange)' : 'var(--success)'}">${c.sustainDays}</td>
+          <td style="color:${c.predStock <= c.bottomOil ? 'var(--danger)' : 'var(--success)'};font-weight:600">${c.predStock}</td>
+          <td>${c.breakTime}</td>
+          <td><span class="badge-risk ${c.riskLevel}">${c.status}</span></td>
+          <td style="max-width:180px;white-space:normal;font-size:12px">
+            <div class="tank-toggle" onclick="toggleTankDetail(this)" style="cursor:pointer;color:var(--primary);font-weight:600;font-size:11px">🔽 ${hasTanks ? s.tanks.length + '个油罐' : '查看'}</div>
+            <div class="tank-detail" style="display:none;margin-top:4px">${tankDetails}</div>
+          </td>
+        </tr>`;
+      }).join('')}</tbody>
+    </table>
+  </div>`;
+}
+
+// 罐级明细展开/收起
+function toggleTankDetail(el) {
+  var detail = el.parentElement.querySelector('.tank-detail');
+  if (detail) {
+    var isHidden = detail.style.display === 'none';
+    detail.style.display = isHidden ? 'block' : 'none';
+    el.textContent = isHidden ? '🔼 收起' : '🔽 ' + (el.textContent.indexOf('油罐') >= 0 ? (el.textContent.match(/\d+个油罐/) || ['查看'])[0] : '查看');
+  }
+}
+
+// ============================================================
+// TABLE 2: 次日配送需求表
+// ============================================================
+function renderTable2() {
+  const el = document.getElementById('tabContent');
+  if (!stations.length) {
+    el.innerHTML = '<div class="table-wrap"><div class="loading">暂无数据</div></div>';
+    return;
+  }
+    el.innerHTML = `<div class="table-wrap fade-in">
+    <h2>🚛 表2：次日配送需求表（按车型拆分）</h2>
+    <div class="note">建议配送量已卡安全罐容上限 · 标准补库目标 = 安全罐容×70%</div>
+    <table>
+      <thead><tr>
+        <th>操作</th><th>#</th><th>加油站</th><th>油品</th><th>最优出库油库</th><th>运距(km)</th>
+        <th>可维持天数</th><th>次日风险</th><th>建议配送量(t)</th><th>适配车型</th><th>所需车次</th><th>约束说明</th>
+      </tr></thead>
+      <tbody>${stations.map((s, i) => {
+        const c = compute(s);
+        const riskText = c.predStock <= c.bottomOil ? '⚠️ 高危' : c.predStock <= c.safeCap * 0.3 ? '⚡ 预警' : '✅ 安全';
+        const riskClass = c.predStock <= c.bottomOil ? 'red' : c.predStock <= c.safeCap * 0.3 ? 'orange' : 'green';
+        const constraint = c.suggestedDelivery > 0
+          ? `不超安全罐容(${c.safeCap}t)，高于罐底油(${c.bottomOil}t)`
+          : (c.theoreticalNeed <= 0 ? '库存充足，无需补库' : '已达最大可卸上限');
+        return `<tr>
+          <td style="white-space:nowrap">
+            <button class="btn btn-sm btn-outline" onclick="showAddStation(stations[${i}])" style="padding:2px 6px;font-size:11px" title="编辑">✏️</button>
+            <button class="btn btn-sm btn-danger" onclick="deleteStation(${i})" style="padding:2px 6px;font-size:11px" title="删除">🗑️</button>
+          </td>
+          <td>${i + 1}</td>
+          <td><strong>${s.name}</strong></td>
+          <td>${s.oilRaw || s.oil}</td>
+          <td>${s.depot || '-'}</td>
+          <td>${s.dist || '-'}</td>
+          <td style="font-weight:600;color:${c.sustainDays < 2 ? 'var(--danger)' : c.sustainDays < 5 ? 'var(--orange)' : 'var(--success)'}">${c.sustainDays}</td>
+          <td><span class="badge-risk ${riskClass}">${riskText}</span></td>
+          <td style="font-weight:700;color:${c.suggestedDelivery > 0 ? 'var(--primary)' : 'var(--gray)'}">${c.suggestedDelivery}</td>
+          <td>${s.vehicleType || '单仓车'} ${c.compCap}t/仓${(c.compCount || 1) > 1 ? '×' + c.compCount + '仓' : ''}</td>
+          <td style="font-weight:600;text-align:center">${c.trips}</td>
+          <td style="max-width:160px;white-space:normal;font-size:11px;color:var(--gray)">${constraint}</td>
+        </tr>`;
+      }).join('')}</tbody>
+    </table>
+  </div>`;
+}
+
+// ============================================================
+// TABLE 3: 当日紧急任务分类清单（分页加载）
+// ============================================================
+// 每类初始展示行数
+const TABLE3_PAGE_SIZE = 15;
+// 存储每类已展开的行数
+let table3ExpandCount = {};
+
+function renderTable3() {
+  const el = document.getElementById('tabContent');
+  if (!stations.length) {
+    el.innerHTML = '<div class="table-wrap"><div class="loading">暂无数据</div></div>';
+    return;
+  }
+  // Sort by urgency: red > orange > yellow > green
+  const order = {'🔴 无法补救': 0, '🟠 可紧急补救': 1, '🟡 常规配送': 2, '🟢 暂缓配送': 3};
+  const sorted = [...stations].sort((a, b) => order[compute(a).urgency] - order[compute(b).urgency]);
+
+  const groups = { '🔴 无法补救': [], '🟠 可紧急补救': [], '🟡 常规配送': [], '🟢 暂缓配送': [], '⚠️ 数据异常': [] };
+  sorted.forEach(s => {
+    const c = compute(s);
+    (groups[c.urgency] = groups[c.urgency] || []).push({ s, c });
+  });
+
+  // 初始化每类展开行数
+  Object.keys(groups).forEach(function(k) {
+    if (!table3ExpandCount[k]) table3ExpandCount[k] = TABLE3_PAGE_SIZE;
+  });
+
+  let html = `<div class="table-wrap fade-in">
+    <h2>🚨 表3：当日紧急任务分类清单</h2>
+    <div class="note">以罐底油红线为兜底判定 · 库存为0视为数据异常不列入紧急 · 每类初始展示${TABLE3_PAGE_SIZE}条</div>`;
+
+  const labels = {
+    '🔴 无法补救': { cls: 'red', desc: '库存已跌破罐底油，必须立即配送' },
+    '🟠 可紧急补救': { cls: 'orange', desc: '限时发车可避免断档，可维持天数极低' },
+    '🟡 常规配送': { cls: 'yellow', desc: '库存充足，正常排程' },
+    '🟢 暂缓配送': { cls: 'green', desc: '可维持天数≥48天，无需配送' },
+    '⚠️ 数据异常': { cls: 'gray', desc: '库存为0，可能数据上报有误，需手工核对确认' },
+  };
+
+  var keys = ['⚠️ 数据异常', '🔴 无法补救', '🟠 可紧急补救', '🟡 常规配送', '🟢 暂缓配送'];
+  for (var ki = 0; ki < keys.length; ki++) {
+    var key = keys[ki];
+    var items = groups[key] || [];
+    var info = labels[key] || { cls: 'gray', desc: '' };
+    var expandCount = table3ExpandCount[key] || TABLE3_PAGE_SIZE;
+    var visibleItems = items.slice(0, expandCount);
+    var hasMore = items.length > expandCount;
+
+    html += '<div style="margin:12px 20px;padding:8px 12px;background:' + (key.indexOf('红') >= 0 ? '#fff5f5' : key.indexOf('橙') >= 0 ? '#fff8e1' : key.indexOf('黄') >= 0 ? '#fffde7' : key.indexOf('数据') >= 0 ? '#f5f5f5' : '#f1f8e9') + ';border-radius:8px;border-left:4px solid var(--t-' + info.cls + ')">\n      <strong style="font-size:14px">' + key + '</strong>\n      <span style="font-size:12px;color:var(--gray);margin-left:8px">' + info.desc + '</span>\n      <span class="badge-risk ' + info.cls + '" style="margin-left:8px">' + items.length + '站</span>\n    </div>';
+    if (visibleItems.length > 0) {
+      html += '<table><thead><tr>\n        <th>操作</th><th>加油站</th><th>油品</th><th>当前库存(t)</th><th>罐底油(t)</th><th>有效库存(t)</th>\n        <th>可维持天数</th><th>次日预测(t)</th><th>建议配送(t)</th><th>预计断档</th>\n      </tr></thead><tbody>';
+      for (var vi = 0; vi < visibleItems.length; vi++) {
+        var o = visibleItems[vi];
+        var s = o.s, c = o.c;
+        var globalIdx = stations.indexOf(s);
+        html += '<tr>\n          <td style="white-space:nowrap">\n            <button class="btn btn-sm btn-outline" onclick="showAddStation(stations[' + globalIdx + '])" style="padding:2px 6px;font-size:11px" title="编辑">✏️</button>\n          </td>\n          <td><strong>' + s.name + '</strong></td>\n          <td>' + (s.oilRaw || s.oil) + '</td>\n          <td>' + s.curStock + '</td>\n          <td style="color:var(--danger);font-weight:600">' + c.bottomOil + '</td>\n          <td>' + c.effectiveStock + '</td>\n          <td style="font-weight:600;color:' + (c.sustainDays < 2 ? 'var(--danger)' : 'var(--orange)') + '">' + c.sustainDays + '</td>\n          <td style="color:' + (c.predStock <= c.bottomOil ? 'var(--danger)' : 'var(--success)') + '">' + c.predStock + '</td>\n          <td>' + c.suggestedDelivery + '</td>\n          <td>' + c.breakTime + '</td>\n        </tr>';
+      }
+      html += '</tbody></table>';
+      if (hasMore) {
+        html += '<div style="padding:8px 20px;text-align:center">\n          <button class="btn btn-sm btn-outline" onclick="expandTable3Group(\'' + key.replace(/'/g, "\\'") + '\')" style="padding:4px 20px;font-size:12px">📄 展开更多 (' + (items.length - expandCount) + ' 条待加载)</button>\n        </div>';
+      }
+    } else {
+      html += '<div style="padding:12px 20px;color:var(--text-light);font-size:13px">暂无站点</div>';
+    }
+  }
+
+  html += '</div>';
+  el.innerHTML = html;
+}
+
+function expandTable3Group(key) {
+  table3ExpandCount[key] = (table3ExpandCount[key] || TABLE3_PAGE_SIZE) + TABLE3_PAGE_SIZE;
+  renderTable3();
+}
+
+// ============================================================
+// TABLE 4: 区域运力测算表
+// ============================================================
+function renderTable4() {
+  const el = document.getElementById('tabContent');
+  if (!stations.length) {
+    el.innerHTML = '<div class="table-wrap"><div class="loading">暂无数据</div></div>';
+    return;
+  }
+
+  // Group by oil type for analysis
+  const gasStations = stations.filter(s => (s.oilKey||s.oil) === '汽油');
+  const dieselStations = stations.filter(s => (s.oilKey||s.oil) === '柴油');
+  const allDeliveries = stations.filter(s => compute(s).suggestedDelivery > 0);
+
+  // Use the enhanced fleet analysis
+  const predictedDeliveries = stations.map(function(s) {
+    var c = compute(s);
+    return { trips: c.trips, volume: c.suggestedDelivery, name: s.name };
+  });
+  const fleet = analyzeFleet(predictedDeliveries);
+
+  // 各片区的详细运力分析
+  var depotHtml = '';
+  var depotKeys = Object.keys(fleet.depotGroups);
+  if (depotKeys.length > 0) {
+    depotHtml = '<div class="table-wrap" style="margin-top:14px"><h2>🏭 分片区（出库油库）运力详情</h2><div class="note">各油库的实际配送运力与运距影响评估</div><table><thead><tr><th>出库油库</th><th>配送站点数</th><th>配送量(t)</th><th>所需车次</th><th>最远运距(km)</th><th>单趟耗时(h)</th></tr></thead><tbody>';
+    depotKeys.forEach(function(depot) {
+      var g = fleet.depotGroups[depot];
+      var tripHours = g.maxDist > 0 ? (g.maxDist * 2 / 60 + 1.5).toFixed(1) : '~2.0';
+      depotHtml += '<tr><td><strong>' + depot + '</strong></td><td>' + g.stations + '</td><td>' + Math.round(g.volume * 10) / 10 + '</td><td>' + g.trips + '</td><td>' + (g.maxDist || '-') + '</td><td>' + tripHours + '</td></tr>';
+    });
+    depotHtml += '</tbody></table></div>';
+  }
+
+  el.innerHTML = '<div class="fade-in"><div class="table-wrap">\n    <h2>🚛 表4：区域运力测算表（仓级计算）</h2>\n    <div class="note">每仓可配送一个站 · 双仓车(14t/仓×2)一趟配2站 · 三仓车(10t/仓×3)一趟配3站 · 单仓车(28t/车)一趟配1站</div>\n\n    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:14px;margin:0 20px 16px">\n      <div style="background:#f0f7ff;border-radius:8px;padding:14px;"><div style="font-size:12px;color:var(--gray)">📦 次日配送总需求</div><div style="font-size:22px;font-weight:700;color:var(--primary)">' + Math.round(fleet.neededVolume * 10) / 10 + ' t</div></div>\n      <div style="background:#f3e5f5;border-radius:8px;padding:14px;"><div style="font-size:12px;color:var(--gray)">⛽ 汽油配送需求</div><div style="font-size:22px;font-weight:700;color:#7b1fa2">' + fleet.gasVolume + ' t / ' + fleet.gasTrips + '仓次</div></div>\n      <div style="background:#fff3e0;border-radius:8px;padding:14px;"><div style="font-size:12px;color:var(--gray)">🛢️ 柴油配送需求</div><div style="font-size:22px;font-weight:700;color:#e65100">' + fleet.dieselVolume + ' t / ' + fleet.dieselTrips + '仓次</div></div>\n      <div style="background:#e8f5e9;border-radius:8px;padding:14px;"><div style="font-size:12px;color:var(--gray)">🚛 车队日总仓数</div><div style="font-size:22px;font-weight:700;color:var(--success)">' + fleet.totalCompsPerDay + ' 仓</div></div>\n    </div>\n\n    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:14px;margin:0 20px 16px">\n      <div style="background:#fce4ec;border-radius:8px;padding:14px;"><div style="font-size:12px;color:var(--gray)">🚚 双仓车</div><div style="font-size:18px;font-weight:700;color:#c62828">' + fleetSettings.dualVehicles + '辆 × ' + fleetSettings.dualTripsPerDay + '趟 × 2仓 = ' + fleet.dualCompsPerDay + '仓/日</div></div>\n      <div style="background:#e8eaf6;border-radius:8px;padding:14px;"><div style="font-size:12px;color:var(--gray)">🚛 三仓车</div><div style="font-size:18px;font-weight:700;color:#283593">' + fleetSettings.tripleVehicles + '辆 × ' + fleetSettings.tripleTripsPerDay + '趟 × 3仓 = ' + fleet.tripleCompsPerDay + '仓/日</div></div>\n      <div style="background:#fff3e0;border-radius:8px;padding:14px;"><div style="font-size:12px;color:var(--gray)">🚐 单仓车</div><div style="font-size:18px;font-weight:700;color:#e65100">' + fleetSettings.singleVehicles + '辆 × ' + fleetSettings.singleTripsPerDay + '趟 × 1仓 = ' + fleet.singleCompsPerDay + '仓/日</div></div>\n      <div style="background:' + (fleet.utilization > 80 ? '#fff5f5' : '#f1f8e9') + ';border-radius:8px;padding:14px;"><div style="font-size:12px;color:var(--gray)">📈 综合运力利用率</div><div style="font-size:22px;font-weight:700;color:' + (fleet.utilization > 80 ? 'var(--danger)' : 'var(--success)') + '">' + fleet.utilization + '%</div></div>\n    </div>\n\n    <table>\n      <thead><tr><th>运力指标</th><th>计算值</th><th>说明</th></tr></thead>\n      <tbody>\n        <tr><td><strong>综合运力评估</strong></td><td style="font-weight:700;font-size:16px;color:' + (fleet.verdictClass === 'red' ? 'var(--danger)' : fleet.verdictClass === 'orange' ? 'var(--orange)' : 'var(--success)') + '">' + fleet.verdict + '</td><td>' + fleet.detail + '</td></tr>\n        <tr><td><strong>最优车型匹配建议</strong></td><td>双仓' + fleet.optimalDualVehicles + '辆 + 三仓' + fleet.optimalTripleVehicles + '辆 + 单仓' + fleet.optimalSingleVehicles + '辆</td><td>8~16t/站配双仓车 · 5~12t/站配三仓车 · 15t+大站配单仓车</td></tr>\n        <tr><td><strong>汽油运力评估</strong></td><td style="font-weight:700;color:' + (fleet.gasTrips > fleet.dualCompsPerDay * 0.7 ? 'var(--orange)' : 'var(--success)') + '">' + fleet.gasTrips + '仓次 / ' + fleet.dualCompsPerDay + '双仓仓位 + ' + fleet.tripleCompsPerDay + '三仓仓位</td><td>' + (fleet.gasTrips > (fleet.dualCompsPerDay + fleet.tripleCompsPerDay) * 0.7 ? '⚠️ 需优先调配' : '✅ 充足') + '</td></tr>\n        <tr><td><strong>柴油运力评估</strong></td><td style="font-weight:700;color:' + (fleet.dieselTrips > fleet.singleCompsPerDay * 0.7 ? 'var(--orange)' : 'var(--success)') + '">' + fleet.dieselTrips + '仓次 / ' + fleet.singleCompsPerDay + '单仓仓位</td><td>' + (fleet.dieselTrips > fleet.singleCompsPerDay * 0.7 ? '⚠️ 需优先调配单仓车' : '✅ 充足') + '</td></tr>\n        <tr><td><strong>车队日总仓数</strong></td><td>' + fleet.totalCompsPerDay + ' 仓</td><td>双仓' + fleetSettings.dualVehicles + '×' + fleetSettings.dualTripsPerDay + '趟×2仓 + 三仓' + fleetSettings.tripleVehicles + '×' + fleetSettings.tripleTripsPerDay + '趟×3仓 + 单仓' + fleetSettings.singleVehicles + '×' + fleetSettings.singleTripsPerDay + '趟×1仓</td></tr>\n        <tr><td><strong>车队日最大运力（吨位）</strong></td><td>' + fleet.maxVolume + ' t</td><td>所有车型满仓满载时的总吨位</td></tr>\n        <tr><td><strong>预测所需总运力（吨位）</strong></td><td>' + Math.round(fleet.neededVolume * 10) / 10 + ' t</td><td>基于各站建议配送量汇总</td></tr>\n        <tr><td><strong>预测所需仓次</strong></td><td>' + fleet.neededTrips + ' 仓次</td><td>基于各站建议配送量÷对应仓载重</td></tr>\n        <tr><td><strong>运距影响·有效趟次</strong></td><td>' + fleet.effectiveTrips + ' 次</td><td>考虑平均运距' + fleet.avgTripHours + 'h/趟 · 日作业' + 16 + 'h的约束上限</td></tr>\n        <tr><td><strong>优化建议</strong></td><td colspan="2" style="color:var(--primary)">\n          ' + (fleet.utilization > 80 ? '🔴 运力紧张，建议：①增加双仓车或三仓车 ②提升单车趟次 ③优化线路减少空驶' :
+              fleet.utilization > 60 ? '🟡 运力尚可，建议：①预留机动运力 ②按运距优先就近配送 ③定期评估仓次利用率' :
+              '🟢 运力充裕，可：①适当降低车辆保有量降本 ②优化配送时间窗口 ③考虑承接外部配送业务') + '\n        </td></tr>\n      </tbody>\n    </table>\n  </div>' + depotHtml + '</div>';
+}
+
+// ============================================================
+// DASHBOARD: 数据看板 with Charts
+// ============================================================
+let chartInstance = null;
+
+function renderDashboard() {
+  const el = document.getElementById('tabContent');
+  if (!stations.length) {
+    el.innerHTML = '<div class="table-wrap"><div class="loading">暂无数据，请新增站点或加载示例数据</div></div>';
+    return;
+  }
+
+  const names = stations.map(s => s.name.substring(0, 6));
+  const curStocks = stations.map(s => s.curStock);
+  const bottomOils = stations.map(s => compute(s).bottomOil);
+  const safeCaps = stations.map(s => compute(s).safeCap);
+  const sustainDays = stations.map(s => compute(s).sustainDays);
+
+  el.innerHTML = `<div class="fade-in">
+    <div class="chart-row">
+      <div class="chart-card">
+        <h3>📊 各站库存水位（罐底油 vs 当前库存 vs 安全罐容）</h3>
+        <canvas id="chartStock"></canvas>
+      </div>
+      <div class="chart-card">
+        <h3>📈 各站可维持天数</h3>
+        <canvas id="chartSustain"></canvas>
+      </div>
+    </div>
+    <div class="chart-row">
+      <div class="chart-card">
+        <h3>🚛 建议配送量</h3>
+        <canvas id="chartDelivery"></canvas>
+      </div>
+      <div class="chart-card">
+        <h3>⚠️ 风险分布</h3>
+        <canvas id="chartRisk"></canvas>
+      </div>
+    </div>
+  </div>`;
+
+  // Draw charts after DOM update
+  setTimeout(function() {
+    requestAnimationFrame(function() {
+      drawCharts(names, curStocks, bottomOils, safeCaps, sustainDays);
+    });
+  }, 50);
+}
+
+function drawCharts(names, curStocks, bottomOils, safeCaps, sustainDays) {
+  if (chartInstance) { chartInstance.destroy(); chartInstance = null; }
+
+  const colors = stations.map(s => {
+    const c = compute(s);
+    if (c.riskLevel === 'red') return '#e53935';
+    if (c.riskLevel === 'orange') return '#fb8c00';
+    if (c.riskLevel === 'yellow') return '#f9a825';
+    return '#43a047';
+  });
+
+  // Stock chart
+  const ctx1 = document.getElementById('chartStock');
+  if (ctx1) {
+    new Chart(ctx1, {
+      type: 'bar',
+      data: {
+        labels: names,
+        datasets: [
+          { label: '罐底油', data: bottomOils, backgroundColor: '#ef9a9a', borderRadius: 2 },
+          { label: '当前库存', data: curStocks, backgroundColor: colors, borderRadius: 2 },
+          { label: '安全罐容', data: safeCaps, backgroundColor: '#bbdefb', borderRadius: 2 },
+        ]
+      },
+      options: {
+        responsive: true, aspectRatio: 3.5,
+        plugins: { legend: { position: 'top', labels: { boxWidth: 10, padding: 6, font: { size: 10 } } } },
+        scales: { y: { beginAtZero: true, grid: { color: '#f0f0f0' } }, x: { grid: { display: false }, ticks: { font: { size: 9 } } } }
+      }
+    });
+  }
+
+  // Sustain days chart
+  const ctx2 = document.getElementById('chartSustain');
+  if (ctx2) {
+    new Chart(ctx2, {
+      type: 'bar',
+      data: {
+        labels: names,
+        datasets: [{
+          label: '可维持天数',
+          data: sustainDays,
+          backgroundColor: sustainDays.map(d => d >= 5 ? '#43a047' : d >= 2 ? '#fb8c00' : '#e53935'),
+          borderRadius: 3,
+        }]
+      },
+      options: {
+        responsive: true, aspectRatio: 3.5,
+        plugins: { legend: { display: false } },
+        scales: { y: { beginAtZero: true, grid: { color: '#f0f0f0' } }, x: { grid: { display: false }, ticks: { font: { size: 9 } } } }
+      }
+    });
+  }
+
+  // Delivery chart
+  const ctx3 = document.getElementById('chartDelivery');
+  if (ctx3) {
+    const deliveries = stations.map(s => compute(s).suggestedDelivery);
+    new Chart(ctx3, {
+      type: 'bar',
+      data: {
+        labels: names,
+        datasets: [{
+          label: '建议配送量 (t)',
+          data: deliveries,
+          backgroundColor: deliveries.map(d => d > 0 ? '#1a73e8' : '#cfd8dc'),
+          borderRadius: 3,
+        }]
+      },
+      options: {
+        responsive: true, aspectRatio: 3.5,
+        plugins: { legend: { display: false } },
+        scales: { y: { beginAtZero: true, grid: { color: '#f0f0f0' } }, x: { grid: { display: false }, ticks: { font: { size: 9 } } } }
+      }
+    });
+  }
+
+  // Risk distribution pie chart
+  const ctx4 = document.getElementById('chartRisk');
+  if (ctx4) {
+    const counts = { '已断档': 0, '即将断档': 0, '预警': 0, '正常': 0 };
+    stations.forEach(s => { counts[compute(s).status]++; });
+    new Chart(ctx4, {
+      type: 'doughnut',
+      data: {
+        labels: ['已断档 🔴', '即将断档 🟠', '预警 🟡', '正常 🟢'],
+        datasets: [{
+          data: [counts['已断档'], counts['即将断档'], counts['预警'], counts['正常']],
+          backgroundColor: ['#e53935', '#fb8c00', '#fdd835', '#43a047'],
+          borderWidth: 2,
+          borderColor: '#fff',
+        }]
+      },
+      options: {
+        responsive: true, aspectRatio: 1.8,
+        plugins: { legend: { position: 'right', labels: { boxWidth: 10, padding: 4, font: { size: 10 } } } }
+      }
+    });
+  }
+}
+
+// ============================================================
+// MODAL
+// ============================================================
+function showAddStation(data) {
+  document.getElementById('editIdx').value = data ? stations.indexOf(data) : -1;
+  document.getElementById('modalTitle').textContent = data ? '编辑站点' : '新增站点';
+  document.getElementById('fName').value = data ? data.name : '';
+  document.getElementById('fOil').value = data ? data.oil : '汽油';
+  document.getElementById('fTotalCap').value = data ? data.totalCap : '';
+  document.getElementById('fCurStock').value = data ? data.curStock : '';
+  document.getElementById('fDailySales').value = data ? data.dailySales : '';
+  document.getElementById('fDepot').value = data ? (data.depot || '') : '';
+  document.getElementById('fDist').value = data ? (data.dist || '') : '';
+  document.getElementById('fVehicle').value = data ? (data.vehicleType || '单仓车') : '单仓车';
+  document.getElementById('fLastYear').value = data ? (data.lastYearSales || '') : '';
+  document.getElementById('fLastWeek').value = data ? (data.lastWeekSales || '') : '';
+  document.getElementById('fYesterdaySales').value = data ? (data.yesterdaySales || '') : '';
+  document.getElementById('fWeather').value = data ? (data.weather || '') : '';
+  document.getElementById('fPromotion').value = data ? (data.promotion || '') : '';
+  document.getElementById('fPromoNote').value = data ? (data.promoNote || '') : '';
+  document.getElementById('modalOverlay').classList.add('show');
+}
+
+function closeModal() {
+  document.getElementById('modalOverlay').classList.remove('show');
+}
+
+function saveStation() {
+  const name = document.getElementById('fName').value.trim();
+  const oil = document.getElementById('fOil').value;
+  const totalCap = parseFloat(document.getElementById('fTotalCap').value);
+  const curStock = parseFloat(document.getElementById('fCurStock').value);
+  const dailySales = parseFloat(document.getElementById('fDailySales').value);
+  const depot = document.getElementById('fDepot').value.trim();
+  const dist = parseFloat(document.getElementById('fDist').value) || 0;
+  const vehicleType = document.getElementById('fVehicle').value;
+  const lastYearSales = parseFloat(document.getElementById('fLastYear').value) || 0;
+  const lastWeekSales = parseFloat(document.getElementById('fLastWeek').value) || 0;
+  const yesterdaySales = parseFloat(document.getElementById('fYesterdaySales').value) || 0;
+  const weather = document.getElementById('fWeather').value;
+  const promotion = document.getElementById('fPromotion').value;
+  const promoNote = document.getElementById('fPromoNote').value.trim();
+  const idx = parseInt(document.getElementById('editIdx').value);
+
+  if (!name || isNaN(totalCap) || isNaN(curStock) || isNaN(dailySales)) {
+    alert('请填写完整信息（名称、总容、库存、日销量为必填）');
+    return;
+  }
+  if (totalCap <= 0 || curStock < 0 || dailySales <= 0) {
+    alert('数量不能为负数，日销量须大于0');
+    return;
+  }
+
+  // preserve oilRaw, oilKey, tanks from existing data, or set defaults
+  let oilRaw = '', oilKey = '汽油', tanks = [];
+  if (idx >= 0 && stations[idx]) {
+    oilRaw = stations[idx].oilRaw || '';
+    oilKey = stations[idx].oilKey || (oil.indexOf('柴油') >= 0 ? '柴油' : '汽油');
+    tanks = stations[idx].tanks || [];
+  } else {
+    oilKey = oil.indexOf('柴油') >= 0 ? '柴油' : '汽油';
+  }
+  const station = { name, oil, oilRaw, oilKey, totalCap, curStock, dailySales, depot, dist, vehicleType, lastYearSales, lastWeekSales, yesterdaySales, weather, promotion, promoNote, tanks };
+
+  if (idx >= 0) {
+    stations[idx] = station;
+  } else {
+    stations.push(station);
+  }
+
+  closeModal();
+  invalidateCache();
+  saveToLocal();
+  renderAll();
+}
+
+function deleteStation(idx) {
+  if (!confirm(`确定删除「${stations[idx].name}」？`)) return;
+  stations.splice(idx, 1);
+  invalidateCache();
+  saveToLocal();
+  renderAll();
+}
+
+// ============================================================
+// SAMPLE DATA
+// ============================================================
+function loadSampleData() {
+  alert('示例数据已移除，请使用「📥 导入库存」按钮上传您的实际数据');
+}
+
+function clearAllData() {
+  if (!confirm('确定清空所有数据？此操作不可撤销。')) return;
+  stations = [];
+  invalidateCache();
+  saveToLocal();
+  renderAll();
+}
+
+// ============================================================
+// PREDICTION TAB 销量预测 & 运力评估
+// ============================================================
+let predChart = null;
+
+function renderPrediction() {
+  const el = document.getElementById('tabContent');
+  if (!stations.length) {
+    el.innerHTML = '<div class="table-wrap"><div class="loading">暂无数据</div></div>';
+    return;
+  }
+
+  // 为每个站点做预测
+  const preds = stations.map((s, i) => {
+    const p = predictSales(s);
+    const c = compute(s);
+    // 基于预测销量的配送需求 (预测配送量 = 预测日销量)
+    // 用预测日销量替代原日销量重新计算配送需求
+    const simStation = { ...s, dailySales: p.predicted };
+    const simC = compute(simStation);
+    return { s, p, c, simC, idx: i };
+  });
+
+  // 汇总运力分析
+  const predictedDeliveries = preds.map(d => ({
+    trips: d.simC.trips,
+    volume: d.simC.suggestedDelivery,
+    name: d.s.name,
+  }));
+  const fleet = analyzeFleet(predictedDeliveries);
+
+  // 总体汇总
+  const totalCurrentSales = stations.reduce((s, st) => s + st.dailySales, 0);
+  const totalPredictedSales = preds.reduce((s, d) => s + d.p.predicted, 0);
+  const totalCurrentDelivery = stations.reduce((s, st) => s + compute(st).suggestedDelivery, 0);
+  const totalPredictedDelivery = preds.reduce((s, d) => s + d.simC.suggestedDelivery, 0);
+
+  // Predicted vs current delivery trips
+  const totalCurrentTrips = stations.reduce((s, st) => s + compute(st).trips, 0);
+  const totalPredictedTrips = preds.reduce((s, d) => s + d.simC.trips, 0);
+
+  let html = `<div class="fade-in">
+
+    <!-- Fleet verdict banner -->
+    <div style="background:var(--card);border-radius:var(--radius);box-shadow:var(--shadow);padding:16px 20px;margin-bottom:16px;border-left:6px solid ${fleet.verdictClass === 'red' ? 'var(--danger)' : fleet.verdictClass === 'orange' ? 'var(--orange)' : 'var(--success)'}">
+      <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px">
+        <div>
+          <span style="font-size:20px;font-weight:700">${fleet.verdict}</span>
+          <span style="font-size:13px;color:var(--gray);margin-left:10px">${fleet.detail}</span>
+        </div>
+        <button class="btn btn-outline" onclick="showFleetSettings()" style="font-size:12px">⚙️ 调整运力</button>
+      </div>
+    </div>
+
+    <!-- Summary cards -->
+    <div class="summary-row" style="margin-bottom:16px">
+      <div class="summary-card info"><div class="label">📊 当前日销量合计</div><div class="value">${Math.round(totalCurrentSales * 10) / 10}</div></div>
+      <div class="summary-card ${totalPredictedSales > totalCurrentSales ? 'warning' : 'info'}"><div class="label">🔮 预测日销量合计</div><div class="value">${Math.round(totalPredictedSales * 10) / 10}</div></div>
+      <div class="summary-card info"><div class="label">📦 当前配送需求</div><div class="value">${Math.round(totalCurrentDelivery * 10) / 10}t</div></div>
+      <div class="summary-card ${totalPredictedTrips > totalCurrentTrips ? 'danger' : 'success'}"><div class="label">🚛 预测所需车次</div><div class="value">${totalPredictedTrips}</div></div>
+      <div class="summary-card ${fleet.utilization > 90 ? 'danger' : fleet.utilization > 70 ? 'warning' : 'success'}"><div class="label">📈 运力利用率</div><div class="value">${fleet.utilization}%</div></div>
+      <div class="summary-card info"><div class="label">🚛 车队日最大车次</div><div class="value">${fleet.maxTrips}</div></div>
+    </div>
+
+    <!-- Per-station prediction table -->
+    <div class="table-wrap">
+      <h2>🔮 各站销量预测明细</h2>
+      <div class="note">预测模型：去年同日×${PRED_WEIGHTS.lastYear} + 上周同日×${PRED_WEIGHTS.lastWeek} + 昨日×${PRED_WEIGHTS.yesterday}，叠加天气×促销影响</div>
+      <table>
+        <thead><tr>
+          <th>加油站</th><th>油品</th><th>去年同日(t)</th><th>上周同日(t)</th><th>昨日(t)</th>
+          <th>天气</th><th>促销情报</th><th>当前日销(t)</th><th>🔮 预测日销(t)</th><th>涨跌</th>
+          <th>当前配送(t)</th><th>预测配送(t)</th><th>预测车次</th>
+        </tr></thead>
+        <tbody>${preds.map(({ s, p, c, simC, idx }) => {
+          const upliftClass = p.uplift > 0 ? 'var(--danger)' : p.uplift < 0 ? 'var(--success)' : 'var(--gray)';
+          const upliftIcon = p.uplift > 0 ? '📈' : p.uplift < 0 ? '📉' : '➡️';
+          return `<tr>
+            <td><strong>${s.name}</strong>
+              <button class="btn btn-sm btn-outline" onclick="showAddStation(stations[${idx}])" style="padding:1px 5px;font-size:10px;margin-left:4px" title="编辑预测数据">✏️</button>
+            </td>
+            <td>${s.oilRaw || s.oil}</td>
+            <td>${s.lastYearSales || '-'}</td>
+            <td>${s.lastWeekSales || '-'}</td>
+            <td>${s.yesterdaySales || '-'}</td>
+            <td>${s.weather || '-'}</td>
+            <td style="max-width:120px;white-space:normal;font-size:11px">${s.promotion || '-'}${s.promoNote ? '<br><span style="color:var(--gray)">'+s.promoNote+'</span>' : ''}</td>
+            <td>${s.dailySales}</td>
+            <td style="font-weight:700;font-size:14px;color:${upliftClass}">${p.predicted}</td>
+            <td style="color:${upliftClass};font-weight:600">${upliftIcon} ${p.uplift > 0 ? '+' : ''}${p.uplift} (${p.upliftPct}%)</td>
+            <td>${c.suggestedDelivery}</td>
+            <td>${simC.suggestedDelivery}</td>
+            <td style="text-align:center;font-weight:600">${simC.trips}</td>
+          </tr>`;
+        }).join('')}</tbody>
+      </table>
+    </div>
+
+    <!-- Fleet capacity detail -->
+    <div class="table-wrap">
+      <h2>🚛 运力评估明细（优化版）</h2>
+      <div class="note">当前车队：双仓${fleetSettings.dualVehicles}辆(14t/仓×2仓) ×${fleetSettings.dualTripsPerDay}趟 + 三仓${fleetSettings.tripleVehicles}辆(10t/仓×3仓) ×${fleetSettings.tripleTripsPerDay}趟 + 单仓${fleetSettings.singleVehicles}辆(28t) ×${fleetSettings.singleTripsPerDay}趟 · 仓级配送</div>
+      <table>
+        <thead><tr><th>指标</th><th>值</th></tr></thead>
+        <tbody>
+          <tr><td>综合运力评估</td><td style="font-weight:700;font-size:16px;color:${fleet.verdictClass === 'red' ? 'var(--danger)' : fleet.verdictClass === 'orange' ? 'var(--orange)' : 'var(--success)'}">${fleet.verdict}</td></tr>
+          <tr><td>${fleet.detail}</td><td style="font-size:12px;color:var(--gray)">详细缺口分析</td></tr>
+          <tr><td>车队日总仓数</td><td style="font-weight:700">${fleet.totalCompsPerDay} 仓</td></tr>
+          <tr><td>汽油配送需求</td><td style="font-weight:700">${fleet.gasTrips}仓次 / ${fleet.gasVolume}t</td></tr>
+          <tr><td>柴油配送需求</td><td style="font-weight:700">${fleet.dieselTrips}仓次 / ${fleet.dieselVolume}t</td></tr>
+          <tr><td>预测所需运力（吨位）</td><td style="font-weight:700">${Math.round(fleet.neededVolume * 10) / 10} t</td></tr>
+          <tr><td>预测所需仓次</td><td style="font-weight:700">${fleet.neededTrips} 仓次</td></tr>
+          <tr><td>运距约束·有效趟次上限</td><td style="font-weight:700">${fleet.effectiveTrips} 次</td></tr>
+          <tr><td>运力利用率</td><td style="font-weight:700;color:${fleet.utilization > 90 ? 'var(--danger)' : fleet.utilization > 70 ? 'var(--orange)' : 'var(--success)'}">${fleet.utilization}%</td></tr>
+          <tr><td>最优车型匹配</td><td>双仓${fleet.optimalDualVehicles}辆 + 三仓${fleet.optimalTripleVehicles}辆 + 单仓${fleet.optimalSingleVehicles}辆</td></tr>
+          <tr><td>优化建议</td><td style="color:var(--primary)">
+            ${fleet.utilization > 90 ? '🔴 运力紧张，建议增加车辆或提高单车趟次' :
+              fleet.utilization > 70 ? '🟡 运力尚可，建议预留机动运力应对突发增量' :
+              '🟢 运力充裕，可适当优化车辆调度降低成本'}
+          </td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Charts -->
+    <div class="chart-row">
+      <div class="chart-card">
+        <h3>📊 当前vs预测日销量对比</h3>
+        <canvas id="predSalesChart"></canvas>
+      </div>
+      <div class="chart-card">
+        <h3>📦 当前vs预测配送量对比</h3>
+        <canvas id="predDeliveryChart"></canvas>
+      </div>
+    </div>
+  </div>`;
+
+  el.innerHTML = html;
+  setTimeout(function() {
+    requestAnimationFrame(function() {
+      drawPredCharts(preds);
+    });
+  }, 50);
+}
+
+function drawPredCharts(preds) {
+  if (predChart) { /* destroy if needed */ }
+  const names = preds.map(d => d.s.name.substring(0, 4));
+
+  // Sales comparison chart
+  const ctx1 = document.getElementById('predSalesChart');
+  if (ctx1) {
+    new Chart(ctx1, {
+      type: 'bar',
+      data: {
+        labels: names,
+        datasets: [
+          { label: '当前日销量', data: preds.map(d => d.s.dailySales), backgroundColor: '#90caf9', borderRadius: 2 },
+          { label: '预测日销量', data: preds.map(d => d.p.predicted), backgroundColor: '#ffab91', borderRadius: 2 },
+        ]
+      },
+      options: {
+        responsive: true, aspectRatio: 3.5,
+        plugins: { legend: { position: 'top', labels: { boxWidth: 10, padding: 6, font: { size: 10 } } } },
+        scales: { y: { beginAtZero: true, grid: { color: '#f0f0f0' } }, x: { grid: { display: false }, ticks: { font: { size: 9 } } } }
+      }
+    });
+  }
+
+  // Delivery comparison chart
+  const ctx2 = document.getElementById('predDeliveryChart');
+  if (ctx2) {
+    new Chart(ctx2, {
+      type: 'bar',
+      data: {
+        labels: names,
+        datasets: [
+          { label: '当前配送量(t)', data: preds.map(d => d.c.suggestedDelivery), backgroundColor: '#81c784', borderRadius: 2 },
+          { label: '预测配送量(t)', data: preds.map(d => d.simC.suggestedDelivery), backgroundColor: '#ffcc80', borderRadius: 2 },
+        ]
+      },
+      options: {
+        responsive: true, aspectRatio: 3.5,
+        plugins: { legend: { position: 'top', labels: { boxWidth: 10, padding: 6, font: { size: 10 } } } },
+        scales: { y: { beginAtZero: true, grid: { color: '#f0f0f0' } }, x: { grid: { display: false }, ticks: { font: { size: 9 } } } }
+      }
+    });
+  }
+}
+
+// ============================================================
+// FLEET SETTINGS MODAL
+// ============================================================
+function showFleetSettings() {
+  document.getElementById('fDualNum').value = fleetSettings.dualVehicles;
+  document.getElementById('fDualTrips').value = fleetSettings.dualTripsPerDay;
+  document.getElementById('fTripleNum').value = fleetSettings.tripleVehicles;
+  document.getElementById('fTripleTrips').value = fleetSettings.tripleTripsPerDay;
+  document.getElementById('fSingleNum').value = fleetSettings.singleVehicles;
+  document.getElementById('fSingleTrips').value = fleetSettings.singleTripsPerDay;
+  document.getElementById('fleetModal').classList.add('show');
+}
+
+function closeFleetModal() {
+  document.getElementById('fleetModal').classList.remove('show');
+}
+
+function saveFleetSettings() {
+  const dv = parseInt(document.getElementById('fDualNum').value) || 0;
+  const dt = parseInt(document.getElementById('fDualTrips').value) || 1;
+  const tv = parseInt(document.getElementById('fTripleNum').value) || 0;
+  const tt = parseInt(document.getElementById('fTripleTrips').value) || 1;
+  const sv = parseInt(document.getElementById('fSingleNum').value) || 0;
+  const st = parseInt(document.getElementById('fSingleTrips').value) || 1;
+  if (dv < 0 || tv < 0 || sv < 0 || dt < 1 || tt < 1 || st < 1) { alert('请输入有效数值'); return; }
+  fleetSettings.dualVehicles = dv;
+  fleetSettings.dualTripsPerDay = dt;
+  fleetSettings.tripleVehicles = tv;
+  fleetSettings.tripleTripsPerDay = tt;
+  fleetSettings.singleVehicles = sv;
+  fleetSettings.singleTripsPerDay = st;
+  closeFleetModal();
+  saveToLocal();
+  renderAll();
+}
+
+// ============================================================
+// 导入库存 CSV/Excel
+// ============================================================
+function importInventoryFile(input) {
+  if (!input.files || !input.files.length) return;
+  var file = input.files[0];
+  var reader = new FileReader();
+  reader.onload = function(e) {
+    try {
+      var hdr, rows;
+      if (file.name.match(/\.xlsx?$/i)) {
+        if (typeof XLSX === 'undefined') { alert('XLSX库未加载，请刷新后重试'); return; }
+        var wb = XLSX.read(e.target.result, {type:'array', raw:true});
+        var ws = wb.Sheets[wb.SheetNames[0]];
+        if (!ws) { alert('无法读取工作表'); return; }
+        var json = XLSX.utils.sheet_to_json(ws, {header:1, defval:''});
+        hdr = json[0]; rows = json.slice(1);
+      } else {
+        var text = new TextDecoder('gbk').decode(e.target.result);
+        var lines = text.split(/\r?\n/).filter(function(l){return l.trim()});
+        if (lines.length < 2) { alert('文件内容不足'); return; }
+        var commaCnt = (lines[0].match(/,/g)||[]).length;
+        var tabCnt = (lines[0].match(/\t/g)||[]).length;
+        var delim = tabCnt > commaCnt ? '\t' : ',';
+        hdr = lines[0].split(delim).map(function(s){return s.trim()});
+        rows = lines.slice(1).map(function(l){return l.split(delim).map(function(s){return s.trim()})});
+      }
+      function findIdx(names) {
+        for (var i=0; i<names.length; i++) {
+          for (var hi=0; hi<hdr.length; hi++) {
+            if (hdr[hi].indexOf(names[i]) >= 0) return hi;
+          }
+        }
+        return -1;
+      }
+      var idxStation = findIdx(['加油站名称','加油站','油站名称','站点']);
+      var idxOil = findIdx(['油品','油品名称']);
+      var idxStock = findIdx(['库存量','库存','罐存']);
+      var idxSales = findIdx(['销售数量','销售量','销量','日销量']);
+      var idxSafeCap = findIdx(['安全罐容','安全容量','罐容']);
+      var idxTank = findIdx(['油罐号','罐号','罐']);
+      if (idxStation < 0 || idxOil < 0) { alert('未找到加油站名称或油品列'); return; }
+      var agg = {}, tankList = [], importedCount = 0, filterCount = 0;
+      rows.forEach(function(r) {
+        var name = (r[idxStation]||'').trim();
+        var oilRaw = (r[idxOil]||'').trim();
+        if (!name || !oilRaw) return;
+        // 过滤一体化站
+        if (name.indexOf('一体化站') >= 0) { filterCount++; return; }
+        var tankNo = idxTank>=0 ? (r[idxTank]||'') : '';
+        importedCount++;
+        var stock = parseFloat(r[idxStock]) || 0;
+        var cap = idxSafeCap>=0 ? (parseFloat(r[idxSafeCap]) || 0) : 0;
+        var sales = idxSales>=0 ? (parseFloat(r[idxSales]) || 0) : 0;
+        // 保留完整油品名称（如"92号 车用汽油(ⅥB)"），同时计算归类
+        var oilKey = oilRaw.indexOf('柴油')>=0 ? '柴油' : '汽油';
+        var key = name+'||'+oilRaw;
+        if (!agg[key]) agg[key] = {name:name, oilRaw:oilRaw, oilKey:oilKey, stock:0, cap:0, sales:0, tanks:[]};
+        agg[key].stock += stock;
+        agg[key].cap += cap;
+        if (sales > 0) agg[key].sales = sales;
+        agg[key].tanks.push({no:tankNo, stock:stock, cap:cap});
+      });
+      var newCount = 0, replaceCount = 0;
+      Object.keys(agg).forEach(function(key) {
+        var d = agg[key];
+        var literPerTon = d.oilKey === '柴油' ? 1176 : 1351;
+        var stockTons = d.stock / literPerTon;
+        var capTons = d.cap / literPerTon;
+        var salesTons = d.sales / literPerTon;
+        // Check existing by name+oilRaw (preserve detailed name for matching)
+        var existing = -1;
+        for (var i=0; i<stations.length; i++) {
+          if (stations[i].name === d.name && stations[i].oilRaw === d.oilRaw) { existing = i; break; }
+        }
+        // Also try match by name+oilKey (for partial matching)
+        if (existing < 0) {
+          for (var i=0; i<stations.length; i++) {
+            if (stations[i].name === d.name && stations[i].oilKey === d.oilKey) { existing = i; break; }
+          }
+        }
+        var st = {
+          name: d.name, oilRaw: d.oilRaw, oilKey: d.oilKey,
+          oil: d.oilKey, // keep backward compat
+          totalCap: Math.round(capTons * 1.1), safeCap: Math.round(capTons),
+          curStock: Math.round(stockTons * 10) / 10,
+          dailySales: Math.round(salesTons * 10) / 10,
+          bottomOil: Math.round(capTons * 0.09 * 10) / 10,
+          tanks: d.tanks.map(function(t){return{no:t.no, stock:Math.round(t.stock/literPerTon*100)/100, cap:Math.round(t.cap/literPerTon*100)/100}}),
+          depot: '', dist: 0, vehicleType: '单仓车',
+          lastYearSales: 0, lastWeekSales: 0, yesterdaySales: 0, weather: '', promotion: '', promoNote: ''
+        };
+        if (existing >= 0) { stations[existing] = st; replaceCount++; }
+        else { stations.push(st); newCount++; }
+      });
+      invalidateCache();
+      saveToLocal(); renderAll(); input.value = '';
+      var filterMsg = filterCount > 0 ? '（已过滤 '+filterCount+' 条一体化站记录）' : '';
+      alert('导入完成！新增 '+newCount+' 个油品，更新 '+replaceCount+' 个，共 '+importedCount+' 条罐记录。'+filterMsg);
+    } catch(e) { alert('导入失败：'+e.message); console.error(e); }
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+// ============================================================
+// 实时天气获取（基于 wttr.in 免费API，无需Key）
+// ============================================================
+// 天气条件映射：wttr.in 返回的 weatherDesc 到本地条件
+function mapWeatherCondition(wttrCode, tempC) {
+  // 根据温度判断高/严寒
+  if (tempC >= 35) return '🌡️ 高温(≥35°C)';
+  if (tempC <= 0) return '🥶 严寒(≤0°C)';
+  // 根据天气代码
+  var code = parseInt(wttrCode) || 0;
+  // https://www.weatherapi.com/docs/weather_conditions.json
+  if ([1000, 1003].indexOf(code) >= 0) return '☀️ 晴天';       // Sunny, Partly cloudy
+  if ([1006, 1009, 1030].indexOf(code) >= 0) return '⛅ 多云';   // Cloudy, Overcast, Mist
+  if ([1063, 1150, 1153, 1168, 1171, 1180, 1183, 1186, 1189, 1192, 1195, 1240, 1243, 1246].indexOf(code) >= 0) return '🌧️ 雨天'; // Rain
+  if ([1087, 1273, 1276, 1279, 1282].indexOf(code) >= 0) return '⛈️ 暴雨'; // Thunder
+  if ([1066, 1114, 1117, 1204, 1207, 1210, 1213, 1216, 1219, 1222, 1225, 1255, 1258].indexOf(code) >= 0) return '❄️ 雪天'; // Snow
+  if ([1135, 1147].indexOf(code) >= 0) return '🌫️ 雾霾';       // Fog
+  return '☀️ 晴天'; // default
+}
+
+function fetchWeatherForAll() {
+  var uniqueRegions = {};
+  stations.forEach(function(s) {
+    // 优先使用油库名称或运距关联区域；无则跳过
+    var region = s.depot || '';
+    if (region && !uniqueRegions[region]) uniqueRegions[region] = [];
+    if (region) uniqueRegions[region].push(s);
+  });
+
+  var regionNames = Object.keys(uniqueRegions);
+  if (regionNames.length === 0) {
+    alert('没有站点设置了出库油库，请在站点编辑中添加「最优出库油库」字段以自动获取天气');
+    return;
+  }
+
+  var btn = document.querySelector('[onclick="fetchWeatherForAll()"]');
+  if (btn) { btn.textContent = '⏳ 获取中...'; btn.disabled = true; }
+
+  var completed = 0;
+  var total = regionNames.length;
+  var weatherResults = {};
+
+  regionNames.forEach(function(region) {
+    // 提取油库名的区域部分（取前2个中文字符作为城市名搜索）
+    var query = encodeURIComponent(region);
+    var url = 'https://wttr.in/' + query + '?format=j1';
+    fetch(url)
+      .then(function(r) { return r.json(); })
+      .then(function(data) {
+        try {
+          var cur = data.current_condition && data.current_condition[0];
+          if (cur) {
+            var tempC = parseInt(cur.temp_C) || 20;
+            var code = cur.weatherCode || 1000;
+            var condition = mapWeatherCondition(code, tempC);
+            weatherResults[region] = {
+              condition: condition,
+              temp: cur.temp_C + '°C',
+              humidity: cur.humidity + '%',
+              wind: cur.windspeedKmph + 'km/h',
+              desc: cur.weatherDesc && cur.weatherDesc[0] ? cur.weatherDesc[0].value : '',
+            };
+            // 应用天气到该油库的所有站点
+            uniqueRegions[region].forEach(function(s) {
+              s.weather = condition;
+            });
+          }
+        } catch(e) { console.warn('天气解析失败:', region, e); }
+        completed++;
+        if (completed >= total) {
+          saveToLocal();
+          renderAll();
+          if (btn) { btn.textContent = '🌤 实时天气'; btn.disabled = false; }
+          var msg = '✅ 天气获取完成！\n';
+          Object.keys(weatherResults).forEach(function(r) {
+            msg += '\n' + r + ': ' + weatherResults[r].condition + ' ' + weatherResults[r].temp;
+          });
+          alert(msg);
+        }
+      })
+      .catch(function(err) {
+        console.warn('天气获取失败:', region, err);
+        completed++;
+        if (completed >= total) {
+          saveToLocal();
+          renderAll();
+          if (btn) { btn.textContent = '🌤 实时天气'; btn.disabled = false; }
+          alert('部分天气获取失败，已应用成功获取的部分');
+        }
+      });
+  });
+}
+function exportData() {
+  if (!stations.length) { alert('暂无数据可导出'); return; }
+  const rows = [['加油站','油品','总容(t)','安全罐容(t)','罐底油(t)','7点库存(t)','最大可卸(t)','日销量(t)','有效库存(t)','可维持天数','次日预测(t)','建议配送(t)','所需车次','风险状态','紧急等级']];
+  stations.forEach(s => {
+    const c = compute(s);
+    rows.push([s.name, s.oilRaw || s.oil, s.totalCap, c.safeCap, c.bottomOil, s.curStock, c.maxDischarge, s.dailySales, c.effectiveStock, c.sustainDays, c.predStock, c.suggestedDelivery, c.trips, c.status, c.urgency]);
+  });
+  const csv = rows.map(r => r.map(v => typeof v === 'string' ? `"${v}"` : v).join(',')).join('\n');
+  const bom = '\uFEFF';
+  const blob = new Blob([bom + csv], { type: 'text/csv;charset=utf-8;' });
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = '加油站配送数据_' + new Date().toISOString().slice(0,10) + '.csv'; a.click();
+  URL.revokeObjectURL(a.href);
+}
+
+// ============================================================
+// PERSISTENCE
+// ============================================================
+function saveToLocal() {
+  localStorage.setItem('gasStationData', JSON.stringify(stations));
+  localStorage.setItem('fleetSettings', JSON.stringify(fleetSettings));
+}
+
+function loadFromLocal() {
+  try {
+    const d = localStorage.getItem('gasStationData');
+    if (d) stations = JSON.parse(d);
+    const f = localStorage.getItem('fleetSettings');
+    if (f) fleetSettings = JSON.parse(f);
+  } catch(e) {}
+}
+
+// ============================================================
+// INIT
+// ============================================================
+loadFromLocal();
+updateTime();
+setInterval(updateTime, 10000);
+// 版本标识 - 帮助用户确认是否最新版本
+document.getElementById('versionBadge').textContent = 'v2.7 build ' + new Date().toISOString().slice(0,10);
+
+// Close modals on overlay click
+document.getElementById('modalOverlay').addEventListener('click', function(e) {
+  if (e.target === this) closeModal();
+});
+document.getElementById('fleetModal').addEventListener('click', function(e) {
+  if (e.target === this) closeFleetModal();
+});
+
+renderAll();
+</script>
+</body>
+</html>

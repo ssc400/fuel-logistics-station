@@ -1,0 +1,1897 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>GPS轨迹核查</title>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<script src="js/account.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,'Microsoft YaHei',sans-serif;background:#F5F0EB;color:#333;padding:10px;font-size:12px}
+.ubar{display:flex;align-items:center;gap:8px;padding:6px 12px;background:#fff;border-radius:6px;border:1px solid #E0D5C8;margin-bottom:8px;flex-wrap:wrap}
+.ubtn{display:inline-flex;align-items:center;gap:4px;padding:5px 12px;border:1px dashed #aaa;border-radius:12px;cursor:pointer;background:#f9fafb;font-size:12px;color:#666}
+.ubtn:hover{border-color:#3A5C4A;color:#3A5C4A;background:#FBF0ED}
+.ubtn.ok{border-color:#C49A4A;color:#C49A4A;background:#f0faf5}
+.ubtn.del{border-color:#C65D52;color:#C65D52}
+.ubtn.del:hover{border-color:#c0392b;color:#c0392b;background:#fdf0ef}
+.uinfo{font-size:11px;color:#888;margin-left:auto}
+.fbar{display:flex;flex-wrap:wrap;gap:6px;align-items:center;padding:6px 10px;background:#fff;border-radius:6px;border:1px solid #E0D5C8;margin-bottom:8px}
+.fbar .fl{font-size:11px;color:#888;font-weight:500}
+.sg{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:6px;margin-bottom:8px}
+.sc{background:#fff;border-radius:6px;padding:10px 14px;text-align:center;box-shadow:0 1px 3px rgba(0,0,0,.05)}
+.sc .sl{font-size:10px;color:#888;margin-bottom:3px}
+.sc .sv{font-size:20px;font-weight:700;line-height:1.2}
+.sc .sv.bl{color:#3A5C4A}.sc .sv.or{color:#e67e22}.sc .sv.rd{color:#C65D52}.sc .sv.gn{color:#3A5C4A}
+.sc .sub{font-size:9px;color:#999;margin-top:2px}
+.tw{background:#fff;border-radius:6px;overflow:auto;box-shadow:0 1px 3px rgba(0,0,0,.05);margin-bottom:8px}
+.tw table{width:100%;border-collapse:collapse;font-size:11px}
+.tw th{padding:6px 8px;background:#f5f7fa;border-bottom:2px solid #E0D5C8;font-weight:600;font-size:10px;color:#555;text-align:center;white-space:nowrap}
+.tw td{padding:5px 8px;border-bottom:1px solid #f0f0f0;text-align:center;white-space:nowrap}
+.tw tr:hover td{background:#fafbfc}
+.tw td.l{text-align:left}.tw td.r{text-align:right;font-weight:600}
+.yb{display:inline-block;padding:1px 5px;border-radius:3px;font-size:9px;font-weight:600;margin:0 1px}
+.yb.ok{background:#e8f5e9;color:#2e7d32}.yb.mid{background:#fff7e6;color:#d48806}.yb.no{background:#ffebee;color:#c62828}
+.yb.flat{background:#f0f0f0;color:#bbb}
+/* 多选下拉组件 */
+.ms-wrap{position:relative;display:inline-block;min-width:80px;max-width:200px}
+.ms-trigger{border:1px solid #e2e8f0;border-radius:6px;padding:5px 10px;font-size:12px;background:#fff;cursor:pointer;display:inline-flex;align-items:center;gap:6px;white-space:nowrap;user-select:none;max-width:100%;min-height:28px}
+.ms-trigger span:first-child{overflow:hidden;text-overflow:ellipsis;max-width:140px;display:inline-block;vertical-align:middle}
+.ms-trigger:hover{border-color:#3A5C4A}
+.ms-trigger .ms-arrow{font-size:8px;color:#a0aec0;transition:transform .15s}
+.ms-wrap.open .ms-trigger{border-color:#3A5C4A}
+.ms-wrap.open .ms-arrow{transform:rotate(180deg)}
+.ms-dd{position:absolute;top:100%;left:0;min-width:170px;background:#fff;border:1px solid #e2e8f0;border-radius:8px;box-shadow:0 4px 16px rgba(0,0,0,.12);z-index:1000;padding:6px 0;margin-top:4px;max-height:260px;overflow-y:auto;display:none}
+.ms-dd label{display:flex;align-items:center;gap:6px;padding:6px 12px;font-size:12px;cursor:pointer;color:#4a5568;font-weight:400;border-bottom:1px solid #f7fafc}
+.ms-dd label:last-child{border-bottom:none}
+.ms-dd label:hover{background:#ebf8ff}
+.ms-dd input[type=checkbox]{width:14px;height:14px;accent-color:#3A5C4A;cursor:pointer;margin:0;flex-shrink:0}
+.ms-dd .ms-all{color:#3A5C4A;font-weight:500;border-bottom:1px solid #e2e8f0;padding:6px 12px 7px;margin-bottom:2px}
+/* 多选同步提示动画 */
+@keyframes msFlash{0%{opacity:1}30%{opacity:.5;border-color:#3A5C4A}100%{opacity:1}}
+.ms-flash{animation:msFlash .4s ease}
+</style>
+</head>
+<body>
+<!-- 用户状态栏 -->
+<div class="ubar" style="margin-bottom:4px;padding:3px 10px;background:#F0EDE0;font-size:11px">
+  <span>🛢️ GPS轨迹核查</span>
+  <span style="font-size:9px;color:#bbb;margin-left:4px" id="pageVer">v2026.06.29d</span>
+  <span style="font-size:9px;color:#e8cfa0;cursor:pointer;margin-left:2px" onclick="showDebug()" title="地址匹配诊断">🔍</span>
+  <span style="margin-left:auto;display:flex;align-items:center;gap:8px" id="userArea">
+    <span id="userStatus" style="color:#888">👤 本地用户</span>
+  </span>
+</div>
+<!-- 地址匹配诊断测试区 -->
+<div style="margin-bottom:6px;background:#fff8f0;border:1px solid #e8cfa0;border-radius:6px;padding:6px 10px;display:none" id="debugArea">
+  <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-bottom:4px">
+    <span style="font-size:11px;font-weight:600;color:#b8860b">🔍 地址匹配诊断</span>
+    <span style="font-size:9px;color:#bbb">粘贴配送地址和GPS地址，点击测试查看匹配详情</span>
+  </div>
+  <div style="display:flex;gap:6px;flex-wrap:wrap">
+    <input id="dbgDelAddr" placeholder="配送地址（如：平乐县平乐镇）" style="flex:2;min-width:200px;padding:4px 8px;border:1px solid #ddd;border-radius:4px;font-size:11px">
+    <input id="dbgGpsAddr" placeholder="GPS地址" style="flex:2;min-width:200px;padding:4px 8px;border:1px solid #ddd;border-radius:4px;font-size:11px">
+    <span class="ubtn" onclick="testMatch()" style="padding:3px 15px;background:#b8860b;color:#fff;border-color:#b8860b;font-size:11px">▶ 测试匹配</span>
+    <span class="ubtn" onclick="hideDebug()" style="padding:3px 10px;font-size:10px">✕ 关闭</span>
+  </div>
+  <div id="dbgResult" style="margin-top:4px;font-size:11px;line-height:1.6;display:none;background:#fff;border-radius:4px;padding:6px 10px"></div>
+</div>
+<!-- 简化的操作栏，每个按钮独立触发不会相互影响 -->
+<div class="ubar" style="margin-bottom:4px">
+  <span class="ubtn" onclick="clickUpload('csvFile')">📄 上传配送计划CSV</span>
+  <span class="ubtn" onclick="clickUpload('gpsFiles')">🛰️ 上传GPS文件(.xlsx)</span>
+  <span class="ubtn" onclick="clickUpload('gpsZip')">📦 上传压缩包(.zip/.rar)</span>
+  <span class="ubtn" onclick="clickUpload('gpsFolder')">📁 上传文件夹</span>
+  <span class="ubtn" onclick="clickUpload('depotFile')" id="depotBtn">🏭 上传油库出库点</span>
+  <span class="ubtn" onclick="startVerify()" style="background:#3A5C4A;color:#fff;border-color:#3A5C4A">▶ 开始核查</span>
+  <span class="ubtn del" onclick="resetAll()">🗑 重置</span>
+  <span class="ubtn" onclick="restoreAllData()" style="color:#3A5C4A;border-color:#3A5C4A">📂 恢复数据</span>
+  <span class="uinfo" id="infoBar">请上传CSV和GPS文件后点击▶开始核查</span>
+</div>
+<!-- 公司筛选栏 -->
+<div class="ubar" style="margin-bottom:4px;padding:4px 10px;background:#FAFAF8">
+  <span style="font-size:11px;color:#888;font-weight:500">🏢 需要匹配的公司:</span>
+  <div class="ms-wrap" id="msCompany"></div>
+  <span id="companyInfo" style="font-size:10px;color:#aaa">（请先上传CSV）</span>
+</div>
+<!-- 隐藏的文件输入框 - 使用position:absolute移出可视区域而非display:none，部分浏览器阻止display:none元素的click() -->
+<div style="position:absolute;left:-9999px;top:-9999px;width:0;height:0;overflow:hidden">
+  <input type="file" id="csvFile" accept=".csv">
+  <input type="file" id="gpsFiles" accept=".xlsx,.xls" multiple>
+  <input type="file" id="gpsZip" accept=".zip,.rar">
+  <input type="file" id="gpsFolder" webkitdirectory multiple>
+  <input type="file" id="depotFile" accept=".xlsx,.xls">
+</div>
+<!-- 统计卡片（静态，不随筛选重建） -->
+<div class="sg" style="grid-template-columns:repeat(4,1fr);margin-bottom:8px">
+  <div class="sc"><div class="sl">📄 配送计划</div><div class="sv bl" id="csvCount">0</div><div class="sub" id="csvInfo">未上传</div></div>
+  <div class="sc"><div class="sl">🚛 车辆数</div><div class="sv or" id="vehCount">0</div><div class="sub">辆</div></div>
+  <div class="sc"><div class="sl">🛰️ GPS数据</div><div class="sv pu" id="gpsCount">0</div><div class="sub" id="gpsInfo">台车</div></div>
+  <div class="sc"><div class="sl">🎯 匹配结果</div><div class="sv gn" id="matchCount">-</div><div class="sub" id="matchSub">待核查</div></div>
+</div>
+<!-- 结果统计卡片（动态更新） -->
+<div id="resultStats"></div>
+<!-- 分公司筛选栏（独立于结果区，避免重建） -->
+<div class="fbar" id="branchFilterBar" style="display:none">
+  <span class="fl">🏢 分公司筛选:</span>
+  <div class="ms-wrap" id="msBranchFilter"></div>
+  <span style="font-size:11px;color:#888;margin-left:4px" id="filterResultCount">—</span>
+  <span class="ubtn" onclick="exportResults()" style="color:#3A5C4A;border-color:#3A5C4A;padding:3px 12px;font-size:10px;margin-left:auto">⬇ 导出</span>
+  <span class="ubtn" onclick="exportUnmatched()" style="color:#C65D52;border-color:#C65D52;padding:3px 12px;font-size:10px">⬇ 未匹配</span>
+</div>
+<div id="resultArea"></div>
+
+<script>
+// ====== 全局变量 ======
+var deliveryRecords = [];
+var gpsData = {};
+var _lastResults = [];
+var _lastUnmatched = [];
+var depotLocations = []; // [{addr:'', name:'', province, city, district, town}]
+var _uploadInfo = {csvName:'', csvTime:'', gpsCount:0, gpsTime:''}; // 上传信息
+var _lastFR = []; // 缓存完整匹配成功数据（供"查看全部"使用）
+var _lastFU = []; // 缓存完整未匹配数据
+
+// ====== IndexedDB 持久化存储 ======
+var DB_NAME = 'GPSVerificationDB', DB_VER = 1;
+function openDB() {
+  return new Promise(function(resolve, reject) {
+    var req = indexedDB.open(DB_NAME, DB_VER);
+    req.onupgradeneeded = function(e) {
+      var db = e.target.result;
+      if(!db.objectStoreNames.contains('kv')) db.createObjectStore('kv');
+    };
+    req.onsuccess = function(e) { resolve(e.target.result); };
+    req.onerror = function(e) { reject(e.target.error); };
+  });
+}
+function dbSet(key, val) {
+  return openDB().then(function(db) {
+    return new Promise(function(resolve, reject) {
+      var tx = db.transaction('kv', 'readwrite');
+      tx.objectStore('kv').put(val, key);
+      tx.oncomplete = function() { db.close(); resolve(); };
+      tx.onerror = function(e) { db.close(); reject(e.target.error); };
+    });
+  });
+}
+function dbGet(key) {
+  return openDB().then(function(db) {
+    return new Promise(function(resolve, reject) {
+      var tx = db.transaction('kv', 'readonly');
+      var req = tx.objectStore('kv').get(key);
+      req.onsuccess = function() { resolve(req.result); db.close(); };
+      req.onerror = function(e) { reject(e.target.error); db.close(); };
+    });
+  });
+}
+function dbDel(key) {
+  return openDB().then(function(db) {
+    return new Promise(function(resolve, reject) {
+      var tx = db.transaction('kv', 'readwrite');
+      tx.objectStore('kv').delete(key);
+      tx.oncomplete = function() { db.close(); resolve(); };
+      tx.onerror = function(e) { db.close(); reject(e.target.error); };
+    });
+  });
+}
+function dbClear() {
+  return openDB().then(function(db) {
+    return new Promise(function(resolve, reject) {
+      var tx = db.transaction('kv', 'readwrite');
+      tx.objectStore('kv').clear();
+      tx.oncomplete = function() { db.close(); resolve(); };
+      tx.onerror = function(e) { db.close(); reject(e.target.error); };
+    });
+  });
+}
+
+// 保存全部数据到 IndexedDB
+function persistAllData() {
+  return Promise.all([
+    dbSet('deliveryRecords', deliveryRecords),
+    dbSet('gpsData', gpsData),
+    dbSet('depotLocations', depotLocations),
+    dbSet('_uploadInfo', _uploadInfo),
+    dbSet('_branchFilterVals', _branchFilterVals)
+  ]).then(function() {
+    console.log('数据已持久化保存到本地');
+  }).catch(function(e) {
+    console.warn('数据保存失败:', e);
+  });
+}
+
+// 从 IndexedDB 恢复所有数据
+function restoreAllData() {
+  return Promise.all([
+    dbGet('deliveryRecords'),
+    dbGet('gpsData'),
+    dbGet('depotLocations'),
+    dbGet('_uploadInfo'),
+    dbGet('_branchFilterVals')
+  ]).then(function(results) {
+    if(results[0]) { deliveryRecords = results[0]; }
+    if(results[1]) { gpsData = results[1]; }
+    if(results[2]) { depotLocations = results[2]; }
+    if(results[3]) { _uploadInfo = results[3]; }
+    if(results[4] && results[4].length) { _branchFilterVals = results[4]; }
+    
+    var hasData = deliveryRecords.length > 0 || Object.keys(gpsData).length > 0;
+    if(hasData) {
+      console.log('已从本地恢复数据: 配送计划='+deliveryRecords.length+'条, GPS='+Object.keys(gpsData).length+'台车, 油库='+depotLocations.length+'个');
+      // 更新界面统计
+      updateStats();
+      // 更新油库按钮状态
+      if(depotLocations.length) {
+        var btn = document.getElementById('depotBtn');
+        if(btn) { btn.textContent = '✓ 油库已加载('+depotLocations.length+'个)'; btn.className = 'ubtn ok'; }
+      }
+      // 如果有上次的核查结果，显示恢复消息
+      document.getElementById('infoBar').textContent = '📂 已恢复上次数据：'+deliveryRecords.length+'条配送计划，'+Object.keys(gpsData).length+'台车GPS';
+    }
+    return hasData;
+  }).catch(function(e) {
+    console.warn('数据恢复失败:', e);
+    return false;
+  });
+}
+
+// ====== 统一触发文件选择 ======
+function clickUpload(id) {
+  console.log('[clickUpload] 触发文件选择:', id);
+  var cfg = {
+    csvFile: { accept:'.csv', multi:false, handler: function(f){ loadCSV(f); } },
+    gpsFiles: { accept:'.xlsx,.xls', multi:true, handler: function(fl){ loadGPSxlsx(Array.prototype.slice.call(fl)); } },
+    gpsZip: { accept:'.zip,.rar', multi:false, handler: function(f){ loadArchive(f); } },
+    gpsFolder: { accept:'', multi:true, folder:true, handler: function(fl){
+      var xlsx = Array.prototype.slice.call(fl).filter(function(f){ return f.name.match(/\.xlsx?$/i) && !f.name.startsWith('~$'); });
+      if(!xlsx.length) { alert('文件夹中未找到xlsx文件'); return; }
+      loadGPSxlsx(xlsx);
+    }},
+    depotFile: { accept:'.xlsx,.xls', multi:false, handler: function(f){ loadDepotFile(f); } }
+  };
+  var c = cfg[id];
+  if(!c) { alert('未知的文件类型: '+id); return; }
+
+  // 方法1：尝试使用页面中已有的隐藏input
+  var existingInput = document.getElementById(id);
+  if(existingInput) {
+    // 清除旧的事件监听器（通过克隆替换）
+    var newInput = existingInput.cloneNode(true);
+    existingInput.parentNode.replaceChild(newInput, existingInput);
+    // 重新设置属性
+    newInput.id = id;
+    if(c.accept) newInput.accept = c.accept;
+    if(c.multi) newInput.multiple = true;
+    if(c.folder) newInput.webkitdirectory = true;
+    newInput.addEventListener('change', function(e){
+      console.log('[fileChange] 文件已选择:', id, this.files.length, '个文件');
+      if(!this.files || !this.files.length) return;
+      if(c.multi) c.handler(this.files);
+      else c.handler(this.files[0]);
+    });
+    try {
+      newInput.click();
+      console.log('[clickUpload] input.click() 成功 (方法1-已有元素)');
+      return;
+    } catch(e1) {
+      console.warn('[clickUpload] 方法1失败:', e1.message);
+    }
+  }
+
+  // 方法2：动态创建全新的input（备用方案）
+  console.log('[clickUpload] 使用方法2: 动态创建input');
+  var input = document.createElement('input');
+  input.type = 'file';
+  if(c.accept) input.accept = c.accept;
+  if(c.multi) input.multiple = true;
+  if(c.folder) input.webkitdirectory = true;
+  // 关键：让input可见但不遮挡用户视线（某些浏览器要求input必须可见才能触发click）
+  input.style.cssText = 'position:fixed;left:0;top:0;width:1px;height:1px;opacity:0;overflow:hidden;z-index:999999;pointer-events:auto';
+  document.body.appendChild(input);
+  input.addEventListener('change', function(e){
+    console.log('[fileChange] 文件已选择(动态):', id, this.files.length, '个文件');
+    if(!this.files || !this.files.length) { document.body.removeChild(input); return; }
+    if(c.multi) c.handler(this.files);
+    else c.handler(this.files[0]);
+    setTimeout(function(){ if(input.parentNode) document.body.removeChild(input); }, 100);
+  });
+  setTimeout(function(){
+    try {
+      input.click();
+      console.log('[clickUpload] input.click() 成功 (方法2-动态创建)');
+    } catch(e2) {
+      console.error('[clickUpload] 两种方法都失败了!', e2.message);
+      document.body.removeChild(input);
+      alert('无法打开文件选择对话框，请检查浏览器权限设置');
+    }
+  }, 10);
+}
+
+// ========== 多选下拉组件 ==========
+var _msState={};
+function initMultiSelect(id,items,onChange){
+  var wrap=document.getElementById(id);
+  if(!wrap)return;
+  var state={items:items||[],vals:(items||[]).map(function(i){return i.value;}),onChange:onChange||function(){},ddId:'msdd_'+id};
+  _msState[id]=state;
+  renderMS(id);
+}
+function getMSText(id,s){
+  var cnt=s.vals.length,tot=s.items.length;
+  if(cnt===0) return '(全不选)';
+  if(cnt===tot) return '全部('+tot+')';
+  var labels=[];
+  s.items.forEach(function(item){if(s.vals.indexOf(item.value)>=0) labels.push(item.label);});
+  if(labels.length<=3) return labels.join('、');
+  return '已选'+cnt+'项';
+}
+function renderMS(id){
+  var s=_msState[id];if(!s)return;
+  var wrap=document.getElementById(id);if(!wrap)return;
+  var cnt=s.vals.length,tot=s.items.length;
+  var txt=getMSText(id,s);
+  wrap.innerHTML='<div class="ms-trigger" onclick="event.stopPropagation();toggleMSDrop(\''+id+'\')"><span>'+txt+'</span><span class="ms-arrow">▼</span></div>'+
+    '<div class="ms-dd" id="'+s.ddId+'">'+
+    '<label class="ms-all" onmousedown="event.preventDefault();msToggleAll(\''+id+'\')">'+
+    '<input type="checkbox"'+(cnt===tot&&tot>0?' checked':'')+'> 全选</label>'+
+    s.items.map(function(i){
+      var ck=s.vals.indexOf(i.value)>=0?' checked':'';
+      return '<label onmousedown="event.preventDefault();msToggleVal(\''+id+'\',\''+i.value.replace(/'/g,"\\'")+'\')">'+
+        '<input type="checkbox"'+ck+'> '+i.label+'</label>';
+    }).join('')+'</div>';
+}
+function toggleMSDrop(id){
+  var s=_msState[id];if(!s)return;
+  var dd=document.getElementById(s.ddId);if(!dd)return;
+  var show=dd.style.display!=='block';
+  document.querySelectorAll('.ms-dd').forEach(function(el){el.style.display='none';});
+  document.querySelectorAll('.ms-wrap').forEach(function(el){el.classList.remove('open');});
+  if(show){dd.style.display='block';document.getElementById(id).classList.add('open');}
+}
+function msToggleVal(id,val){
+  var s=_msState[id];if(!s)return;
+  var idx=s.vals.indexOf(val);
+  if(idx>=0)s.vals.splice(idx,1);else s.vals.push(val);
+  var dd=document.getElementById(s.ddId);
+  if(dd){
+    var cbs=dd.querySelectorAll('input[type=checkbox]');
+    cbs.forEach(function(cb,i){
+      if(i===0) cb.checked=s.vals.length===s.items.length;
+      else{var item=s.items[i-1];if(item) cb.checked=s.vals.indexOf(item.value)>=0;}
+    });
+  }
+  var wrap=document.getElementById(id);
+  if(wrap){var txt=getMSText(id,s);var t=wrap.querySelector('.ms-trigger span:first-child');if(t) t.textContent=txt;}
+  // 闪烁提示选择已变更
+  if(wrap){var trig=wrap.querySelector('.ms-trigger');if(trig){trig.classList.remove('ms-flash');void trig.offsetWidth;trig.classList.add('ms-flash');}}
+  s.onChange(s.vals.slice());
+}
+function msToggleAll(id){
+  var s=_msState[id];if(!s)return;
+  var dd=document.getElementById(s.ddId);
+  var allCb=dd&&dd.querySelector('.ms-all input');
+  if(allCb&&allCb.checked) s.vals=[];else s.vals=s.items.map(function(i){return i.value;});
+  if(dd){dd.querySelectorAll('input[type=checkbox]').forEach(function(cb){cb.checked=!allCb||!allCb.checked;});}
+  var wrap=document.getElementById(id);
+  if(wrap){var txt=getMSText(id,s);var t=wrap.querySelector('.ms-trigger span:first-child');if(t) t.textContent=txt;}
+  // 闪烁提示选择已变更
+  if(wrap){var trig=wrap.querySelector('.ms-trigger');if(trig){trig.classList.remove('ms-flash');void trig.offsetWidth;trig.classList.add('ms-flash');}}
+  s.onChange(s.vals.slice());
+}
+function getMSVals(id){var s=_msState[id];return s?s.vals.slice():[];}
+function setMSItems(id,newItems){
+  var s=_msState[id];if(!s)return;
+  var changed=false;
+  if(s.items.length!==newItems.length)changed=true;
+  else{for(var si=0;si<s.items.length;si++){if(s.items[si].value!==newItems[si].value||s.items[si].label!==newItems[si].label){changed=true;break;}}}
+  s.items=newItems;
+  var valid={};newItems.forEach(function(i){valid[i.value]=true;});
+  s.vals=s.vals.filter(function(v){return valid[v];});
+  if(s.vals.length===0&&newItems.length>0) s.vals=newItems.map(function(i){return i.value;});
+  if(changed) renderMS(id);
+  else{var wrap=document.getElementById(id);if(wrap){var txt=getMSText(id,s);var t=wrap.querySelector('.ms-trigger span:first-child');if(t) t.textContent=txt;}}
+}
+document.addEventListener('click',function(e){
+  if(!e.target.closest('.ms-wrap')){
+    document.querySelectorAll('.ms-dd').forEach(function(el){el.style.display='none';});
+    document.querySelectorAll('.ms-wrap').forEach(function(el){el.classList.remove('open');});
+  }
+});
+
+// ====== 状态更新 ======
+function updateStats() {
+  document.getElementById('csvCount').textContent = deliveryRecords.length;
+  document.getElementById('csvInfo').textContent = deliveryRecords.length ? '条配送计划' : '未上传';
+  var plates = {};
+  deliveryRecords.forEach(function(r) { plates[r.plate] = 1; });
+  document.getElementById('vehCount').textContent = Object.keys(plates).length;
+  var gpsCount = Object.keys(gpsData).length;
+  document.getElementById('gpsCount').textContent = gpsCount;
+  document.getElementById('gpsInfo').textContent = gpsCount ? '台车' : '未上传';
+  
+  // 更新公司多选下拉列表
+  var companies = {};
+  deliveryRecords.forEach(function(r){ if(r.branch) companies[r.branch]=1; });
+  var names = Object.keys(companies).sort();
+  var items = names.map(function(n){ return {value:n, label:n}; });
+  if(items.length) {
+    initMultiSelect('msCompany', items, function(){});
+    document.getElementById('companyInfo').textContent = '共 '+(names.length)+' 家公司，'+Object.keys(plates).length+' 辆车';
+  } else {
+    document.getElementById('companyInfo').textContent = '（请先上传CSV）';
+  }
+}
+
+// ====== 油库出库点解析 ======
+function loadDepotFile(file) {
+  document.getElementById('infoBar').textContent = '⏳ 解析油库出库点...';
+  var reader = new FileReader();
+  reader.onload = function(e) {
+    try {
+      var data = new Uint8Array(e.target.result);
+      var wb = XLSX.read(data, {type:'array', cellText:false, cellDates:false, raw:true});
+      var ws = wb.Sheets[wb.SheetNames[0]];
+      if(!ws) { alert('无法读取工作表'); return; }
+      var rows = XLSX.utils.sheet_to_json(ws, {header:1, defval:''});
+      
+      depotLocations = [];
+      for(var ri=0; ri<rows.length; ri++) {
+        var row = rows[ri];
+        if(!row || row.length<2) continue;
+        var addr = String(row[0]||'').trim();
+        var name = String(row[1]||'').trim();
+        if(!addr && !name) continue;
+        if(!addr) addr = name;
+        var lp = extractLocation(addr);
+        depotLocations.push({addr:addr, name:name, province:lp.province, city:lp.city, district:lp.district, town:lp.town});
+      }
+      
+      var btn = document.getElementById('depotBtn');
+      if(btn) { btn.textContent = '✓ 油库已加载('+depotLocations.length+'个)'; btn.className = 'ubtn ok'; }
+      document.getElementById('infoBar').textContent = '✓ 已加载 '+depotLocations.length+' 个油库出库点';
+      persistAllData();
+      alert('✓ 已加载 '+depotLocations.length+' 个油库出库点');
+    } catch(er) { alert('油库文件解析失败：'+er.message); }
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+// ====== 判断GPS停靠点是否在油库附近（排除装油停靠，保留卸油停靠） ======
+function isAtDepot(gpsLoc) {
+  if(!depotLocations.length || !gpsLoc) return {isDepot:false, name:''};
+  var gp = extractLocation(gpsLoc);
+  for(var di=0; di<depotLocations.length; di++) {
+    var dp = depotLocations[di];
+    // 方式1：区县+镇匹配，且GPS文本明确包含油库相关关键词（避免把同镇客户误排除）
+    if(dp.district && gp.district && 
+       (dp.district.indexOf(gp.district)>=0 || gp.district.indexOf(dp.district)>=0)) {
+      if(dp.town && gp.town && (dp.town.indexOf(gp.town)>=0 || gp.town.indexOf(dp.town)>=0)) {
+        // 区县+镇匹配后，检查GPS文本是否包含油库、装卸区、发油台等装油关键词
+        if(gpsLoc.indexOf('油库')>=0 || gpsLoc.indexOf('发油')>=0 || gpsLoc.indexOf('装油')>=0 || gpsLoc.indexOf('油台')>=0) {
+          return {isDepot:true, name:dp.name};
+        }
+        // 或者GPS包含该油库名称
+        if(dp.name && gpsLoc.indexOf(dp.name)>=0) {
+          return {isDepot:true, name:dp.name};
+        }
+      }
+    }
+    // 方式2：直接地址包含油库名
+    if(dp.name && gpsLoc.indexOf(dp.name)>=0) {
+      return {isDepot:true, name:dp.name};
+    }
+    // 方式3：GPS地址中包含油库地址中的独有地标（至少6字，避免"登高岭"等短词误判）
+    if(dp.addr && dp.addr.length >= 6) {
+      var segments = dp.addr.split(/[，,;；\s、\/]+/);
+      for(var si=0; si<segments.length; si++) {
+        var seg = segments[si].trim();
+        if(seg.length >= 6 && gpsLoc.indexOf(seg) >= 0) {
+          return {isDepot:true, name:dp.name};
+        }
+      }
+    }
+  }
+  return {isDepot:false, name:''};
+}
+
+// ====== CSV解析 ======
+function loadCSV(file) {
+  document.getElementById('infoBar').textContent = '⏳ 正在解析CSV...';
+  var reader = new FileReader();
+  reader.onload = function(e) {
+    try {
+      var arr = new Uint8Array(e.target.result);
+      var csv;
+      try { csv = new TextDecoder('gbk').decode(arr); }
+      catch(ee) { csv = new TextDecoder('utf-8').decode(arr); }
+      
+      var lines = csv.split(/\r?\n/);
+      if(lines.length < 2) { alert('CSV文件内容不足'); return; }
+      
+      var delim = ',';
+      if(lines.some(function(l){ return l.trim() && l.split('\t').length > l.split(',').length; })) delim = '\t';
+      
+      // 找表头行
+      var hdrIdx = -1;
+      for(var hi = 0; hi < Math.min(lines.length, 20); hi++) {
+        var hp = lines[hi].split(delim).map(function(s) { return s.replace(/^"|"$/g,'').trim(); });
+        var matchCt = 0;
+        ['配送日期','出库日期','计划状态','上报状态','收油地址','车/挂车号','送油地址'].forEach(function(kw) {
+          if(hp.some(function(hh) { return hh.indexOf(kw) >= 0; })) matchCt++;
+        });
+        if(matchCt >= 3) { hdrIdx = hi; break; }
+      }
+      if(hdrIdx < 0) hdrIdx = 0;
+      
+      var hdr = lines[hdrIdx].split(delim).map(function(s) { return s.replace(/^"|"$/g,'').trim(); });
+      
+      // 关键列定位
+      function findCol(names) {
+        for(var i = 0; i < hdr.length; i++)
+          for(var n = 0; n < names.length; n++)
+            if(hdr[i].indexOf(names[n]) >= 0) return i;
+        return -1;
+      }
+      
+      var idxDate = findCol(['配送日期','出库日期','日期']);
+      var idxPlate = findCol(['车/挂车号','车/箱号','车/船牌号','车/船号','车牌','车辆','车号']);
+      var idxStatus = findCol(['上报状态']);
+      var idxAddr = findCol(['收油地址','送油地址']);
+      var idxDepot = findCol(['发油油库','发油库','提油油库','油库']);
+      var idxReceive = findCol(['收油机构','收货单位','用户名称']);
+      var idxReceiveErp = findCol(['收油机构erp编码','收货单位erp','客户erp']);
+      var idxBranch = findCol(['分公司']);
+      
+      if(idxDate < 0 || idxPlate < 0) {
+        alert('找不到关键列！需要：配送日期、车/挂车号\n表头:\n' + hdr.map(function(h,i){ return i+':'+h; }).join('\n'));
+        return;
+      }
+      
+      console.log('CSV列索引: 日期='+idxDate+' 车牌='+idxPlate+' 状态='+idxStatus+' 地址='+idxAddr+' 油库='+idxDepot+' 收油='+idxReceive+' 编码='+idxReceiveErp+' 分公司='+idxBranch);
+      console.log('CSV表头映射: 日期="'+hdr[idxDate]+'" 车牌="'+(hdr[idxPlate]||'')+'"');
+      
+      deliveryRecords = [];
+      for(var ri = hdrIdx+1; ri < lines.length; ri++) {
+        var l = lines[ri].trim();
+        if(!l) continue;
+        var c = l.split(delim);
+        if(c.length <= Math.max(idxDate, idxPlate, idxStatus)) continue;
+        
+        if(idxStatus >= 0) {
+          var status = String(c[idxStatus]||'').replace(/^=/,'').replace(/"/g,'').trim();
+          if(status !== '已上报') continue;
+        }
+        
+        var dateStr = String(c[idxDate]||'').replace(/^=/,'').replace(/"/g,'').trim();
+        var plate = String(c[idxPlate]||'').replace(/^=/,'').replace(/"/g,'').trim();
+        var addr = (idxAddr >= 0) ? String(c[idxAddr]||'').replace(/^=/,'').replace(/"/g,'').trim() : '';
+        var depot = (idxDepot >= 0) ? String(c[idxDepot]||'').replace(/^=/,'').replace(/"/g,'').trim() : '';
+        var receive = (idxReceive >= 0) ? String(c[idxReceive]||'').replace(/^=/,'').replace(/"/g,'').trim() : '';
+        var receiveErp = (idxReceiveErp >= 0) ? String(c[idxReceiveErp]||'').replace(/^=/,'').replace(/"/g,'').trim() : '';
+        var branch = (idxBranch >= 0) ? String(c[idxBranch]||'').replace(/^=/,'').replace(/"/g,'').trim() : '';
+        
+        var dm = dateStr.match(/(\d{4})[-\/](\d{1,2})[-\/](\d{1,2})/);
+        var date = dm ? dm[1]+'-'+String(+dm[2]).padStart(2,'0')+'-'+String(+dm[3]).padStart(2,'0') : '';
+        if(!date || !plate) continue;
+        plate = plate.replace(/[\s\-_（）()\/\\]/g,'').trim();
+        
+        deliveryRecords.push({date:date, plate:plate, addr:addr, depot:depot, receive:receive, receiveErp:receiveErp, branch:branch});
+      }
+      
+      // 统计车牌分布
+      var plateStat={};
+      deliveryRecords.forEach(function(r){ plateStat[r.plate]=(plateStat[r.plate]||0)+1; });
+      var platesSorted=Object.keys(plateStat).sort();
+      console.log('CSV解析完成: '+deliveryRecords.length+'条, '+platesSorted.length+'个车牌');
+      platesSorted.forEach(function(p){ console.log('  车牌: ['+p+'] → '+plateStat[p]+'条'); });
+      
+      updateStats();
+      document.getElementById('infoBar').textContent = '✓ CSV已加载 '+deliveryRecords.length+' 条已上报配送计划';
+      persistAllData();
+      alert('✓ 已加载 '+deliveryRecords.length+' 条已上报的配送计划');
+    } catch(er) { alert('CSV解析失败：'+er.message); }
+  };
+  reader.onerror = function() { alert('文件读取失败'); };
+  reader.readAsArrayBuffer(file);
+}
+
+// ====== GPS xlsx批量解析 ======
+function loadGPSxlsx(files) {
+  document.getElementById('infoBar').textContent = '⏳ 正在解析 '+files.length+' 个GPS文件...';
+  var processed = 0;
+  files.forEach(function(f, fi) {
+    var reader = new FileReader();
+    reader.onload = function(e) {
+      try {
+        parseSingleXlsx(new Uint8Array(e.target.result), f.name, fi);
+      } catch(er) { console.error('GPS解析错误', f.name, er.message); }
+      processed++;
+      if(processed >= files.length) doneGPSLoad();
+    };
+    reader.onerror = function() { processed++; if(processed>=files.length) doneGPSLoad(); };
+    reader.readAsArrayBuffer(f);
+  });
+}
+
+function doneGPSLoad() {
+  updateStats();
+  var totalPts = 0;
+  for(var p in gpsData) for(var d in gpsData[p]) totalPts += gpsData[p][d].length;
+  document.getElementById('infoBar').textContent = '✓ GPS已加载 '+Object.keys(gpsData).length+' 台车 ('+totalPts+' 个停留点)';
+  persistAllData();
+}
+
+function parseSingleXlsx(buf, fileName, fileIdx) {
+  var wb;
+  try { wb = XLSX.read(buf, {type:'array', cellText:false, cellDates:false, raw:true}); }
+  catch(e) { console.warn('GPS文件解析失败: '+fileName, e.message); return; }
+  var ws = wb.Sheets[wb.SheetNames[0]];
+  if(!ws) { console.warn('GPS文件无工作表: '+fileName); return; }
+  var rows = XLSX.utils.sheet_to_json(ws, {header:1, defval:''});
+  
+  // ===== 多渠道精准提取车牌 =====
+  var plate = '', dataStart = -1;
+  
+  // 渠道1: 从工作表名（sheet name）提取，如 "桂B70580" 或 "桂B70580历史轨迹"
+  var sheetName = wb.SheetNames[0] || '';
+  var snMatch = sheetName.match(/([\u4e00-\u9fff]{1}[A-Za-z0-9]+)/);
+  if(snMatch) plate = snMatch[1];
+  
+  // 渠道2: 从单元格内容提取（前5行扫描）
+  for(var ri = 0; ri < Math.min(rows.length, 8); ri++) {
+    var row = rows[ri];
+    for(var ci = 0; ci < row.length; ci++) {
+      var v = String(row[ci]||'');
+      // 查找历史轨迹/轨迹/报表等关键词所在单元格
+      if(v.indexOf('历史轨迹') >= 0 || v.indexOf('轨迹') >= 0 || v.indexOf('报表') >= 0) {
+        var pm = v.match(/^([\u4e00-\u9fff]{1}[A-Za-z0-9]+)/);
+        if(pm) plate = pm[1];
+      }
+    }
+    // 找到表头行
+    if(row.some(function(cell) { return String(cell).indexOf('定位时间') >= 0; })) {
+      dataStart = ri;
+    }
+  }
+  
+  // 渠道3: 从文件名提取
+  if(!plate) {
+    var fnMatch = fileName.match(/([\u4e00-\u9fff][A-Za-z0-9]+)/);
+    if(fnMatch) plate = fnMatch[1];
+  }
+  
+  // 渠道4: 如果还没找到，从前几行的所有单元格中搜索标准车牌格式
+  if(!plate) {
+    for(var ri = 0; ri < Math.min(rows.length, 8); ri++) {
+      var row = rows[ri];
+      for(var ci = 0; ci < row.length; ci++) {
+        var v = String(row[ci]||'').trim();
+        // 标准车牌格式：汉字+字母+数字，如"桂B70580"
+        var allMatch = v.match(/([\u4e00-\u9fff]{1}[A-Za-z][A-Za-z0-9]{4,6})/);
+        if(allMatch) { plate = allMatch[1]; break; }
+      }
+      if(plate) break;
+    }
+  }
+  
+  if(dataStart < 0) { console.warn('GPS文件未找到数据行: '+fileName); return; }
+  if(!plate) plate = '未知_'+fileIdx;
+  plate = plate.replace(/[\s\-_（）()\/\\]/g,'').trim();
+  console.log('GPS车牌提取: ['+fileName+'] → 车牌="'+plate+'" (来源:'+(snMatch?'工作表名':'单元格/文件名')+')');
+  
+  var header = rows[dataStart];
+  var idxDateTime=-1, idxSpeed=-1, idxStay=-1, idxLocation=-1, idxLng=-1, idxLat=-1;
+  for(var ci=0; ci<header.length; ci++) {
+    var h=String(header[ci]||'');
+    if(h.indexOf('定位时间')>=0||h.indexOf('时间')>=0) idxDateTime=ci;
+    else if(h.indexOf('行驶速度')>=0||h.indexOf('速度')>=0) idxSpeed=ci;
+    else if(h.indexOf('已停留')>=0||(h.indexOf('停留')>=0&&h.indexOf('/')>=0)) idxStay=ci;
+    else if(h.indexOf('地理位置')>=0||h.indexOf('位置')>=0||h.indexOf('地址')>=0) idxLocation=ci;
+    else if(h.indexOf('经度')>=0||h.indexOf('Lng')>=0||h.indexOf('LNG')>=0||h.indexOf('lng')>=0||h.indexOf('X')>=0) idxLng=ci;
+    else if(h.indexOf('纬度')>=0||h.indexOf('Lat')>=0||h.indexOf('LAT')>=0||h.indexOf('lat')>=0||h.indexOf('Y')>=0) idxLat=ci;
+  }
+  if(idxDateTime<0) idxDateTime=2;
+  if(idxSpeed<0) idxSpeed=3;
+  if(idxStay<0) idxStay=5;
+  if(idxLocation<0) idxLocation=9;
+  
+  console.log('  GPS['+fileName+'] 车牌:'+plate+' 列索引: 时间='+idxDateTime+' 速度='+idxSpeed+' 停留='+idxStay+' 位置='+idxLocation+' 总行数:'+(rows.length-dataStart-1));
+  
+  var stopPoints = [], skipped=0;
+  for(var ri=dataStart+1; ri<rows.length; ri++) {
+    var row=rows[ri];
+    if(!row||row.length<=Math.max(idxDateTime,idxSpeed,idxStay)) { skipped++; continue; }
+    var dateTimeStr=String(row[idxDateTime]||'').trim();
+    var speedStr=String(row[idxSpeed]||'').trim();
+    var stayStr=String(row[idxStay]||'').trim();
+    var location=String(row[idxLocation]||'').trim();
+    
+    var speedNum=parseFloat(speedStr.replace(/[^0-9.\-]/g,''));
+    if(isNaN(speedNum)) speedNum=-1; // 空值/非数字一律保留供后续判断
+    if(speedNum!==0 && speedNum!==-1) { skipped++; continue; } // 只有明确>0的行驶速度才跳过
+    
+    var stayMinutes=parseStayTime(stayStr);
+    if(stayMinutes>0 && stayMinutes<=10) { skipped++; continue; } // 停留>0但<=10分钟 跳过
+    if(stayMinutes===0) { skipped++; continue; } // 明确0分钟 跳过
+    
+    var dtm=dateTimeStr.match(/(\d{4})[-\/](\d{1,2})[-\/](\d{1,2})/);
+    var date=dtm?dtm[1]+'-'+String(+dtm[2]).padStart(2,'0')+'-'+String(+dtm[3]).padStart(2,'0'):'';
+    if(!date||!location) { skipped++; continue; }
+    
+    var locParts=extractLocation(location);
+    var lng='', lat='';
+    if(idxLng>=0 && row[idxLng]) lng=String(row[idxLng]).trim();
+    if(idxLat>=0 && row[idxLat]) lat=String(row[idxLat]).trim();
+    stopPoints.push({
+      date:date, dateTime:dateTimeStr, stayStr:stayStr, stayMinutes:stayMinutes,
+      location:location, locProvince:locParts.province, locCity:locParts.city,
+      locDistrict:locParts.district, locTown:locParts.town,
+      lng:parseFloat(lng), lat:parseFloat(lat)
+    });
+  }
+  
+  // 信号弱导致地址为空时，根据前后邻近停靠点的位置推断
+  if(stopPoints.length >= 2) {
+    for(var spi=0; spi<stopPoints.length; spi++) {
+      var spCur = stopPoints[spi];
+      if(spCur.location && spCur.location.trim()) continue; // 有地址的不处理
+      // 向前找最近的带地址的停靠点
+      var prevLoc = null, nextLoc = null;
+      for(var pi=spi-1; pi>=0; pi--) {
+        if(stopPoints[pi].location && stopPoints[pi].location.trim()) { prevLoc = stopPoints[pi]; break; }
+      }
+      for(var ni=spi+1; ni<stopPoints.length; ni++) {
+        if(stopPoints[ni].location && stopPoints[ni].location.trim()) { nextLoc = stopPoints[ni]; break; }
+      }
+      // 用前后均可用的地址来推断
+      if(prevLoc && nextLoc && prevLoc.locDistrict === nextLoc.locDistrict && prevLoc.locTown === nextLoc.locTown) {
+        // 前后区县和镇一致 → 使用前一个的地址
+        spCur.location = prevLoc.location;
+        spCur.locProvince = prevLoc.locProvince;
+        spCur.locCity = prevLoc.locCity;
+        spCur.locDistrict = prevLoc.locDistrict;
+        spCur.locTown = prevLoc.locTown;
+      } else if(prevLoc) {
+        // 只有前一个可用
+        spCur.location = prevLoc.location;
+        spCur.locProvince = prevLoc.locProvince;
+        spCur.locCity = prevLoc.locCity;
+        spCur.locDistrict = prevLoc.locDistrict;
+        spCur.locTown = prevLoc.locTown;
+      } else if(nextLoc) {
+        spCur.location = nextLoc.location;
+        spCur.locProvince = nextLoc.locProvince;
+        spCur.locCity = nextLoc.locCity;
+        spCur.locDistrict = nextLoc.locDistrict;
+        spCur.locTown = nextLoc.locTown;
+      }
+    }
+  }
+  
+  console.log('  => 停靠点:'+stopPoints.length+' 跳过:'+skipped);
+  
+  if(!gpsData[plate]) gpsData[plate]={};
+  stopPoints.forEach(function(sp){
+    if(!gpsData[plate][sp.date]) gpsData[plate][sp.date]=[];
+    gpsData[plate][sp.date].push(sp);
+  });
+}
+
+// ====== 压缩包解析 ======
+function loadArchive(file) {
+  var name = file.name.toLowerCase();
+  if(name.match(/\.rar$/)) {
+    // RAR检测
+    var reader = new FileReader();
+    reader.onload = function(e) {
+      var arr = new Uint8Array(e.target.result);
+      var isRar = (arr[0]===0x52 && arr[1]===0x61 && arr[2]===0x72 && arr[3]===0x21);
+      if(isRar) {
+        var overlay=document.createElement('div');
+        overlay.style.cssText='position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.4);z-index:99999;display:flex;align-items:center;justify-content:center';
+        overlay.id='rarTip';
+        overlay.onclick=function(e){if(e.target===this)this.remove();};
+        overlay.innerHTML='<div style="background:#fff;border-radius:16px;padding:30px 36px;max-width:480px;width:90%;box-shadow:0 8px 40px rgba(0,0,0,.15)">'+
+          '<div style="font-size:18px;margin-bottom:12px">📦 检测到RAR文件</div>'+
+          '<div style="font-size:13px;color:#2C2A28;line-height:1.6;margin-bottom:16px">文件 <b style="color:#C65D52">'+file.name+'</b> 是RAR格式，浏览器无法直接解压。请先解压，然后点击「📁 上传文件夹」按钮选择解压后的文件夹。</div>'+
+          '<div style="text-align:center"><span class="ubtn" onclick="document.getElementById(\'gpsFolder\').click();var el=document.getElementById(\'rarTip\');if(el)el.remove();" style="padding:8px 20px;background:#3A5C4A;color:#fff;border:none">📁 现在去选择文件夹</span> <span class="ubtn del" onclick="var el=document.getElementById(\'rarTip\');if(el)el.remove();" style="padding:8px 16px">关闭</span></div></div>';
+        document.body.appendChild(overlay);
+      } else alert('无法识别的文件格式');
+    };
+    reader.readAsArrayBuffer(file.slice(0,8));
+    return;
+  }
+  
+  // ZIP
+  document.getElementById('infoBar').textContent = '⏳ 正在解析ZIP...';
+  var reader2 = new FileReader();
+  reader2.onload = function(e2) {
+    try {
+      JSZip.loadAsync(e2.target.result).then(function(zip) {
+        var xlsxFiles = [];
+        zip.forEach(function(path, entry) {
+          if(entry.name.match(/\.xlsx?$/i) && !entry.name.startsWith('~$') && !entry.dir) {
+            xlsxFiles.push(entry);
+          }
+        });
+        if(!xlsxFiles.length) { alert('ZIP中未找到xlsx文件'); document.getElementById('infoBar').textContent='ZIP中未找到xlsx文件'; return; }
+        
+        var processed=0, total=xlsxFiles.length;
+        xlsxFiles.forEach(function(entry) {
+          entry.async('arraybuffer').then(function(buf) {
+            try { parseSingleXlsx(new Uint8Array(buf), entry.name, 0); } catch(e){}
+            processed++;
+            if(processed>=total) doneGPSLoad();
+          });
+        });
+      }).catch(function(er){ alert('ZIP解析失败：'+er.message); });
+    } catch(er){ alert('ZIP读取失败：'+er.message); }
+  };
+  reader2.readAsArrayBuffer(file);
+}
+
+// ====== 辅助函数 ======
+function parseStayTime(str) {
+  if(!str||!str.trim()) return -1;
+  var parts=str.split('/');
+  var before=parts[0].trim();
+  if(!before) return -1;
+  
+  // 支持格式: 1小时30分0秒
+  var hours=0, mins=0, secs=0;
+  var m=before.match(/(\d+)\u5c0f\u65f6/); if(m) hours=parseInt(m[1]);
+  m=before.match(/(\d+)\u5206/); if(m) mins=parseInt(m[1]);
+  m=before.match(/(\d+)\u79d2/); if(m) secs=parseInt(m[1]);
+  if(hours>0||mins>0||secs>0) return hours*60+mins+(secs>0?1:0);
+  
+  // 支持格式: 00:30:00 (时:分:秒)
+  m=before.match(/^(\d+):(\d+):(\d+)$/);
+  if(m) { hours=parseInt(m[1]); mins=parseInt(m[2]); secs=parseInt(m[3]); return hours*60+mins+(secs>0?1:0); }
+  
+  // 支持格式: 00:30 (分:秒)
+  m=before.match(/^(\d+):(\d+)$/);
+  if(m) { mins=parseInt(m[1]); secs=parseInt(m[2]); return mins+(secs>0?1:0); }
+  
+  // 支持格式: 纯数字分钟 (如 "30" 表示30分钟)
+  m=before.match(/^(\d+(?:\.\d+)?)$/);
+  if(m) { var n=parseFloat(m[1]); return n>=1?Math.round(n):0; }
+  
+  // 支持格式: 30分钟
+  m=before.match(/(\d+(?:\.\d+)?)\u5206\u949f/);
+  if(m) { var n=parseFloat(m[1]); return n>=1?Math.round(n):0; }
+  
+  return 0;
+}
+
+function extractLocation(loc) {
+  var result={province:'', city:'', district:'', town:'', detail:''};
+  if(!loc) return result;
+  // 省 — 只有确实匹配到省/自治区才作为省，避免把"横州市"这种误作省
+  var m=loc.match(/((?:广西|广东|湖南|湖北|河南|河北|山东|山西|江苏|浙江|福建|江西|安徽|四川|云南|贵州|海南|陕西|甘肃|青海|台湾|黑龙江|吉林|辽宁|内蒙古|新疆|西藏|宁夏)(?:壮族|维吾尔|回族)?(?:自治区|省)?)/);
+  if(!m) m=loc.match(/(北京|天津|上海|重庆)(?:市)?/);
+  if(m) { result.province=m[1]; if(result.province.indexOf('市')>0) result.province=result.province.replace('市',''); }
+  if(!result.province) m=loc.match(/([\u4e00-\u9fff]+?(?:省|自治区|特别行政区))/);
+  if(m) result.province=m[1];
+  
+  var afterProvince=loc; if(result.province) afterProvince=loc.substring(result.province.length);
+  // 市
+  m=afterProvince.match(/([\u4e00-\u9fff]+?(?:市|州))/);
+  if(m) result.city=m[1];
+  var afterCity=afterProvince; if(result.city) afterCity=afterProvince.substring(result.city.length);
+  // 区/县/县级市 — 包括以"市"结尾的县级市如"横州市"
+  m=afterCity.match(/([\u4e00-\u9fff]+?(?:区|县|县级市|市|市辖区))/);
+  if(m) result.district=m[1];
+  var afterDistrict=afterCity; if(result.district) afterDistrict=afterCity.substring(result.district.length);
+  // 镇/乡/街道
+  m=afterDistrict.match(/([\u4e00-\u9fff]+?(?:镇|乡|街道))/);
+  if(m) result.town=m[1];
+  return result;
+}
+
+function extractKeywords(loc) {
+  if(!loc) return [];
+  var kws=[];
+  var m=loc.match(/([\u4e00-\u9fff]{2,}?(?:加油站|加气站|油库))/g); if(m) kws=kws.concat(m);
+  m=loc.match(/([\u4e00-\u9fff]+?(?:路|街|大道|公路|巷|弄))/g); if(m) kws=kws.concat(m);
+  m=loc.match(/([\u4e00-\u9fff]+?(?:村|屯|队))/g); if(m) kws=kws.concat(m);
+  m=loc.match(/(\d+号)/g); if(m) kws=kws.concat(m);
+  m=loc.match(/([\u4e00-\u9fff]{2,}(?:公司|厂|集团|大厦|大楼|中心|市场|酒店))/g); if(m) kws=kws.concat(m);
+  return kws;
+}
+
+function matchAddress(delAddr, gpsLoc) {
+  if(!delAddr||!gpsLoc) return {level:0,label:'无数据',match:false};
+  var dP=extractLocation(delAddr), gP=extractLocation(gpsLoc);
+  var provMatch=dP.province&&gP.province&&(dP.province.indexOf(gP.province)>=0||gP.province.indexOf(dP.province)>=0||dP.province.substring(0,2)===gP.province.substring(0,2));
+  var cityMatch=dP.city&&gP.city&&(dP.city.indexOf(gP.city)>=0||gP.city.indexOf(dP.city)>=0);
+  var districtMatch=dP.district&&gP.district&&(dP.district.indexOf(gP.district)>=0||gP.district.indexOf(dP.district)>=0);
+  var townMatch=dP.town&&gP.town&&(dP.town.indexOf(gP.town)>=0||gP.town.indexOf(dP.town)>=0);
+  var kwsDel=extractKeywords(delAddr), kwsGps=extractKeywords(gpsLoc);
+  var keywordMatch=kwsDel.some(function(kw){if(kw.length<3)return false;return kwsGps.some(function(gkw){return gkw.indexOf(kw)>=0||kw.indexOf(gkw)>=0;})});
+  
+  // 直接文本重叠匹配 — 提取配送地址中的地名关键词与GPS地址做包含匹配
+  var directMatch=false;
+  if(delAddr.length>=4) {
+    // 提取配送地址中第2~4个字起的关键片段
+    var subStrs=[];
+    var segments=delAddr.split(/[，,;；\s]+/);
+    segments.forEach(function(seg){
+      // 找"XX镇/XX乡/XX街道/XX村/XX路/XX街"等模式
+      var ms=seg.match(/([\u4e00-\u9fff]+?(?:镇|乡|街道|村|路|街|屯|厂|公司|集团|大厦|大楼|中心|市场|酒店))/g);
+      if(ms) ms.forEach(function(s){if(s.length>=2&&subStrs.indexOf(s)<0)subStrs.push(s);});
+      // 也提取县级名称
+      var mc=seg.match(/([\u4e00-\u9fff]{2,}?(?:市|区|县))/);
+      if(mc&&mc[1].length<=4&&subStrs.indexOf(mc[1])<0)subStrs.push(mc[1]);
+    });
+    directMatch=subStrs.some(function(s){return gpsLoc.indexOf(s)>=0;});
+    
+    // 如果上面没匹配到，尝试逐段4字连续匹配（比如"永福永诚混凝土"这种无后缀地址）
+    if(!directMatch) {
+      // 按通用分隔符切分
+      var segs2=delAddr.split(/[，,;；\s、\-\/]+/);
+      for(var si=0;si<segs2.length;si++){
+        var seg=segs2[si].trim();
+        if(seg.length<4) continue;
+        // 整个段直接匹配
+        if(gpsLoc.indexOf(seg)>=0){directMatch=true;break;}
+        // 段太长时滑动匹配4~8字子串
+        if(seg.length>8){
+          for(var ci=0;ci<=seg.length-5;ci++){
+            var sub=seg.substring(ci,ci+5);
+            if(gpsLoc.indexOf(sub)>=0){directMatch=true;break;}
+          }
+          if(directMatch) break;
+        }
+      }
+    }
+  }
+  
+  var score=0, levels=[];
+  if(provMatch){score+=15;levels.push('省');}
+  if(cityMatch){score+=35;levels.push('市');}
+  if(districtMatch){score+=25;levels.push('区·县');}
+  if(townMatch){score+=20;levels.push('镇');}
+  if(keywordMatch){score+=15;levels.push('关键词');}
+  if(directMatch){score+=30;levels.push('地名匹配');}
+  
+  return {level:score>=90?5:score>=70?4:score>=50?3:score>=20?2:score>0?1:0,label:levels.join('+')||'无匹配',match:score>=10,score:score,
+    provMatch:provMatch, cityMatch:cityMatch, districtMatch:districtMatch, townMatch:townMatch, keywordMatch:keywordMatch, directNameMatch:directMatch,
+    delProvince:dP.province, delCity:dP.city, delDistrict:dP.district, delTown:dP.town,
+    gpsProvince:gP.province, gpsCity:gP.city, gpsDistrict:gP.district, gpsTown:gP.town};
+}
+
+// ====== 坐标距离计算 & 地理编码 ======
+var PI = 3.141592653589793;
+function toRad(d) { return d * PI / 180; }
+function haversine(lat1, lng1, lat2, lng2) {
+  var R = 6371; // 地球半径（公里）
+  var dLat = toRad(lat2 - lat1);
+  var dLng = toRad(lng2 - lng1);
+  var a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+          Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) *
+          Math.sin(dLng/2) * Math.sin(dLng/2);
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+}
+
+// 地理编码缓存 { 地址字符串: {lat, lng} }
+var _geoCache = {};
+var _geoQueue = [];      // 待处理队列
+var _geoProcessing = false;
+var GEO_BATCH_INTERVAL = 1200; // 两次请求间隔（毫秒）
+
+// 使用 OpenStreetMap Nominatim API 进行一次地理编码
+function geocodeOne(addr) {
+  var q = encodeURIComponent(addr);
+  var url = 'https://nominatim.openstreetmap.org/search?format=json&limit=1&q='+q;
+  return fetch(url, { headers: { 'User-Agent': 'GPSVerification/1.0' } })
+    .then(function(r){ return r.json(); })
+    .then(function(data){
+      if(data && data.length>0) {
+        return { lat: parseFloat(data[0].lat), lng: parseFloat(data[0].lon) };
+      }
+      return null;
+    })
+    .catch(function(){ return null; });
+}
+
+// 处理地理编码队列
+function processGeoQueue() {
+  if(_geoProcessing || !_geoQueue.length) return Promise.resolve();
+  _geoProcessing = true;
+  var item = _geoQueue.shift();
+  return geocodeOne(item.addr).then(function(result){
+    _geoProcessing = false;
+    if(result) {
+      _geoCache[item.addr] = result;
+      if(item.resolve) item.resolve(result);
+    } else {
+      _geoCache[item.addr] = null;
+      if(item.resolve) item.resolve(null);
+    }
+    if(_geoQueue.length) {
+      return new Promise(function(r){ setTimeout(function(){ processGeoQueue().then(r); }, GEO_BATCH_INTERVAL); });
+    }
+  });
+}
+
+// 添加地址到地理编码队列（返回Promise）
+function geocodeAddress(addr) {
+  if(!addr || addr.length < 3) return Promise.resolve(null);
+  if(_geoCache[addr] !== undefined) return Promise.resolve(_geoCache[addr]);
+  return new Promise(function(resolve){
+    _geoQueue.push({ addr: addr, resolve: resolve });
+    if(!_geoProcessing) processGeoQueue();
+  });
+}
+
+// 检查GPS停靠点集合中是否有距离配送地址在指定公里范围内的
+function findNearbyStop(delAddr, stops, maxKm) {
+  if(!stops || !stops.length || !delAddr) return null;
+  // 先尝试从stops的地址文本匹配
+  for(var si=0; si<stops.length; si++) {
+    var sp = stops[si];
+    // 如果该停靠点有坐标，标记该停靠点有坐标
+    if(sp.lat && sp.lng && !isNaN(sp.lat) && !isNaN(sp.lng)) {
+      // 有坐标，继续
+    }
+  }
+  return null; // 距离匹配需要geocoding后异步处理
+}
+
+// ====== 核查主流程 ======
+var _lastCompanyFilter = '全部';
+var _branchFilterVals = []; // 分公司多选筛选状态
+
+function startVerify() {
+  console.log('[开始核查] 按钮被点击');
+  if(!deliveryRecords.length||!Object.keys(gpsData).length) {
+    alert('请先上传配送计划CSV和GPS轨迹文件'); return;
+  }
+  document.getElementById('infoBar').textContent = '⏳ 正在核查，请稍候...';
+  // 清除上次结果
+  var oldDiag=document.querySelector('.diag-section');
+  if(oldDiag) oldDiag.remove();
+  document.getElementById('resultStats').innerHTML='';
+  document.getElementById('resultArea').innerHTML='';
+  document.getElementById('infoBar').textContent = '⏳ 正在核查...';
+  
+  // 获取选中的公司（多选）
+  var selectedCompanies = getMSVals('msCompany');
+  if(!selectedCompanies || !selectedCompanies.length) selectedCompanies = ['全部'];
+  
+  // 按公司筛选配送记录
+  var filteredRecords = selectedCompanies.indexOf('全部')>=0 || selectedCompanies.length === Object.keys(function(){var p={};deliveryRecords.forEach(function(r){if(r.branch)p[r.branch]=1;});return p;}()).length
+    ? deliveryRecords 
+    : deliveryRecords.filter(function(r){ return r.branch && selectedCompanies.indexOf(r.branch) >= 0; });
+  
+  if(!filteredRecords.length) {
+    alert('所选公司没有配送计划记录'); return;
+  }
+  
+  // ---- 诊断信息 ----
+  console.log('===== GPS核查诊断开始 =====');
+  console.log('公司筛选: '+(selectedCompanies.indexOf('全部')>=0?'全部':selectedCompanies.join(', ')));
+  console.log('配送计划: '+filteredRecords.length+'条 (总'+deliveryRecords.length+'), 车牌数: '+Object.keys(function(){var p={};filteredRecords.forEach(function(r){p[r.plate]=1;});return p;}()).length);
+  console.log('GPS数据: '+Object.keys(gpsData).length+'台车');
+  
+  var delPlates={}; filteredRecords.forEach(function(r){delPlates[r.plate]=1;});
+  Object.keys(delPlates).sort().forEach(function(dp) {
+    var found=false, gpsPlate='';
+    for(var p in gpsData) {
+      if(p.indexOf(dp)>=0||dp.indexOf(p)>=0){found=true; gpsPlate=p; break;}
+    }
+    if(found) {
+      var stopCount=0, dateList=[];
+      for(var d in gpsData[gpsPlate]) { 
+        stopCount+=gpsData[gpsPlate][d].length;
+        dateList.push(d+'('+gpsData[gpsPlate][d].length+'个)');
+      }
+      console.log('  ✓ '+dp+' → GPS车牌: '+gpsPlate+', 停靠点: '+stopCount+'个, 日期: '+dateList.join(', '));
+    } else {
+      console.log('  ✗ '+dp+' → 无GPS数据');
+    }
+  });
+  console.log('===========================');
+  // ---- 诊断信息结束 ----
+  
+  var results=[], unmatched=[];
+  filteredRecords.forEach(function(del) {
+    var plateNorm=del.plate;
+    // 查找对应GPS数据
+    var gpsForPlate=null;
+    var matchedGpsPlate='';
+    for(var p in gpsData) {
+      if(p.indexOf(plateNorm)>=0||plateNorm.indexOf(p)>=0){gpsForPlate=gpsData[p];matchedGpsPlate=p;break;}
+    }
+    if(!gpsForPlate) {
+      unmatched.push({plate:plateNorm, date:del.date, addr:del.addr, depot:del.depot, receive:del.receive, receiveErp:del.receiveErp, branch:del.branch, totalStops:0, reason:'无GPS数据', gpsLocation:''});
+      return;
+    }
+    // 日期范围：当天 + 次日
+    var candDates=[del.date];
+    var d=new Date(del.date); d.setDate(d.getDate()+1); candDates.push(d.toISOString().slice(0,10));
+    
+    // 检查该车是否有其他日期的数据（用于诊断）
+    var allDatesAvailable=[];
+    for(var dd in gpsForPlate) allDatesAvailable.push(dd);
+    
+    var bestMatch=null, bestScore=0, totalStopsChecked=0;
+    // 遍历候选日期的所有停靠点，综合文本匹配分数+停留时长进行排序
+    candDates.forEach(function(cd) {
+      var stops=gpsForPlate[cd];
+      if(!stops||!stops.length) return;
+      stops.forEach(function(sp) {
+        totalStopsChecked++;
+        // 排除油库停靠：在这些地方停车是装油，不是卸油
+        var depotCheck = isAtDepot(sp.location);
+        if(depotCheck.isDepot) {
+          // 是油库停靠，不纳入最佳匹配（跳过）
+          return; // continue
+        }
+        var mr=matchAddress(del.addr, sp.location);
+        // 综合评分 = 文本匹配分 + 停留时长加权（停留越久越可能是卸油点）
+        var stayBonus = (sp.stayMinutes && sp.stayMinutes > 10) ? Math.min(sp.stayMinutes, 60) : 0;
+        var combinedScore = mr.score + stayBonus;
+        if(combinedScore>=bestScore) {
+          bestScore=combinedScore;
+    bestMatch={gpsDate:sp.date, gpsDateTime:sp.dateTime, gpsStayStr:sp.stayStr, gpsStayMinutes:sp.stayMinutes, gpsLocation:sp.location,
+        matchLevel:mr.level, matchLabel:mr.label, score:mr.score, combinedScore:combinedScore,
+        matchProv:mr.provMatch, matchCity:mr.cityMatch, matchDistrict:mr.districtMatch, matchTown:mr.townMatch,
+        delProvince:mr.delProvince, delCity:mr.delCity, delDistrict:mr.delDistrict, delTown:mr.delTown,
+        gpsProvince:mr.gpsProvince, gpsCity:mr.gpsCity, gpsDistrict:mr.gpsDistrict, gpsTown:mr.gpsTown};
+        }
+      });
+    });
+    
+    if(bestMatch && bestMatch.score>=10) {
+      results.push({plate:plateNorm, date:del.date, addr:del.addr, depot:del.depot, receive:del.receive, receiveErp:del.receiveErp, branch:del.branch, totalStops:totalStopsChecked,
+        gpsLocation:bestMatch.gpsLocation, gpsDate:bestMatch.gpsDate, gpsDateTime:bestMatch.gpsDateTime, gpsStayStr:bestMatch.gpsStayStr,
+        matchLevel:bestMatch.matchLevel, matchLabel:bestMatch.matchLabel, matchProv:bestMatch.matchProv, matchCity:bestMatch.matchCity, matchDistrict:bestMatch.matchDistrict, matchTown:bestMatch.matchTown,
+        delCity:bestMatch.delCity, delDistrict:bestMatch.delDistrict, delTown:bestMatch.delTown, gpsCity:bestMatch.gpsCity, gpsDistrict:bestMatch.gpsDistrict, gpsTown:bestMatch.gpsTown, status:'match', gpsPlate:matchedGpsPlate});
+    } else {
+      var reason = '无GPS数据';
+      if(totalStopsChecked > 0) {
+        if(bestMatch) {
+          // 显示具体匹配到了哪些级别（即使分数为0）
+          var matchedLevels=[];
+          if(bestMatch.matchProv) matchedLevels.push('省');
+          if(bestMatch.matchCity) matchedLevels.push('市');
+          if(bestMatch.matchDistrict) matchedLevels.push('区·县');
+          if(bestMatch.matchTown) matchedLevels.push('镇');
+          if(bestMatch.matchLabel && bestMatch.matchLabel.indexOf('关键词')>=0) matchedLevels.push('关键词');
+          if(bestMatch.matchLabel && bestMatch.matchLabel.indexOf('地名匹配')>=0) matchedLevels.push('地名匹配');
+          if(matchedLevels.length) {
+            reason = '匹配到'+matchedLevels.join('、')+'('+bestMatch.matchLabel+')但总分不足';
+          } else {
+            reason = '地址不匹配('+totalStopsChecked+'个停靠点均不符)';
+          }
+        } else {
+          reason = '地址不匹配('+totalStopsChecked+'个停靠点均不符)';
+        }
+      } else if(allDatesAvailable.length > 0) {
+        // 有GPS数据但配送日期当天及次日无停靠记录
+        reason = '时间不对应(该车GPS有'+allDatesAvailable.length+'天记录: '+allDatesAvailable.join(',')+'，但配送日期'+del.date+'当天及次日无停靠)';
+      }
+      unmatched.push({plate:plateNorm, date:del.date, addr:del.addr, depot:del.depot, receive:del.receive, receiveErp:del.receiveErp, branch:del.branch, totalStops:totalStopsChecked,
+        reason:reason, gpsLocation:bestMatch?bestMatch.gpsLocation:'',
+        delCity:bestMatch?bestMatch.delCity:'', delDistrict:bestMatch?bestMatch.delDistrict:'', delTown:bestMatch?bestMatch.delTown:'',
+        gpsCity:bestMatch?bestMatch.gpsCity:'', gpsDistrict:bestMatch?bestMatch.gpsDistrict:'', gpsTown:bestMatch?bestMatch.gpsTown:''});
+    }
+  });
+  
+  _lastResults=results;
+  _lastUnmatched=unmatched;
+  _lastCompanyFilter = selectedCompanies.indexOf('全部')>=0 ? '全部' : selectedCompanies.join(',');
+  
+  // ---- 诊断摘要显示 ----
+  var diagHtml='<details style="margin-bottom:6px;background:#fff;border-radius:6px;border:1px solid #E0D5C8;padding:6px 10px;font-size:11px">'+
+    '<summary style="cursor:pointer;color:#666;font-weight:600">🔍 车牌匹配诊断</summary>'+
+    '<div style="margin-top:6px;line-height:1.8">';
+  Object.keys(delPlates).sort().forEach(function(dp) {
+    var found=false, gpsPlate='';
+    for(var p in gpsData) {
+      if(p.indexOf(dp)>=0||dp.indexOf(p)>=0){found=true; gpsPlate=p; break;}
+    }
+    if(found) {
+      var stopCount=0, dateInfo=[];
+      for(var d in gpsData[gpsPlate]) {
+        stopCount+=gpsData[gpsPlate][d].length;
+        var sd=gpsData[gpsPlate][d];
+        var dates='', sampleLocs=[];
+        sd.forEach(function(s){if(sampleLocs.length<2)sampleLocs.push(s.location.split('省')[1]||s.location.substring(0,20));});
+        dateInfo.push(d+'('+sd.length+'停靠)');
+      }
+      diagHtml+='<div style="padding:3px 6px;border-bottom:1px solid #f0f0f0">'+
+        '<span style="color:#3A5C4A;font-weight:600">✓ '+dp+'</span> → '+
+        '<span style="color:#888">GPS车牌: '+gpsPlate+' | 停靠点: '+stopCount+'个 | 日期: '+dateInfo.join(', ')+'</span></div>';
+    } else {
+      diagHtml+='<div style="padding:3px 6px;border-bottom:1px solid #f0f0f0">'+
+        '<span style="color:#C65D52;font-weight:600">✗ '+dp+'</span> → <span style="color:#C65D52">无GPS数据</span></div>';
+    }
+  });
+  diagHtml+='</div></details>';
+  // 清除之前的诊断信息（如果有）
+  var oldDiag=document.querySelector('.diag-section');
+  if(oldDiag) oldDiag.remove();
+  var diagWrapper=document.createElement('div');
+  diagWrapper.className='diag-section';
+  diagWrapper.innerHTML=diagHtml;
+  document.getElementById('resultArea').parentNode.insertBefore(diagWrapper, document.getElementById('resultArea'));
+  // ---- 诊断结束 ----
+  
+  // 渲染初步结果（文本匹配）
+  renderResults(results, unmatched, filteredRecords.length);
+  
+  // ---- 后台地图距离匹配（异步处理，不阻塞页面） ----
+  var geoUnmatched = unmatched.filter(function(u){
+    // 只有那些有GPS数据且停靠点有坐标的记录才做距离匹配
+    return u.totalStops > 0 && u.reason && u.reason.indexOf('地址不匹配')>=0;
+  });
+  if(geoUnmatched.length > 0) {
+    document.getElementById('infoBar').textContent = '⏳ 正在进行地图距离比对 ('+geoUnmatched.length+'条记录)...';
+    // 收集需要地理编码的配送地址（去重）
+    var addrsToGeo = {};
+    geoUnmatched.forEach(function(u){ if(u.addr && u.addr.length >= 3) addrsToGeo[u.addr] = 1; });
+    var addrList = Object.keys(addrsToGeo);
+    var geoResults = {};
+    var geoDone = 0;
+    
+    addrList.forEach(function(addr, idx){
+      setTimeout(function(){
+        geocodeAddress(addr).then(function(coord){
+          geoDone++;
+          if(coord) geoResults[addr] = coord;
+          document.getElementById('infoBar').textContent = '⏳ 地图比对中... ('+geoDone+'/'+addrList.length+'个地址已查询)';
+          // 最后一个完成后执行距离匹配
+          if(geoDone >= addrList.length) {
+            doDistanceMatch();
+          }
+        });
+      }, idx * 1200); // 每个地址间隔1.2秒
+    });
+    
+    function doDistanceMatch() {
+      var movedToMatch = 0;
+      geoUnmatched.forEach(function(u){
+        var coord = geoResults[u.addr];
+        if(!coord) return;
+        // 找到该车对应日期的停靠点
+        var gpsForPlate = null;
+        for(var p in gpsData) {
+          if(p.indexOf(u.plate)>=0||u.plate.indexOf(p)>=0){gpsForPlate=gpsData[p];break;}
+        }
+        if(!gpsForPlate) return;
+        // 当天和次日的所有停靠点
+        var candDates = [u.date];
+        var nd = new Date(u.date); nd.setDate(nd.getDate()+1);
+        candDates.push(nd.toISOString().slice(0,10));
+        var allStops = [];
+        candDates.forEach(function(cd){
+          var stops = gpsForPlate[cd];
+          if(stops) allStops = allStops.concat(stops);
+        });
+        if(!allStops.length) return;
+        
+        var minDist = 99999, nearestStop = null;
+        allStops.forEach(function(sp){
+          if(sp.lat && sp.lng && !isNaN(sp.lat) && !isNaN(sp.lng)) {
+            var dist = haversine(coord.lat, coord.lng, sp.lat, sp.lng);
+            if(dist < minDist) { minDist = dist; nearestStop = sp; }
+          }
+        });
+        if(minDist <= 20) {
+          // 距离匹配成功！从未匹配移到匹配成功
+          movedToMatch++;
+          var mr = matchAddress(u.addr, nearestStop.location);
+          results.push({
+            plate:u.plate, date:u.date, addr:u.addr, depot:u.depot, receive:u.receive,
+            receiveErp:u.receiveErp, branch:u.branch, totalStops:u.totalStops,
+            gpsLocation:nearestStop.location, gpsDate:nearestStop.date,
+            gpsDateTime:nearestStop.dateTime, gpsStayStr:nearestStop.stayStr,
+            matchLevel:5, matchLabel:'地图距离匹配('+minDist.toFixed(1)+'km)',
+            matchProv:true, matchCity:true, matchDistrict:true, matchTown:true,
+            delCity:mr.delCity, delDistrict:mr.delDistrict, delTown:mr.delTown,
+            gpsCity:mr.gpsCity, gpsDistrict:mr.gpsDistrict, gpsTown:mr.gpsTown,
+            status:'geo_match'
+          });
+        }
+      });
+      
+      if(movedToMatch > 0) {
+        // 从未匹配中移除已匹配的
+        var movedAddrs = {};
+        results.slice(-movedToMatch).forEach(function(r){ movedAddrs[r.plate+'_'+r.date] = 1; });
+        unmatched = unmatched.filter(function(u){ return !movedAddrs[u.plate+'_'+u.date]; });
+        _lastResults = results;
+        _lastUnmatched = unmatched;
+        document.getElementById('infoBar').textContent = '✅ 地图距离比对完成，新增 '+movedToMatch+' 条匹配（共'+results.length+'/'+filteredRecords.length+'）';
+        // 重新渲染
+        var oldDiag=document.querySelector('.diag-section');
+        if(oldDiag) oldDiag.remove();
+        // 不重建诊断区，只更新结果
+        renderResults(results, unmatched, filteredRecords.length);
+      } else {
+        document.getElementById('infoBar').textContent = '✅ 地图距离比对完成，无新增匹配';
+      }
+    }
+  }
+}
+
+// ====== 结果渲染 ======
+function renderResults(results, unmatched, totalCount) {
+  var matchedCount=results.length;
+  document.getElementById('matchCount').textContent = matchedCount+'/'+totalCount;
+  document.getElementById('matchSub').textContent = (totalCount>0?(matchedCount/totalCount*100).toFixed(1):0)+'%';
+  
+  var gpsNoData=unmatched.filter(function(u){return u.reason==='无GPS数据';}).length;
+  var timeMismatch=unmatched.filter(function(u){return u.reason&&u.reason.indexOf('时间不对应')>=0;}).length;
+  var addrNoMatch=unmatched.filter(function(u){return u.reason&&u.reason.indexOf('地址不匹配')>=0;}).length;
+  var partialMatch=unmatched.filter(function(u){return u.reason&&u.reason.indexOf('匹配到')>=0;}).length;
+  var otherFail=unmatched.length-gpsNoData-timeMismatch-addrNoMatch-partialMatch;
+  var totalGpsRecords=0;
+  results.forEach(function(r){totalGpsRecords+=r.totalStops||0;});
+  unmatched.forEach(function(u){totalGpsRecords+=u.totalStops||0;});
+  
+  // GPS数据覆盖分析
+  var delPlates={}; deliveryRecords.forEach(function(r){delPlates[r.plate]=1;});
+  var gpsPlates=Object.keys(gpsData);
+  var covered=0, notCovered=0;
+  for(var dp in delPlates) {
+    var found=false;
+    for(var gi=0;gi<gpsPlates.length;gi++){if(gpsPlates[gi].indexOf(dp)>=0||dp.indexOf(gpsPlates[gi])>=0){found=true;break;}}
+    if(found) covered++; else notCovered++;
+  }
+  var branchSet={'全部':1};
+  results.forEach(function(r){if(r.branch) branchSet[r.branch]=1;});
+  unmatched.forEach(function(u){if(u.branch) branchSet[u.branch]=1;});
+  var branches=Object.keys(branchSet).sort();
+  if(branches[0]!=='全部') branches.unshift('全部');
+  
+  function filterByBranch(arr) {
+    if(!_branchFilterVals||!_branchFilterVals.length||_branchFilterVals.indexOf('全部')>=0) return arr;
+    var bset={}; _branchFilterVals.forEach(function(v){bset[v]=1;});
+    return arr.filter(function(x){return bset[x.branch];});
+  }
+  var fR=filterByBranch(results), fU=filterByBranch(unmatched);
+  
+  // 更新筛选栏
+  var filterBar=document.getElementById('branchFilterBar');
+  if(filterBar) filterBar.style.display=(results.length||unmatched.length)?'flex':'none';
+  document.getElementById('filterResultCount').textContent = '匹配 '+fR.length+' / 未匹配 '+fU.length;
+  
+  // 统计卡片放入 resultStats
+  document.getElementById('resultStats').innerHTML = '<div class="sg" style="grid-template-columns:repeat(9,1fr)">'+
+    '<div class="sc"><div class="sl">匹配成功</div><div class="sv gn">'+matchedCount+'</div><div class="sub">'+((matchedCount/totalCount*100)||0).toFixed(1)+'%</div></div>'+
+    '<div class="sc"><div class="sl">未匹配</div><div class="sv rd">'+(totalCount-matchedCount)+'</div><div class="sub">'+((totalCount>matchedCount?((totalCount-matchedCount)/totalCount*100):0).toFixed(1))+'%</div></div>'+
+    '<div class="sc"><div class="sl">📄 无GPS数据</div><div class="sv or">'+gpsNoData+'</div><div class="sub">无对应GPS文件</div></div>'+
+    '<div class="sc"><div class="sl">⏰ 时间不对应</div><div class="sv pu">'+timeMismatch+'</div><div class="sub">有GPS但当天无停靠</div></div>'+
+    '<div class="sc"><div class="sl">📍 地址不匹配</div><div class="sv rd">'+addrNoMatch+'</div><div class="sub">所有级别均未对上</div></div>'+
+    '<div class="sc"><div class="sl">🔍 部分匹配</div><div class="sv bl">'+partialMatch+'</div><div class="sub">对上部分级别但分不足</div></div>'+
+    '<div class="sc"><div class="sl">❓ 其他</div><div class="sv rd">'+otherFail+'</div><div class="sub">其他原因</div></div>'+
+    '<div class="sc"><div class="sl">📊 GPS记录</div><div class="sv bl">'+totalGpsRecords+'</div><div class="sub">检查的停靠点总数</div></div>'+
+    '<div class="sc"><div class="sl">🛰️ GPS覆盖</div><div class="sv pu">'+covered+'/'+Object.keys(delPlates).length+'</div><div class="sub">配送车牌有GPS</div></div></div>';
+  
+  // GPS车牌与配送车牌对比提示
+  var warnHtml='';
+  var uncoveredPlates=[];
+  for(var dp in delPlates) {
+    if(!dp) continue;
+    var found=false;
+    for(var gi=0;gi<gpsPlates.length;gi++){if(gpsPlates[gi].indexOf(dp)>=0||dp.indexOf(gpsPlates[gi])>=0){found=true;break;}}
+    if(!found) uncoveredPlates.push(dp);
+  }
+  if(uncoveredPlates.length>0) {
+    var showPlates=uncoveredPlates.slice(0,10).join(', ');
+    if(uncoveredPlates.length>10) showPlates+=', ...共'+uncoveredPlates.length+'个';
+    warnHtml='<div style="font-size:10px;color:#C65D52;background:#fff;border-radius:4px;padding:4px 8px;margin-bottom:6px">⚠️ 有 <b>'+uncoveredPlates.length+'</b> 个配送车牌没有对应的GPS文件（如 '+showPlates+'）。仅上传了 <b>'+gpsPlates.length+'</b> 个GPS文件（'+gpsPlates.join(', ')+'）</div>';
+    document.getElementById('resultStats').innerHTML += warnHtml;
+  }
+  
+  // 只渲染表格到 resultArea
+  renderResultTables(fR, fU);
+  
+  var companyLabel = _lastCompanyFilter && _lastCompanyFilter !== '全部' ? ' ('+_lastCompanyFilter+')' : '';
+  document.getElementById('infoBar').textContent = '✓ 核查完成：'+matchedCount+'/'+totalCount+' 匹配 ('+(totalCount>0?(matchedCount/totalCount*100).toFixed(1):0)+'%)'+companyLabel;
+  
+  // 初始化分公司多选筛选（仅首次，或分支列表变化时重新初始化）
+  if(branches.length>1) {
+    var branchItems = branches.filter(function(b){return b!=='全部';}).map(function(b){return {value:b,label:b};});
+    var existingState = _msState['msBranchFilter'];
+    if(!existingState) {
+      // 首次初始化
+      _branchFilterVals = branchItems.map(function(i){return i.value;});
+      initMultiSelect('msBranchFilter', branchItems, function(vals){
+        _branchFilterVals = vals;
+        // 只更新筛选后的计数和表格，不重建整个区域
+        var newFR=filterByBranch(_lastResults), newFU=filterByBranch(_lastUnmatched);
+        document.getElementById('filterResultCount').textContent = '匹配 '+newFR.length+' / 未匹配 '+newFU.length;
+        renderResultTables(newFR, newFU); // 只替换表格部分
+      });
+    } else {
+      // 分支列表变化时更新选项
+      setMSItems('msBranchFilter', branchItems);
+    }
+  }
+}
+
+// 生成表格行（匹配成功）
+function makeMatchRow(r) {
+  var ll=r.matchLevel>=4?'<span class="yb ok">高</span>':r.matchLevel>=2?'<span class="yb mid">中</span>':'<span class="yb no">低</span>';
+  var iY='<span class="yb ok">✓</span>', iN='<span class="yb no">✗</span>', iNa='<span class="yb flat">-</span>';
+  function sm(m,d,g){return m?iY:(!d&&!g?iNa:iN);}
+  return '<tr><td class="l">'+r.plate+'</td><td>'+r.date+'</td><td>'+(r.branch||'')+'</td><td>'+(r.depot||'')+'</td><td>'+(r.receive||'')+'</td><td>'+(r.receiveErp||'')+'</td>'+
+    '<td class="l" title="'+r.addr+'">'+r.addr.substring(0,18)+'</td><td class="l">'+r.gpsLocation.substring(0,15)+'</td>'+
+    '<td>'+r.gpsDateTime+'</td><td>'+r.gpsStayStr+'</td>'+
+    '<td>'+sm(r.matchCity,r.delCity,r.gpsCity)+'<span style="font-size:8px;color:#999">'+(r.delCity||'')+'</span></td>'+
+    '<td>'+sm(r.matchDistrict,r.delDistrict,r.gpsDistrict)+'<span style="font-size:8px;color:#999">'+(r.delDistrict||'')+'</span></td>'+
+    '<td>'+(r.delDistrict&&r.delDistrict.indexOf('县')>=0?sm(r.matchDistrict,r.delDistrict,r.gpsDistrict):iNa)+'</td>'+
+    '<td>'+sm(r.matchTown,r.delTown,r.gpsTown)+'<span style="font-size:8px;color:#999">'+(r.delTown||'')+'</span></td>'+
+    '<td>'+ll+'</td><td>'+(r.totalStops?('<span class="yb ok" title="共扫描'+r.totalStops+'个停靠点">'+r.totalStops+'</span>'):'-')+'</td></tr>';
+}
+
+// 生成表格行（未匹配）
+function makeUnmatchRow(u) {
+  var det = '<span style="font-size:9px;color:#888">配送→ '+(u.delCity||'-')+'/'+(u.delDistrict||'-')+'/'+(u.delTown||'-')+' GPS→ '+(u.gpsCity||'-')+'/'+(u.gpsDistrict||'-')+'/'+(u.gpsTown||'-')+'</span>';
+  return '<tr><td class="l">'+u.plate+'</td><td>'+u.date+'</td><td>'+(u.branch||'')+'</td><td>'+(u.depot||'')+'</td><td>'+(u.receive||'')+'</td><td>'+(u.receiveErp||'')+'</td><td class="l">'+(u.addr||'').substring(0,25)+'</td><td><span class="yb no">'+u.reason+'</span></td><td class="l">'+(u.gpsLocation||'').substring(0,20)+'</td><td>'+(u.totalStops?('<span class="yb info" style="background:#f0f5ff;color:#1890ff">'+u.totalStops+'</span>'):'-')+'</td></tr>'+
+    '<tr style="background:#FAFAF5"><td colspan="10" style="padding:2px 11px;font-size:10px;border-bottom:1px solid #eee">'+det+'</td></tr>';
+}
+
+// 只渲染表格部分，不重建筛选栏和统计
+function renderResultTables(fR, fU) {
+  var html='';
+  var PAGE_SIZE = 10;
+  if(fR.length) {
+    var showAllR = fR.length <= PAGE_SIZE;
+    var displayR = showAllR ? fR : fR.slice(0, PAGE_SIZE);
+    html+='<div class="tw"><div style="font-size:12px;font-weight:600;padding:6px 8px">✅ 匹配成功 ('+fR.length+')</div><div style="overflow-x:auto"><table><thead><tr>'+
+      '<th>车牌</th><th>日期</th><th>分公司</th><th>油库</th><th>收油</th><th>编码</th><th>配送地址</th><th>GPS地址</th><th>GPS时间</th><th>停留</th>'+
+      '<th>🏙️市</th><th>🏘️区</th><th>🏘️县</th><th>🏘️镇</th><th>结果</th><th>📊停留点</th></tr></thead><tbody id="matchTbody">';
+    displayR.forEach(function(r){ html+=makeMatchRow(r); });
+    html+='</tbody></table></div>';
+    if(!showAllR) html+='<div style="text-align:center;padding:4px 0"><span class="ubtn" onclick="showAllMatch()" id="showAllMatchBtn" style="font-size:10px">📋 查看全部 '+fR.length+' 条</span></div>';
+    html+='</div>';
+  }
+  if(fU.length) {
+    var showAllU = fU.length <= PAGE_SIZE;
+    var displayU = showAllU ? fU : fU.slice(0, PAGE_SIZE);
+    html+='<div class="tw"><div style="font-size:12px;font-weight:600;padding:6px 8px">❌ 未匹配 ('+fU.length+')</div><div style="overflow-x:auto"><table><thead><tr>'+
+      '<th>车牌</th><th>日期</th><th>分公司</th><th>油库</th><th>收油</th><th>编码</th><th>配送地址</th><th>原因</th><th>最近GPS位置</th><th>📊停留点</th></tr></thead><tbody id="unmatchTbody">';
+    displayU.forEach(function(u){ html+=makeUnmatchRow(u); });
+    html+='</tbody></table></div>';
+    if(!showAllU) html+='<div style="text-align:center;padding:4px 0"><span class="ubtn" onclick="showAllUnmatch()" id="showAllUnmatchBtn" style="font-size:10px">📋 查看全部 '+fU.length+' 条</span></div>';
+    html+='</div>';
+  }
+  if(!html) html='<div style="text-align:center;padding:40px;color:#aaa;font-size:13px">该筛选条件下无数据</div>';
+  document.getElementById('resultArea').innerHTML = html;
+  // 保存当前完整数据供"查看全部"使用
+  _lastFR = fR;
+  _lastFU = fU;
+}
+
+function showAllMatch() {
+  var tb = document.getElementById('matchTbody');
+  if(tb && _lastFR) {
+    tb.innerHTML = '';
+    _lastFR.forEach(function(r){ tb.innerHTML+=makeMatchRow(r); });
+    var btn = document.getElementById('showAllMatchBtn');
+    if(btn) btn.style.display='none';
+  }
+}
+function showAllUnmatch() {
+  var tb = document.getElementById('unmatchTbody');
+  if(tb && _lastFU) {
+    tb.innerHTML = '';
+    _lastFU.forEach(function(u){ tb.innerHTML+=makeUnmatchRow(u); });
+    var btn = document.getElementById('showAllUnmatchBtn');
+    if(btn) btn.style.display='none';
+  }
+}
+
+// 工作表名不能超过31字符
+function shortSheetName(prefix, ls) {
+  var n = prefix + ls;
+  return n.length > 28 ? prefix + ls.substring(0, 20) + '...' : n;
+}
+
+// ====== CSV导出备用（当XLSX库未加载时） ======
+function exportAsCSV() {
+  function fb(arr){
+    if(!_branchFilterVals||!_branchFilterVals.length||_branchFilterVals.indexOf('全部')>=0) return arr;
+    var bset={}; _branchFilterVals.forEach(function(v){bset[v]=1;});
+    return arr.filter(function(x){return bset[x.branch];});
+  }
+  var eR=fb(_lastResults), eU=fb(_lastUnmatched);
+  if(!eR.length && !eU.length) { alert('没有可导出的数据'); return; }
+  var ls=(_branchFilterVals&&_branchFilterVals.length&&_branchFilterVals.indexOf('全部')<0)?'('+_branchFilterVals.join(',')+')':'';
+  var lines=[];
+  lines.push('核查类型,车牌,配送日期,分公司,发油油库,收油机构,编码,配送地址,GPS地址,GPS时间,停留,市匹配,区匹配,县匹配,镇匹配,配送-市,配送-区,配送-镇,GPS-市,GPS-区,GPS-镇,结果');
+  eR.forEach(function(r){
+    var lt=r.matchLevel>=4?'高':r.matchLevel>=2?'中':'低';
+    var mc=r.matchCity?'√':(r.delCity||r.gpsCity?'x':'-');
+    var md=r.matchDistrict?'√':(r.delDistrict||r.gpsDistrict?'x':'-');
+    var mx=(r.delDistrict&&r.delDistrict.indexOf('县')>=0)?(r.matchDistrict?'√':'x'):'-';
+    var mt=r.matchTown?'√':(r.delTown||r.gpsTown?'x':'-');
+    lines.push(['匹配成功',r.plate,r.date,r.branch||'',r.depot||'',r.receive||'',r.receiveErp||'',(r.addr||'').replace(/,/g,';'),(r.gpsLocation||'').replace(/,/g,';'),r.gpsDateTime||'',r.gpsStayStr||'',mc,md,mx,mt,r.delCity||'',r.delDistrict||'',r.delTown||'',r.gpsCity||'',r.gpsDistrict||'',r.gpsTown||'',lt].join(','));
+  });
+  lines.push('');
+  lines.push('核查类型,车牌,配送日期,分公司,发油油库,收油机构,编码,配送地址,未匹配原因,GPS位置,配送市/区/镇,GPS市/区/镇');
+  eU.forEach(function(u){
+    var det1 = (u.delCity||'-')+'/'+(u.delDistrict||'-')+'/'+(u.delTown||'-');
+    var det2 = (u.gpsCity||'-')+'/'+(u.gpsDistrict||'-')+'/'+(u.gpsTown||'-');
+    lines.push(['未匹配',u.plate,u.date,u.branch||'',u.depot||'',u.receive||'',u.receiveErp||'',(u.addr||'').replace(/,/g,';'),u.reason||'',(u.gpsLocation||'').replace(/,/g,';'),det1,det2].join(','));
+  });
+  var csv = '\uFEFF' + lines.join('\r\n');
+  var blob = new Blob([csv], {type:'text/csv;charset=utf-8'});
+  var a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);
+  var now=new Date();
+  a.download='GPS轨迹核查结果'+ls+'_'+now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0')+'-'+String(now.getDate()).padStart(2,'0')+'.csv';
+  document.body.appendChild(a);a.click();document.body.removeChild(a);
+  URL.revokeObjectURL(a.href);
+}
+
+// ====== 导出 ======
+function exportResults() {
+  console.log('[导出] 被点击', '_lastResults:', _lastResults.length, '_lastUnmatched:', _lastUnmatched.length, '_branchFilterVals:', JSON.stringify(_branchFilterVals));
+  if(!_lastResults.length&&!_lastUnmatched.length){alert('无数据（当前内存中没有任何核查结果，请先点击"▶ 开始核查"）');return;}
+  if(typeof XLSX === 'undefined' || !XLSX.utils) {
+    // XLSX库未加载，尝试用 Blob 方式导出 CSV
+    try {
+      exportAsCSV();
+    } catch(e) {
+      alert('导出失败：XLSX库未加载，CSV导出也失败了。请检查网络是否可访问 cdn.jsdelivr.net，或刷新页面重试');
+    }
+    return;
+  }
+  try {
+  function fb(arr){
+    if(!_branchFilterVals||!_branchFilterVals.length||_branchFilterVals.indexOf('全部')>=0) return arr;
+    var bset={}; _branchFilterVals.forEach(function(v){bset[v]=1;});
+    return arr.filter(function(x){return bset[x.branch];});
+  }
+  var eR=fb(_lastResults), eU=fb(_lastUnmatched);
+  if(!eR.length && !eU.length) { alert('筛选后没有可导出的数据（当前分公司筛选中没有符合条件的记录）'); return; }
+  var ls=(_branchFilterVals&&_branchFilterVals.length&&_branchFilterVals.indexOf('全部')<0)?'('+_branchFilterVals.join(',')+')':'';
+  
+  var mRows=[['核查类型','车牌','配送日期','分公司','发油油库','收油机构','编码','配送地址','GPS地址','GPS时间','停留','市匹配','区匹配','县匹配','镇匹配','配送-市','配送-区','配送-镇','GPS-市','GPS-区','GPS-镇','结果']];
+  eR.forEach(function(r){
+    var lt=r.matchLevel>=4?'高':r.matchLevel>=2?'中':'低';
+    var mc=r.matchCity?'✓':(r.delCity||r.gpsCity?'✗':'-');
+    var md=r.matchDistrict?'✓':(r.delDistrict||r.gpsDistrict?'✗':'-');
+    var mx=(r.delDistrict&&r.delDistrict.indexOf('县')>=0)?(r.matchDistrict?'✓':'✗'):'-';
+    var mt=r.matchTown?'✓':(r.delTown||r.gpsTown?'✗':'-');
+    mRows.push(['匹配成功',r.plate,r.date,r.branch||'',r.depot||'',r.receive||'',r.receiveErp||'',r.addr,r.gpsLocation,r.gpsDateTime,r.gpsStayStr,mc,md,mx,mt,r.delCity||'',r.delDistrict||'',r.delTown||'',r.gpsCity||'',r.gpsDistrict||'',r.gpsTown||'',lt]);
+  });
+  
+  var uRows=[['核查类型','车牌','配送日期','分公司','发油油库','收油机构','编码','配送地址','未匹配原因','GPS位置','配送市/区/镇','GPS市/区/镇']];
+  eU.forEach(function(u){
+    var det1 = (u.delCity||'-')+'/'+(u.delDistrict||'-')+'/'+(u.delTown||'-');
+    var det2 = (u.gpsCity||'-')+'/'+(u.gpsDistrict||'-')+'/'+(u.gpsTown||'-');
+    uRows.push(['未匹配',u.plate,u.date,u.branch||'',u.depot||'',u.receive||'',u.receiveErp||'',u.addr||'',u.reason,u.gpsLocation||'',det1,det2]);
+  });
+  
+  var wb=XLSX.utils.book_new();
+  if(mRows.length>1){var ws=XLSX.utils.aoa_to_sheet(mRows);XLSX.utils.book_append_sheet(wb,ws,shortSheetName('匹配成功',ls));}
+  if(uRows.length>1){var ws2=XLSX.utils.aoa_to_sheet(uRows);XLSX.utils.book_append_sheet(wb,ws2,shortSheetName('未匹配',ls));}
+  
+  // 标准XLSX导出方式：binary → ArrayBuffer → Blob
+  var wbout = XLSX.write(wb, {bookType:'xlsx',type:'binary'});
+  function s2ab(s) {
+    var buf=new ArrayBuffer(s.length);
+    var view=new Uint8Array(buf);
+    for(var i=0;i<s.length;i++) view[i]=s.charCodeAt(i)&0xFF;
+    return buf;
+  }
+  var blob=new Blob([s2ab(wbout)],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
+  var a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);
+  var now=new Date();
+  a.download='GPS轨迹核查结果'+ls+'_'+now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0')+'-'+String(now.getDate()).padStart(2,'0')+'.xlsx';
+  document.body.appendChild(a);a.click();document.body.removeChild(a);
+  URL.revokeObjectURL(a.href);
+  } catch(e) { alert('导出失败：'+e.message); console.error(e); }
+}
+
+// ====== 单独导出未匹配 ======
+function exportUnmatched() {
+  if(!_lastUnmatched.length){alert('没有未匹配的数据');return;}
+  if(typeof XLSX === 'undefined' || !XLSX.utils) {
+    alert('XLSX库未加载，请检查网络后刷新页面重试');
+    return;
+  }
+  try {
+  function fb(arr){
+    if(!_branchFilterVals||!_branchFilterVals.length||_branchFilterVals.indexOf('全部')>=0) return arr;
+    var bset={}; _branchFilterVals.forEach(function(v){bset[v]=1;});
+    return arr.filter(function(x){return bset[x.branch];});
+  }
+  var eU=fb(_lastUnmatched);
+  var ls=(_branchFilterVals&&_branchFilterVals.length&&_branchFilterVals.indexOf('全部')<0)?'('+_branchFilterVals.join(',')+')':'';
+  
+  var uRows=[['核查类型','车牌','配送日期','分公司','发油油库','收油机构','编码','配送地址','未匹配原因','GPS位置','配送市/区/镇','GPS市/区/镇']];
+  eU.forEach(function(u){
+    var det1 = (u.delCity||'-')+'/'+(u.delDistrict||'-')+'/'+(u.delTown||'-');
+    var det2 = (u.gpsCity||'-')+'/'+(u.gpsDistrict||'-')+'/'+(u.gpsTown||'-');
+    uRows.push(['未匹配',u.plate,u.date,u.branch||'',u.depot||'',u.receive||'',u.receiveErp||'',u.addr||'',u.reason,u.gpsLocation||'',det1,det2]);
+  });
+  
+  var wb=XLSX.utils.book_new();
+  var ws=XLSX.utils.aoa_to_sheet(uRows);
+  XLSX.utils.book_append_sheet(wb,ws,shortSheetName('未匹配',ls));
+  
+  var wbout = XLSX.write(wb, {bookType:'xlsx',type:'binary'});
+  function s2ab(s) {
+    var buf=new ArrayBuffer(s.length);
+    var view=new Uint8Array(buf);
+    for(var i=0;i<s.length;i++) view[i]=s.charCodeAt(i)&0xFF;
+    return buf;
+  }
+  var blob=new Blob([s2ab(wbout)],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
+  var a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);
+  var now=new Date();
+  a.download='GPS未匹配记录'+ls+'_'+now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0')+'-'+String(now.getDate()).padStart(2,'0')+'.xlsx';
+  document.body.appendChild(a);a.click();document.body.removeChild(a);
+  URL.revokeObjectURL(a.href);
+  } catch(e) { alert('导出失败：'+e.message); console.error(e); }
+}
+
+// ====== 账号登录与云端同步 ======
+var API_BASE = window.location.origin;
+
+// 登录弹窗
+function showLogin() {
+  var ov = document.getElementById('loginOverlay');
+  ov.style.display = 'flex';
+  switchLoginTab('login');
+}
+function hideLogin() {
+  document.getElementById('loginOverlay').style.display = 'none';
+}
+function switchLoginTab(tab) {
+  document.getElementById('loginForm').style.display = tab === 'login' ? 'block' : 'none';
+  document.getElementById('regForm').style.display = tab === 'reg' ? 'block' : 'none';
+  document.getElementById('loginTab').style.cssText = tab === 'login' ? 'flex:1;text-align:center;padding:6px 0;cursor:pointer;border-bottom:2px solid #3A5C4A;font-weight:600;color:#3A5C4A;font-size:14px' : 'flex:1;text-align:center;padding:6px 0;cursor:pointer;border-bottom:2px solid #eee;font-weight:400;color:#999;font-size:14px';
+  document.getElementById('regTab').style.cssText = tab === 'reg' ? 'flex:1;text-align:center;padding:6px 0;cursor:pointer;border-bottom:2px solid #3A5C4A;font-weight:600;color:#3A5C4A;font-size:14px' : 'flex:1;text-align:center;padding:6px 0;cursor:pointer;border-bottom:2px solid #eee;font-weight:400;color:#999;font-size:14px';
+  document.getElementById('loginMsg').textContent = '';
+}
+
+// API 请求
+function apiCall(method, path, body) {
+  var opts = { method: method, headers: { 'Content-Type': 'application/json' } };
+  var token = localStorage.getItem('_token');
+  if (token) opts.headers['Authorization'] = 'Bearer ' + token;
+  if (body) opts.body = JSON.stringify(body);
+  return fetch(API_BASE + path, opts).then(function(r) { return r.json(); }).catch(function(e) { return { ok: false, msg: '网络错误: ' + e.message }; });
+}
+
+// 登录
+function doLogin() {
+  var user = document.getElementById('loginUser').value.trim();
+  var pass = document.getElementById('loginPass').value;
+  if (!user || !pass) { document.getElementById('loginMsg').textContent = '请输入用户名和密码'; return; }
+  document.getElementById('loginMsg').textContent = '⏳ 登录中...';
+  apiCall('POST', '/api/login', { username: user, password: pass }).then(function(r) {
+    if (r.ok) {
+      localStorage.setItem('_token', r.token);
+      localStorage.setItem('_username', r.username);
+      hideLogin();
+      updateUserUI();
+      syncFromServer(); // 从云端拉取数据
+    } else {
+      document.getElementById('loginMsg').textContent = r.msg;
+    }
+  });
+}
+
+// 注册
+function doRegister() {
+  var user = document.getElementById('regUser').value.trim();
+  var pass = document.getElementById('regPass').value;
+  var pass2 = document.getElementById('regPass2').value;
+  if (!user || !pass) { document.getElementById('loginMsg').textContent = '请填写完整'; return; }
+  if (pass !== pass2) { document.getElementById('loginMsg').textContent = '两次密码不一致'; return; }
+  document.getElementById('loginMsg').textContent = '⏳ 注册中...';
+  apiCall('POST', '/api/register', { username: user, password: pass }).then(function(r) {
+    if (r.ok) {
+      localStorage.setItem('_token', r.token);
+      localStorage.setItem('_username', r.username);
+      hideLogin();
+      updateUserUI();
+      syncToServer(true); // 注册后把本地数据推送到云端
+    } else {
+      document.getElementById('loginMsg').textContent = r.msg;
+    }
+  });
+}
+
+// 退出登录
+function doLogout() {
+  if (!confirm('确定退出登录？')) return;
+  localStorage.removeItem('_token');
+  localStorage.removeItem('_username');
+  updateUserUI();
+}
+
+// 更新用户界面
+function updateUserUI() {
+  var token = localStorage.getItem('_token');
+  var uname = localStorage.getItem('_username');
+  document.getElementById('userStatus').textContent = token ? ('👤 ' + uname) : '未登录';
+  document.getElementById('loginBtn').style.display = token ? 'none' : '';
+  document.getElementById('logoutBtn').style.display = token ? '' : 'none';
+}
+
+// 同步数据到云端
+function syncToServer(isNewUser) {
+  var token = localStorage.getItem('_token');
+  if (!token) return Promise.resolve();
+  document.getElementById('infoBar').textContent = '☁️ 正在同步数据到云端...';
+  var payload = {
+    deliveryRecords: deliveryRecords,
+    gpsData: gpsData,
+    depotLocations: depotLocations,
+    _branchFilterVals: _branchFilterVals,
+    _uploadInfo: _uploadInfo
+  };
+  return apiCall('POST', '/api/data', { data: payload }).then(function(r) {
+    if (r.ok) {
+      document.getElementById('infoBar').textContent = '☁️ 数据已同步到云端';
+    } else if (r.msg && r.msg.indexOf('登录已过期') >= 0) {
+      localStorage.removeItem('_token');
+      localStorage.removeItem('_username');
+      updateUserUI();
+      document.getElementById('infoBar').textContent = '⚠️ 登录已过期，请重新登录';
+    } else {
+      console.warn('云端同步失败:', r.msg);
+    }
+  });
+}
+
+// 从云端拉取数据
+function syncFromServer() {
+  var token = localStorage.getItem('_token');
+  if (!token) return Promise.resolve();
+  document.getElementById('infoBar').textContent = '☁️ 正在从云端加载数据...';
+  return apiCall('GET', '/api/data').then(function(r) {
+    if (r.ok && r.data) {
+      var d = r.data;
+      var changed = false;
+      if (d.deliveryRecords) { deliveryRecords = JSON.parse(d.deliveryRecords); changed = true; }
+      if (d.gpsData) { gpsData = JSON.parse(d.gpsData); changed = true; }
+      if (d.depotLocations) { depotLocations = JSON.parse(d.depotLocations); changed = true; }
+      if (d._branchFilterVals && JSON.parse(d._branchFilterVals).length) { _branchFilterVals = JSON.parse(d._branchFilterVals); }
+      if (d._uploadInfo) { _uploadInfo = JSON.parse(d._uploadInfo); }
+      updateUserUI();
+      if (changed) {
+        updateStats();
+        if (depotLocations.length) {
+          var btn = document.getElementById('depotBtn');
+          if (btn) { btn.textContent = '✓ 油库已加载(' + depotLocations.length + '个)'; btn.className = 'ubtn ok'; }
+        }
+        document.getElementById('infoBar').textContent = '☁️ 已从云端恢复数据：' + deliveryRecords.length + '条配送计划，' + Object.keys(gpsData).length + '台车GPS';
+        // 也保存在本地
+        persistAllData();
+      } else {
+        document.getElementById('infoBar').textContent = '☁️ 云端无数据，请上传文件';
+      }
+    } else if (r.msg && r.msg.indexOf('登录已过期') >= 0) {
+      localStorage.removeItem('_token');
+      localStorage.removeItem('_username');
+      updateUserUI();
+    }
+  });
+}
+
+// 覆盖 persistAllData 加入云端同步
+var _origPersist = persistAllData;
+persistAllData = function() {
+  return _origPersist().then(function() {
+    syncToServer(false);
+  });
+};
+
+// 初始化用户界面
+function resetAll() {
+  console.log('[重置] 按钮被点击，正在清除所有数据...');
+  deliveryRecords=[]; gpsData={}; _lastResults=[]; _lastUnmatched=[]; depotLocations=[]; _uploadInfo={csvName:'',csvTime:'',gpsCount:0,gpsTime:''};
+  _branchFilterVals=[];
+  dbClear(); // 清除本地存储
+  ['csvFile','gpsFiles','gpsZip','gpsFolder','depotFile'].forEach(function(id){var el=document.getElementById(id);if(el)el.value='';});
+  document.getElementById('csvCount').textContent='0';
+  document.getElementById('csvInfo').textContent='未上传';
+  document.getElementById('vehCount').textContent='0';
+  document.getElementById('gpsCount').textContent='0';
+  document.getElementById('gpsInfo').textContent='台车';
+  document.getElementById('matchCount').textContent='-';
+  document.getElementById('matchSub').textContent='待核查';
+  document.getElementById('resultArea').innerHTML='';
+  document.getElementById('infoBar').textContent='请上传CSV和GPS文件后点击▶开始核查';
+  var depotBtn=document.getElementById('depotBtn');
+  if(depotBtn){depotBtn.textContent='🏭 上传油库出库点';depotBtn.className='ubtn';}
+}
+
+// ====== 页面加载时自动恢复数据 ======
+(function autoRestore(){
+  updateUserUI();
+  // 延迟执行，确保DOM已加载
+  setTimeout(function(){
+    console.log('[自动恢复] 正在从IndexedDB恢复数据...');
+    restoreAllData().then(function(localHasData) {
+      console.log('[自动恢复] 本地数据恢复' + (localHasData?'✅ 成功':'❌ 无数据') + ': 配送='+deliveryRecords.length+'条 GPS='+Object.keys(gpsData).length+'台');
+      // 如果登录了，尝试从云端拉取（云端数据优先）
+      if (localStorage.getItem('_token')) {
+        setTimeout(function() {
+          syncFromServer();
+        }, 300);
+      }
+    });
+  }, 200);
+})();
+
+// ====== 地址匹配诊断工具 ======
+function showDebug() { document.getElementById('debugArea').style.display='block'; }
+function hideDebug() { document.getElementById('debugArea').style.display='none'; }
+function testMatch() {
+  var delAddr = document.getElementById('dbgDelAddr').value.trim();
+  var gpsAddr = document.getElementById('dbgGpsAddr').value.trim();
+  if(!delAddr || !gpsAddr) { alert('请填写配送地址和GPS地址'); return; }
+  var dP = extractLocation(delAddr);
+  var gP = extractLocation(gpsAddr);
+  var mr = matchAddress(delAddr, gpsAddr);
+  var html = '<table style="width:100%;border-collapse:collapse;font-size:11px">'+
+    '<tr style="background:#f9f5f0"><th style="padding:3px 6px;text-align:left">维度</th><th style="padding:3px 6px;text-align:center">配送地址解析</th><th style="padding:3px 6px;text-align:center">GPS地址解析</th><th style="padding:3px 6px;text-align:center">匹配?</th><th style="padding:3px 6px;text-align:center">得分</th></tr>'+
+    '<tr><td style="padding:3px 6px">省</td><td style="padding:3px 6px;text-align:center">'+ (dP.province||'<span style="color:#ccc">—</span>') +'</td><td style="padding:3px 6px;text-align:center">'+ (gP.province||'<span style="color:#ccc">—</span>') +'</td><td style="padding:3px 6px;text-align:center">'+ (mr.provMatch?'<span style="color:#3A5C4A">✓</span>':'<span style="color:#ccc">—</span>') +'</td><td style="padding:3px 6px;text-align:center">15</td></tr>'+
+    '<tr style="background:#f9f5f0"><td style="padding:3px 6px">市</td><td style="padding:3px 6px;text-align:center">'+ (dP.city||'<span style="color:#ccc">—</span>') +'</td><td style="padding:3px 6px;text-align:center">'+ (gP.city||'<span style="color:#ccc">—</span>') +'</td><td style="padding:3px 6px;text-align:center">'+ (mr.cityMatch?'<span style="color:#3A5C4A">✓</span>':'<span style="color:#ccc">—</span>') +'</td><td style="padding:3px 6px;text-align:center">35</td></tr>'+
+    '<tr><td style="padding:3px 6px">区/县</td><td style="padding:3px 6px;text-align:center">'+ (dP.district||'<span style="color:#ccc">—</span>') +'</td><td style="padding:3px 6px;text-align:center">'+ (gP.district||'<span style="color:#ccc">—</span>') +'</td><td style="padding:3px 6px;text-align:center">'+ (mr.districtMatch?'<span style="color:#3A5C4A">✓</span>':'<span style="color:#ccc">—</span>') +'</td><td style="padding:3px 6px;text-align:center">25</td></tr>'+
+    '<tr style="background:#f9f5f0"><td style="padding:3px 6px">镇</td><td style="padding:3px 6px;text-align:center">'+ (dP.town||'<span style="color:#ccc">—</span>') +'</td><td style="padding:3px 6px;text-align:center">'+ (gP.town||'<span style="color:#ccc">—</span>') +'</td><td style="padding:3px 6px;text-align:center">'+ (mr.townMatch?'<span style="color:#3A5C4A">✓</span>':'<span style="color:#ccc">—</span>') +'</td><td style="padding:3px 6px;text-align:center">20</td></tr>'+
+    '<tr><td style="padding:3px 6px">关键词匹配</td><td style="padding:3px 6px;text-align:center;font-size:10px">'+ (extractKeywords(delAddr).join(', ')||'<span style="color:#ccc">无</span>') +'</td><td style="padding:3px 6px;text-align:center;font-size:10px">'+ (extractKeywords(gpsAddr).join(', ')||'<span style="color:#ccc">无</span>') +'</td><td style="padding:3px 6px;text-align:center">'+ (mr.keywordMatch?'<span style="color:#3A5C4A">✓</span>':'<span style="color:#ccc">—</span>') +'</td><td style="padding:3px 6px;text-align:center">15</td></tr>'+
+    '<tr style="background:#f9f5f0"><td style="padding:3px 6px">地名直接匹配</td><td colspan="2" style="padding:3px 6px;text-align:center;font-size:10px">配送地址中的地名片段在GPS中存在?</td><td style="padding:3px 6px;text-align:center">'+ (mr.directNameMatch?'<span style="color:#3A5C4A">✓</span>':'<span style="color:#ccc">—</span>') +'</td><td style="padding:3px 6px;text-align:center">30</td></tr>'+
+    '<tr style="background:#f0f8f0;font-weight:600"><td style="padding:4px 6px">总分</td><td colspan="3" style="padding:4px 6px;text-align:center">'+ (mr.score>=10?'<span style="color:#3A5C4A">✅ 匹配成功（总分'+mr.score+'）</span>':'<span style="color:#C65D52">❌ 匹配失败（总分'+mr.score+'，需要≥10）</span>') +'</td><td style="padding:4px 6px;text-align:center;font-weight:700">'+mr.score+'</td></tr>'+
+    '</table>';
+  document.getElementById('dbgResult').innerHTML = html;
+  document.getElementById('dbgResult').style.display = 'block';
+}
+// ====== 全局错误捕获 ======
+window.onerror = function(msg, url, line) {
+  console.error('[错误]', msg, '行号:', line);
+  var ib = document.getElementById('infoBar');
+  if(ib) ib.textContent = '⚠️ 脚本错误: ' + msg;
+};
+
+// ====== 按钮可用性检查（页面加载完成后确认所有按钮正常工作） ======
+setTimeout(function(){
+  // 检查关键函数是否存在
+  var requiredFns = ['clickUpload','startVerify','resetAll','restoreAllData','loadCSV','loadGPSxlsx'];
+  var allOk = true;
+  requiredFns.forEach(function(fn){
+    if(typeof window[fn] !== 'function') {
+      console.error('[初始化错误] 函数不存在:', fn);
+      allOk = false;
+    }
+  });
+
+  // 检查所有操作栏按钮是否可点击
+  var opBar = document.querySelectorAll('.ubar')[1]; // 操作栏是第2个ubar
+  if(opBar) {
+    var btns = opBar.querySelectorAll('.ubtn');
+    btns.forEach(function(btn){
+      var oc = btn.getAttribute('onclick');
+      if(!oc) {
+        console.warn('[按钮警告] 按钮无onclick:', btn.textContent.trim());
+      }
+    });
+    console.log('[初始化] 操作栏按钮检查完成，共 '+btns.length+' 个按钮, 函数检查: '+(allOk?'✅通过':'❌失败'));
+  }
+
+  // 确认infoBar存在
+  var ib = document.getElementById('infoBar');
+  if(!ib) console.error('[初始化错误] infoBar元素不存在!');
+
+  console.log('[初始化] 页面就绪，时间:', new Date().toLocaleTimeString());
+}, 800);
+</script>
+</body>
+</html>
