@@ -104,6 +104,14 @@ tr:hover td{background:#f7fafc}
 .rank-3{background:#c53030}
 .rank-4{background:#553c9a}
 .footer-bar{padding:8px 14px;font-size:11px;color:#a0aec0;border-top:1px solid #e2e8f0;display:flex;justify-content:space-between;flex-wrap:wrap;gap:6px}
+.pager-bar{padding:10px 14px;display:flex;align-items:center;gap:6px;flex-wrap:wrap;font-size:13px;background:#fafbfc;border-top:1px solid #edf2f7}
+.pg-btn{padding:5px 12px;border:1px solid #cbd5e0;background:#fff;border-radius:6px;cursor:pointer;font-size:13px;color:#2d3748;transition:.15s}
+.pg-btn:hover:not(:disabled){background:#ebf8ff;border-color:#7B1F1F;color:#7B1F1F}
+.pg-btn.on{background:#7B1F1F;color:#fff;border-color:#7B1F1F;font-weight:600}
+.pg-btn:disabled{opacity:.4;cursor:not-allowed}
+.pg-ell{color:#a0aec0;padding:0 4px}
+.pg-jump{margin-left:8px;color:#4a5568;display:flex;align-items:center;gap:4px}
+.pg-jump input{padding:4px 6px;border:1px solid #cbd5e0;border-radius:5px;font-size:13px}
 .loading,.empty{text-align:center;padding:50px;color:#a0aec0;font-size:14px}
 .loading .spinner{display:inline-block;width:28px;height:28px;border:3px solid #e2e8f0;border-top-color:#7B1F1F;border-radius:50%;animation:spin .7s linear infinite;margin-bottom:12px}
 @keyframes spin{to{transform:rotate(360deg)}}
@@ -607,7 +615,7 @@ function switchView(v){
 function updateView(){if(!appData)return;try{if(currentView==='station')runStationView();else if(currentView==='depot')renderDepotView();}catch(e){console.error('[updateView] 渲染异常:',e);gid('statStatus').textContent='渲染出错：'+e.message;gid('tableContainer').innerHTML='<div class="empty">视图渲染出错：'+e.message+'</div>';}}
 
 // ===== Station View with Grouping =====
-function runStationView(){if(!appData)return;
+function runStationView(){if(!appData)return;_curPage=1;
 if(!_msState['msRegion'])buildCompanyFilter();
 const bp=gid('productSelect').value,rf=getMSVals('msRegion'),tf=gid('typeFilter').value,cf=gid('companyFilter').value,ss=gid('stationSearch').value.trim().toLowerCase();
 console.log('[runStationView] 触发筛选:',JSON.stringify({bp:bp,rf:rf,tf:tf,cf:cf,ss:ss,currentView:currentView}));
@@ -616,19 +624,52 @@ const gs=[];for(const st of appData.stations){const ciInfo=gi(st.name,st.region)
 if(!es.length)continue;es.sort((a,b)=>a.tt-b.tt);const sa=salesData[st.name]||{};gs.push({st:st.name,rg:st.region,dn:ciInfo.display,ct:ciInfo.type,cl:CC[ciInfo.type]||'自有站',sa,ot:es.slice(0,5).map((e,i)=>({rk:i+1,...e}))});}
 stationResults=gs;renderStationTable(gs);gid('statStatus').textContent='已完成';gid('statFiltered').textContent=gs.length;const own=gs.filter(g=>g.ct==='own').length,kg=gs.filter(g=>g.ct==='konggu').length,cg=gs.filter(g=>g.ct==='cangu').length;gid('statFilteredDetail').textContent='自有 '+own+' / 控股 '+kg+' / 参股 '+cg;}
 
-function renderStationTable(gs){const c=gid('tableContainer');if(!gs.length){c.innerHTML='<div class="empty">没有符合条件的数据</div>';gid('rowCount').textContent='共 0 行';return;}
-const groups={'own':[],'konggu':[],'cangu':[]};gs.forEach(g=>{if(groups[g.ct])groups[g.ct].push(g);});
-const order=['own','konggu','cangu'];const labels={'own':'自有站（非祥公司）','konggu':'控股站（祥公司）','cangu':'参股站（祥公司）'};
-const bgColors={'own':'#285e61','konggu':'#553c9a','cangu':'#c53030'};
-let h='<table><thead><tr><th rowspan="2">序号</th><th rowspan="2">分组</th><th rowspan="2">分公司</th><th rowspan="2">站类型</th><th rowspan="2">加油站名称</th><th colspan="4">产品日销量（吨）</th><th colspan="5">各优先级出库点</th></tr><tr><th>0#</th><th>92#</th><th>95#</th><th>98#</th>';
-for(let i=0;i<5;i++)h+='<th>'+RL[i]+'<br><span style="font-weight:400;font-size:10px;color:#718096;">油库|类型|一次|运距|二次|合计</span></th>';h+='</tr></thead><tbody>';
-let seq=0;for(const grp of order){const items=groups[grp];if(!items||!items.length)continue;
-h+='<tr class="section-header '+grp+'"><td colspan="14"><span style="display:flex;align-items:center;gap:8px;">▎'+labels[grp]+' <span class="count">（'+items.length+' 站）</span></span></td></tr>';
-items.forEach(g=>{seq++;const cb=g.ct=='own'?'own':g.ct=='konggu'?'konggu':'cangu';
-h+='<tr><td>'+seq+'</td><td><span class="company-badge '+cb+'">'+g.cl+'</span></td><td>'+g.dn+'</td><td><span class="company-badge '+cb+'">'+g.cl+'</span></td><td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;" title="'+g.st+'">'+g.st+'</td><td>'+(g.sa['0']??'')+'</td><td>'+(g.sa['92']??'')+'</td><td>'+(g.sa['95']??'')+'</td><td>'+(g.sa['98']??'')+'</td>';
-for(let r=0;r<5;r++){const o=g.ot[r];if(o){const tc=o.dt=='ziyou'?'ziyou':o.dt=='waicai'?'waicai':'hugong';h+='<td><div class="outlet-cell"><div class="ok-name">'+o.dn+' <span class="depot-badge '+tc+'">'+o.dtc+'</span></div><div class="ok-detail">一次 '+o.ff+' 元/吨</div><div class="ok-detail">运距 '+o.di+' km | 二次 '+o.sf.toFixed(2)+' 元/吨</div><div class="ok-total" style="color:'+['#276749','#b7791f','#c53030','#553c9a','#7B1F1F'][r]+'">合计 '+o.tt.toFixed(2)+' 元/吨</div></div></td>';}else h+='<td><div class="outlet-cell"><span class="outlet-empty">—</span></div></td>';}
-h+='</tr>';});}
-h+='</tbody></table>';c.innerHTML=h;gid('rowCount').textContent='共 '+gs.length+' 个加油站，每站 5 级出库点';}
+// 分页状态
+var _curPage=1;const PAGE_SIZE=80;
+function renderStationTable(gs){
+  const c=gid('tableContainer');
+  if(!gs.length){c.innerHTML='<div class="empty">没有符合条件的数据</div>';gid('rowCount').textContent='共 0 行';renderPager(0,1);return;}
+  const total=gs.length;
+  const pages=Math.max(1,Math.ceil(total/PAGE_SIZE));
+  if(_curPage>pages)_curPage=pages; if(_curPage<1)_curPage=1;
+  const start=(_curPage-1)*PAGE_SIZE, end=Math.min(start+PAGE_SIZE,total);
+  // 预构建分组+全局序号
+  const groups={'own':[],'konggu':[],'cangu':[]};
+  gs.forEach(g=>{if(groups[g.ct])groups[g.ct].push(g);});
+  const order=['own','konggu','cangu'];
+  const labels={'own':'自有站（非祥公司）','konggu':'控股站（祥公司）','cangu':'参股站（祥公司）'};
+  let seq=0;const allRows=[];
+  for(const grp of order){(groups[grp]||[]).forEach(g=>{seq++;allRows.push({seq,grp,g});});}
+  const pageRows=allRows.slice(start,end);
+  let h='<table><thead><tr><th rowspan="2">序号</th><th rowspan="2">分组</th><th rowspan="2">分公司</th><th rowspan="2">站类型</th><th rowspan="2">加油站名称</th><th colspan="5">产品日销量（吨）</th><th colspan="5">各优先级出库点</th></tr><tr><th>0#</th><th>92#</th><th>E92#乙醇</th><th>95#</th><th>98#</th>';
+  for(let i=0;i<5;i++)h+='<th>'+RL[i]+'<br><span style="font-weight:400;font-size:10px;color:#718096;">油库|类型|一次|运距|二次|合计</span></th>';h+='</tr></thead><tbody>';
+  for(const grp of order){
+    const items=pageRows.filter(r=>r.grp===grp);
+    if(!items.length)continue;
+    h+='<tr class="section-header '+grp+'"><td colspan="14"><span style="display:flex;align-items:center;gap:8px;">▎'+labels[grp]+' <span class="count">（本页 '+items.length+' / 共 '+(groups[grp]||[]).length+' 站）</span></span></td></tr>';
+    items.forEach(r=>{const g=r.g,cb=g.ct=='own'?'own':g.ct=='konggu'?'konggu':'cangu';
+      h+='<tr><td>'+r.seq+'</td><td><span class="company-badge '+cb+'">'+g.cl+'</span></td><td>'+g.dn+'</td><td><span class="company-badge '+cb+'">'+g.cl+'</span></td><td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;" title="'+g.st+'">'+g.st+'</td><td>'+(g.sa['0']??'')+'</td><td>'+(g.sa['92']??'')+'</td><td>'+(g.sa['E92']??'')+'</td><td>'+(g.sa['95']??'')+'</td><td>'+(g.sa['98']??'')+'</td>';
+      for(let i2=0;i2<5;i2++){const o=g.ot[i2];if(o){const tc=o.dt=='ziyou'?'ziyou':o.dt=='waicai'?'waicai':'hugong';h+='<td><div class="outlet-cell"><div class="ok-name">'+o.dn+' <span class="depot-badge '+tc+'">'+o.dtc+'</span></div><div class="ok-detail">一次 '+o.ff+' 元/吨</div><div class="ok-detail">运距 '+o.di+' km | 二次 '+o.sf.toFixed(2)+' 元/吨</div><div class="ok-total" style="color:'+['#276749','#b7791f','#c53030','#553c9a','#7B1F1F'][i2]+'">合计 '+o.tt.toFixed(2)+' 元/吨</div></div></td>';}else h+='<td><div class="outlet-cell"><span class="outlet-empty">—</span></div></td>';}
+      h+='</tr>';});
+  }
+  h+='</tbody></table>';c.innerHTML=h;
+  gid('rowCount').textContent='共 '+total+' 站（每站5级出库点）· 第 '+_curPage+'/'+pages+' 页 · 显示 '+(start+1)+'-'+end+' 行';
+  renderPager(_curPage,pages);
+}
+function renderPager(cur,pages){
+  let el=gid('pagerBar');
+  if(!el){el=document.createElement('div');el.id='pagerBar';el.className='pager-bar';const fw=document.querySelector('.footer-bar');if(fw)fw.insertAdjacentElement('afterend',el);}
+  if(pages<=1){el.innerHTML='';return;}
+  let html='<button class="pg-btn" '+(cur<=1?'disabled':'')+' onclick="goPage('+(cur-1)+')">‹ 上一页</button>';
+  const w=3;let s=Math.max(1,cur-w),e=Math.min(pages,cur+w);
+  if(s>1)html+='<button class="pg-btn" onclick="goPage(1)">1</button>'+(s>2?'<span class="pg-ell">…</span>':'');
+  for(let i=s;i<=e;i++)html+='<button class="pg-btn'+(i===cur?' on':'')+'" onclick="goPage('+i+')">'+i+'</button>';
+  if(e<pages)html+=(e<pages-1?'<span class="pg-ell">…</span>':'')+'<button class="pg-btn" onclick="goPage('+pages+')">'+pages+'</button>';
+  html+='<button class="pg-btn" '+(cur>=pages?'disabled':'')+' onclick="goPage('+(cur+1)+')">下一页 ›</button>';
+  html+='<span class="pg-jump">跳页 <input id="pgInput" type="number" min="1" max="'+pages+'" style="width:52px" onkeydown="if(event.key===\'Enter\')goPage(parseInt(this.value)||1)"> / '+pages+'</span>';
+  el.innerHTML=html;
+}
+function goPage(p){_curPage=p;renderStationTable(stationResults);window.scrollTo({top:0,behavior:'smooth'});}
 
 // ===== Depot View =====
 function renderDepotView(){if(!appData)return;try{const sel=gid('depotSelect');if(!sel||!sel.value)return;const depotCode=sel.value;const bp=gid('productSelect').value,rf=getMSVals('msRegion'),tf=gid('typeFilter').value,cf=gid('companyFilter').value;
