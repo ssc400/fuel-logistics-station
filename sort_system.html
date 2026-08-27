@@ -430,11 +430,11 @@ function renderMS(id){
   wrap.innerHTML='<div class="ms-trigger" onclick="toggleMSDrop(\''+id+'\')"><span>'+txt+'</span><span class="ms-arrow">▼</span></div>'+
     '<div class="ms-dd" id="'+s.ddId+'" onclick="event.stopPropagation()">'+
     '<label class="ms-all" onclick="event.preventDefault();event.stopPropagation();msToggleAll(\''+id+'\')">'+
-    '<input type="checkbox"'+(cnt===tot&&tot>0?' checked':'')+' onclick="event.preventDefault();event.stopPropagation();"> 全选</label>'+
+    '<input type="checkbox"'+(cnt===tot&&tot>0?' checked':'')+'> 全选</label>'+
     s.items.map(function(i){
       var ck=s.vals.indexOf(i.value)>=0?' checked':'';
       return '<label onclick="event.preventDefault();event.stopPropagation();msToggleVal(\''+id+'\',\''+i.value.replace(/'/g,"\\'")+'\')">'+
-        '<input type="checkbox"'+ck+' onclick="event.preventDefault();event.stopPropagation();"> '+i.label+'</label>';
+        '<input type="checkbox"'+ck+'> '+i.label+'</label>';
     }).join('')+'</div>';
 }
 function toggleMSDrop(id){
