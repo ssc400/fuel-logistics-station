@@ -83,7 +83,17 @@ a:hover{text-decoration:underline}
 .impact-tb td:nth-child(2){text-align:left;max-width:80px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 </style>
 <!-- 地图：高德地图 AMap JSAPI 2.0（底图 + 测距统一，原生无白框，无需本地库） -->
-<script src="https://webapi.amap.com/maps?v=2.0&key="></script>
+<!-- 高德 Key 去硬编码：手动输入，按 origin 存本机浏览器 localStorage('amap_web_key') -->
+<script>
+var AMAP_KEY='';
+(function(){ try{ AMAP_KEY = localStorage.getItem('amap_web_key')||''; }catch(e){ AMAP_KEY=''; } })();
+function saveAmapKey(k){ AMAP_KEY=(k||'').trim(); try{ if(AMAP_KEY) localStorage.setItem('amap_web_key', AMAP_KEY); else localStorage.removeItem('amap_web_key'); }catch(e){} }
+(function(){
+  if(AMAP_KEY && AMAP_KEY.length>=10){
+    document.write('<scr'+'ipt src="https://webapi.amap.com/maps?v=2.0&key='+encodeURIComponent(AMAP_KEY)+'"><\/scr'+'ipt>');
+  }
+})();
+</script>
 <script src="my_depots.js"></script>
 <script src="my_stations.js"></script>
 <script src="https://beacon.cdn.qq.com/sdk/4.5.9/beacon_web.min.js"></script>
@@ -120,6 +130,8 @@ a:hover{text-decoration:underline}
     <span id="dataStat" class="upd" style="color:#1B9E3E;font-size:.68rem" title="天气=Open-Meteo免费API自动刷新（每10分钟）；路况/通报=数据文件（由AI更新或编辑器修改）">📡 天气实时 · 数据文件</span>
     <span id="syncStat" class="upd" style="color:#E67E22">🟡 本机存储</span>
     <span class="upd" style="color:#3A5C4A">v1.999 · 坐标版</span>
+    <input type="text" id="amapKeyInput" value="" placeholder="高德KEY(必填·仅存本机)" style="width:170px;font-size:.66rem;padding:4px 6px;border:1px solid #d9d9d9;border-radius:5px" oninput="saveAmapKey(this.value)" onkeydown="if(event.key==='Enter')loadAmapAndInit()">
+    <button class="btn sm" style="background:#3A5C4A;color:#fff;margin-left:2px" onclick="loadAmapAndInit()">🗺️ 加载地图</button>
     <button id="btnRefresh" class="btn sm" style="background:#3A5C4A;color:#fff;margin-left:6px" onclick="refreshAll()">🔄 手动刷新</button>
     <button class="btn sm" style="background:#9B59B6;color:#fff;margin-left:6px" onclick="openEditor()">✏️ 编辑情报</button>
     <button class="btn sm" style="background:#2C6AA0;color:#fff;margin-left:6px" onclick="openSync()">⚙️ 同步</button>
@@ -432,9 +444,9 @@ function updateSyncStat(){
   if(BACKEND_OK){ el.textContent='🟢 后端同步'; el.style.color='#1B9E3E'; }
   else { el.textContent='🟡 本机存储'; el.style.color='#E67E22'; }
 }
-(function(){
+function initMap(){
   try{
-    if(typeof AMap==='undefined') throw new Error('高德地图未加载（请检查网络连接或 key 白名单）');
+    if(typeof AMap==='undefined') throw new Error('高德地图未加载（请在顶部填高德KEY后点「🗺️加载地图」，或检查网络）');
     map=new AMap.Map('map',{zoom:7,center:[108.62,23.5],viewMode:'2D',zoomEnable:true,dragEnable:true});
     mapOK=true;
     document.getElementById('mapStat').textContent='🟢 地图已加载（高德地图）';
@@ -464,7 +476,31 @@ function updateSyncStat(){
     var m=document.getElementById('map');
     if(m)m.innerHTML='<div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;padding:24px;color:#C65D52;font-size:.82rem;line-height:1.9;text-align:center">⚠️ 地图加载失败<br><br>请检查网络连接，或确认高德 key 白名单包含当前域名。错误：'+(e.message||'')+'</div>';
   }
-})();
+}
+// 页面加载后：若 JSAPI 已注入（AMap 已定义）则自动初始化；否则提示填 Key
+if(typeof AMap!=='undefined'){ initMap(); }
+else {
+  var _m=document.getElementById('map');
+  if(_m) _m.innerHTML='<div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;padding:24px;color:#C65D52;font-size:.82rem;line-height:1.9;text-align:center">⚠️ 地图未加载<br><br>请在顶部「高德KEY」框粘贴你的高德 Key，再点「🗺️ 加载地图」。<br>（Key 仅存本机浏览器，需白名单含当前域名）</div>';
+  var _s=document.getElementById('mapStat');
+  if(_s){ _s.textContent='🔴 未填高德 Key'; _s.style.color='#C0392B'; }
+}
+// 回填 Key 输入框（若已存）
+(function(){ var _inp=document.getElementById('amapKeyInput'); if(_inp && AMAP_KEY) _inp.value=AMAP_KEY; })();
+// 用户填 Key 后重新加载 JSAPI 并初始化地图
+function loadAmapAndInit(){
+  if(mapOK) return;
+  var inp=document.getElementById('amapKeyInput');
+  var k=inp? inp.value.trim() : '';
+  if(!k || k.length<10){ alert('请先在高德KEY框粘贴有效的高德 Key（至少10位）'); if(inp) inp.focus(); return; }
+  saveAmapKey(k);
+  if(typeof AMap!=='undefined'){ initMap(); return; }
+  var s=document.createElement('script');
+  s.src='https://webapi.amap.com/maps?v=2.0&key='+encodeURIComponent(k);
+  s.onload=function(){ initMap(); };
+  s.onerror=function(){ alert('高德地图脚本加载失败，请检查网络或 Key 是否有效'); };
+  document.head.appendChild(s);
+}
 
 // ===== 数据：优先 intel_data.json，失败用内置 =====
 var FALLBACK={
@@ -518,8 +554,7 @@ function doRouteSearch(){
   }
   runDriving(startLL,endLL);
 }
-// ===== 高德地图 Web 服务 API =====
-var AMAP_KEY='';
+// ===== 高德地图 Web 服务 API（AMAP_KEY 已在前部由 localStorage 读取，见顶部脚本）=====
 // 高德地理编码：地址 → [lng, lat]
 function geoOne(addr){
   return new Promise(function(resolve){
