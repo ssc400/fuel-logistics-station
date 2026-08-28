@@ -715,10 +715,10 @@ function uploadPlanCSV(ev){
         text=new TextDecoder('gbk').decode(arr);
       }
       const plans=parsePlanCSV(text);
-      if(!plans.length)throw new Error('未找到已下发计划');
+      if(!plans.length)throw new Error('未找到复核通过/已下发的计划（请确认上传的是配送日报且含这两种状态）');
       lastPlanData=plans;
       analyzePlans(plans);
-      gid('planUploadBox').innerHTML='<div style="display:flex;align-items:center;justify-content:center;gap:10px;padding:10px"><span style="font-size:24px">✅</span><div><strong>'+f.name+'</strong><br><span style="font-size:12px;color:#718096">已解析 '+plans.length+' 条已下发计划</span></div><button class="btn btn-outline btn-sm" onclick="resetPlanUpload()" style="margin-left:auto">重新上传</button></div>';
+      gid('planUploadBox').innerHTML='<div style="display:flex;align-items:center;justify-content:center;gap:10px;padding:10px"><span style="font-size:24px">✅</span><div><strong>'+f.name+'</strong><br><span style="font-size:12px;color:#718096">已解析 '+plans.length+' 条有效计划（复核通过/已下发）</span></div><button class="btn btn-outline btn-sm" onclick="resetPlanUpload()" style="margin-left:auto">重新上传</button></div>';
     }catch(err){
       gid('planFileInfo').textContent='❌ '+err.message;
     }
@@ -738,9 +738,9 @@ function parsePlanCSV(text){
     if(header){header=false;continue;}
     if(cols.length<20)continue;
     const status=String(cols[16]||'').trim();
-    if(status!=='已下发')continue;
+    if(status!=='已下发' && status!=='复核通过')continue;
     plans.push({
-      date:String(cols[0]||'').trim(),
+      date:(function(d){d=String(d||'').trim();var m=d.match(/\d{4}-\d{2}-\d{2}/);return m?m[0]:d;})(cols[0]),
       orderNo:String(cols[1]||'').trim(),
       region:String(cols[3]||'').trim(),
       liftOrg:String(cols[6]||'').trim(),
