@@ -219,6 +219,7 @@ tr:hover td{background:#f7fafc}
     <div class="view-tab" id="tabDepot" onclick="switchView('depot')">🏭 按油库查看</div>
     <div class="view-tab" id="tabPlan" onclick="switchView('plan')">📋 配送计划核对</div>
     <div class="view-tab" id="tabDist" onclick="switchView('dist')">📏 运距核对</div>
+    <div class="view-tab" id="tabMaster" onclick="switchView('master')">🛠 主数据维护</div>
   </div>
   <div class="controls" id="depotSelector" style="display:none;">
     <label>选择油库：</label>
@@ -261,20 +262,7 @@ tr:hover td{background:#f7fafc}
     </div>
   </div>
   <div id="stationSection">
-    <h3>📂 数据更新</h3>
-    <div class="upload-grid">
-      <div class="upload-card"><h4>🚛 一次运费表</h4><p>上传更新油库固定运费</p>
-        <button class="btn btn-primary btn-sm" onclick="document.getElementById('freightInput').click()">选择文件</button>
-        <input type="file" id="freightInput" accept=".xlsx,.xls" style="display:none" onchange="uploadFreightData(event)">
-        <div class="file-name" id="freightFileName"></div><div class="file-status" id="freightStatus"></div></div>
-      <div class="upload-card"><h4>🗺️ 二次运距表</h4><p>上传更新油库-加油站运距</p>
-        <button class="btn btn-primary btn-sm" onclick="document.getElementById('distanceInput').click()">选择文件</button>
-        <input type="file" id="distanceInput" accept=".xlsx,.xls" style="display:none" onchange="uploadDistanceData(event)">
-        <div class="file-name" id="distanceFileName"></div><div class="file-status" id="distanceStatus"></div></div>
-      <div class="upload-card" style="border-style:solid;border-color:#7B1F1F;background:#ebf8ff;"><h4>🔄 恢复默认数据</h4><p>回到系统初始数据</p>
-        <button class="btn btn-outline btn-sm" onclick="resetToDefault()">恢复默认</button>
-        <div class="file-status ok" id="resetStatus"></div></div>
-    </div>
+    <!-- 主数据批量上传入口已收编至「主数据维护」标签页 -->
   </div>
   <div class="sales-section">
     <h3>📋 加油站日销量数据 <span style="font-weight:400;font-size:12px;color:#a0aec0;">（上传Excel后自动匹配，显示在下方表格和导出中）</span></h3>
@@ -540,12 +528,23 @@ function initMsFilters(){
   initMultiSelect('msPlanRegion',[], function(vals){renderPlanResults();});
 }
 setTimeout(initMsFilters,100);
-function uploadFreightData(ev){const f=ev.target.files[0];if(!f)return;gid('freightFileName').textContent='📎 '+f.name;gid('freightStatus').textContent='解析中...';const r=new FileReader();r.onload=function(e){try{const wb=XLSX.read(new Uint8Array(e.target.result),{type:'array'});const d=pfExcel(wb);applyData(d,null);}catch(err){gid('freightStatus').className='file-status err';gid('freightStatus').textContent='❌ '+err.message;}};r.readAsArrayBuffer(f);ev.target.value='';}
-function uploadDistanceData(ev){const f=ev.target.files[0];if(!f)return;gid('distanceFileName').textContent='📎 '+f.name;gid('distanceStatus').textContent='解析中...';const r=new FileReader();r.onload=function(e){try{const wb=XLSX.read(new Uint8Array(e.target.result),{type:'array'});const res=pdExcel(wb);if(!res)throw Error('格式错误');applyData(null,res);}catch(err){gid('distanceStatus').className='file-status err';gid('distanceStatus').textContent='❌ '+err.message;}};r.readAsArrayBuffer(f);ev.target.value='';}
-function resetToDefault(){if(!defaultData)return;appData=JSON.parse(JSON.stringify(defaultData));dataModified=false;gid('freightFileName').textContent='';gid('freightStatus').textContent='';gid('distanceFileName').textContent='';gid('distanceStatus').textContent='';gid('statSource').textContent='默认数据';gid('statSource').style.color='#276749';gid('statStations').textContent=appData.stations.length;gid('statRegions').textContent=new Set(appData.stations.map(s=>s.region)).size;const ok=appData.depots.filter(d=>d.type!='以站代库'&&appData.depotToCol&&d.code in appData.depotToCol);gid('statDepots').textContent=ok.length;gid('statDepotsDetail').textContent='自有 '+ok.filter(d=>d.type=='自有库').length+' / 互供 '+ok.filter(d=>d.type=='互供库').length+' / 外采 '+ok.filter(d=>d.type=='外采库').length;initProductAvailability();updateAvailButtonStatus();buildCompanyFilter();updateView();gid('resetStatus').textContent='✅ 已恢复默认';}
+function uploadFreightData(ev){const f=ev.target.files[0];if(!f)return;gid('freightFileName').textContent='📎 '+f.name;gid('freightStatus').textContent='解析中...';const r=new FileReader();r.onload=function(e){try{const wb=XLSX.read(new Uint8Array(e.target.result),{type:'array'});const d=pfExcel(wb);applyData(d,null);saveMaster();}catch(err){gid('freightStatus').className='file-status err';gid('freightStatus').textContent='❌ '+err.message;}};r.readAsArrayBuffer(f);ev.target.value='';}
+function uploadDistanceData(ev){const f=ev.target.files[0];if(!f)return;gid('distanceFileName').textContent='📎 '+f.name;gid('distanceStatus').textContent='解析中...';const r=new FileReader();r.onload=function(e){try{const wb=XLSX.read(new Uint8Array(e.target.result),{type:'array'});const res=pdExcel(wb);if(!res)throw Error('格式错误');applyData(null,res);saveMaster();}catch(err){gid('distanceStatus').className='file-status err';gid('distanceStatus').textContent='❌ '+err.message;}};r.readAsArrayBuffer(f);ev.target.value='';}
+function resetToDefault(){if(!defaultData)return;appData=JSON.parse(JSON.stringify(defaultData));dataModified=false;try{localStorage.removeItem(MASTER_KEY);}catch(e){}gid('freightFileName').textContent='';gid('freightStatus').textContent='';gid('distanceFileName').textContent='';gid('distanceStatus').textContent='';gid('statSource').textContent='默认数据';gid('statSource').style.color='#276749';gid('statStations').textContent=appData.stations.length;gid('statRegions').textContent=new Set(appData.stations.map(s=>s.region)).size;const ok=appData.depots.filter(d=>d.type!='以站代库'&&appData.depotToCol&&d.code in appData.depotToCol);gid('statDepots').textContent=ok.length;gid('statDepotsDetail').textContent='自有 '+ok.filter(d=>d.type=='自有库').length+' / 互供 '+ok.filter(d=>d.type=='互供库').length+' / 外采 '+ok.filter(d=>d.type=='外采库').length;initProductAvailability();updateAvailButtonStatus();buildCompanyFilter();updateView();gid('resetStatus').textContent='✅ 已恢复默认（已清本地备份）';}
+const MASTER_KEY='sort_master_v1';
+function saveMaster(){try{const o={depots:appData.depots,stations:appData.stations,colToDepot:appData.colToDepot,depotToCol:appData.depotToCol,depotColNames:appData.depotColNames};localStorage.setItem(MASTER_KEY,JSON.stringify(o));}catch(e){}}
+function loadMaster(){try{const raw=localStorage.getItem(MASTER_KEY);if(!raw)return false;const o=JSON.parse(raw);if(o.depots)appData.depots=o.depots;if(o.stations)appData.stations=o.stations;if(o.colToDepot)appData.colToDepot=o.colToDepot;if(o.depotToCol)appData.depotToCol=o.depotToCol;if(o.depotColNames)appData.depotColNames=o.depotColNames;return true;}catch(e){return false;}}
+function renderFreightMatrix(){const wrap=gid('freightMatrix');if(!wrap)return;const depots=appData.depots.filter(d=>d.type!='以站代库').sort((a,b)=>a.name.localeCompare(b.name,'zh'));let h='<table class="master-table"><thead><tr><th>油库名称</th><th>类型</th><th>0#</th><th>92#</th><th>E92#</th><th>95#</th><th>98#</th></tr></thead><tbody>';for(const d of depots){h+='<tr><td>'+d.name+'</td><td>'+(TC[d.type]||d.type)+'</td>';for(const pk of PK){const fk=FF[pk];const val=(d[fk]===null||d[fk]===undefined)?'':d[fk];h+='<td><input type="number" step="0.0001" data-code="'+d.code+'" data-fk="'+fk+'" value="'+val+'" style="width:78px"></td>';}h+='</tr>';}h+='</tbody></table>';wrap.innerHTML=h;}
+function saveFreightMatrix(){const wrap=gid('freightMatrix');if(!wrap)return;const ins=wrap.querySelectorAll('input[data-code]');for(const inp of ins){const code=inp.getAttribute('data-code');const fk=inp.getAttribute('data-fk');const d=appData.depots.find(x=>x.code===code);if(!d)continue;const v=inp.value.trim()===''?null:parseFloat(inp.value);d[fk]=isNaN(v)?null:v;}initProductAvailability();saveMaster();updateAvailButtonStatus();updateView();gid('freightMatrixStatus').textContent='✅ 已保存 '+ins.length+' 个运费值';}
+function renderMasterStationOptions(){const sel=gid('masterStationSelect');if(!sel)return;const q=(gid('masterStationSearch').value||'').trim();let h='<option value="">— 选择加油站 —</option>';appData.stations.forEach((s,i)=>{if(q&&!(s.name.includes(q)||s.region.includes(q)))return;h+='<option value="'+i+'">'+s.region+' / '+s.name+'</option>';});sel.innerHTML=h;}
+function renderStationDistEditor(){const sel=gid('masterStationSelect');const wrap=gid('stationDistEditor');if(!sel||!wrap)return;const idx=sel.value;if(idx===''||idx==null){wrap.innerHTML='<div class="empty">请选择加油站</div>';return;}const st=appData.stations[parseInt(idx)];if(!st){wrap.innerHTML='';return;}const d2c=appData.depotToCol||{};const depots=appData.depots.filter(d=>d.type!='以站代库'&&d.code in d2c);let h='<div style="font-size:13px;margin-bottom:8px;">加油站：<strong>'+st.region+' / '+st.name+'</strong>（共 '+depots.length+' 个油库）</div>';h+='<table class="master-table"><thead><tr><th>油库名称</th><th>类型</th><th>运距(km)</th><th>二次运费(元/吨)</th></tr></thead><tbody>';for(const d of depots){const col=d2c[d.code];const dist=(st.distances&&st.distances[col]!=null)?st.distances[col]:'';const sf=(dist!==''&&!isNaN(dist))?(dist>30?0.67*dist:29):null;h+='<tr><td>'+d.name+'</td><td>'+(TC[d.type]||d.type)+'</td><td><input type="number" step="0.01" data-idx="'+idx+'" data-col="'+col+'" value="'+dist+'" style="width:90px"></td><td>'+(sf!=null?sf.toFixed(2):'—')+'</td></tr>';}h+='</tbody></table>';wrap.innerHTML=h;}
+function saveStationDist(){const wrap=gid('stationDistEditor');if(!wrap)return;const ins=wrap.querySelectorAll('input[data-idx]');let cnt=0;for(const inp of ins){const idx=parseInt(inp.getAttribute('data-idx'));const col=inp.getAttribute('data-col');const st=appData.stations[idx];if(!st)continue;if(!st.distances)st.distances={};const v=inp.value.trim()===''?null:parseFloat(inp.value);st.distances[col]=isNaN(v)?null:v;cnt++;}saveMaster();updateView();gid('stationDistStatus').textContent='✅ 已保存 '+cnt+' 条运距';renderStationDistEditor();}
+function exportMasterBackup(){const o={depots:appData.depots,stations:appData.stations,colToDepot:appData.colToDepot,depotToCol:appData.depotToCol,depotColNames:appData.depotColNames,_export:'sort_master',_v:1,time:new Date().toISOString()};const blob=new Blob([JSON.stringify(o,null,2)],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='主数据备份_'+new Date().toISOString().slice(0,10)+'.json';a.click();gid('masterBackupStatus').textContent='✅ 已导出备份';}
+function importMasterBackup(ev){const f=ev.target.files[0];if(!f)return;if(!confirm('导入将覆盖当前主数据（油库运费、油站运距），确定继续？')){ev.target.value='';return;}const r=new FileReader();r.onload=function(e){try{const o=JSON.parse(e.target.result);if(o.depots)appData.depots=o.depots;if(o.stations)appData.stations=o.stations;if(o.colToDepot)appData.colToDepot=o.colToDepot;if(o.depotToCol)appData.depotToCol=o.depotToCol;if(o.depotColNames)appData.depotColNames=o.depotColNames;saveMaster();initProductAvailability();updateAvailButtonStatus();buildCompanyFilter();buildDepotSelector();renderFreightMatrix();renderMasterStationOptions();renderStationDistEditor();updateView();gid('masterBackupStatus').textContent='✅ 已恢复备份';}catch(err){gid('masterBackupStatus').textContent='❌ '+err.message;}ev.target.value='';};r.readAsText(f);}
 function loadData(){
   try{
     appData=JSON.parse(JSON.stringify(EMBEDDED_DATA));
+    if(loadMaster()){gid('statSource').textContent='本地备份';gid('statSource').style.color='#b7791f';}
     defaultData=JSON.parse(JSON.stringify(appData));
     gid('statStations').textContent=appData.stations.length;
     gid('statRegions').textContent=new Set(appData.stations.map(s=>s.region)).size;
@@ -602,6 +601,7 @@ function switchView(v){
   gid('tabDepot').className='view-tab'+(v==='depot'?' active':'');
   gid('tabPlan').className='view-tab'+(v==='plan'?' active':'');
   gid('tabDist').className='view-tab'+(v==='dist'?' active':'');
+  gid('tabMaster').className='view-tab'+(v==='master'?' active':'');
   gid('depotSelector').style.display=v==='depot'?'flex':'none';
   // Show/hide sections
   const stationSection=gid('stationSection');if(stationSection)stationSection.style.display=v==='station'?'block':'none';
@@ -609,6 +609,8 @@ function switchView(v){
   if(v==='plan'){planSection.style.display='block';}else{planSection.style.display='none';}
   const distSection=gid('distSection');
   if(v==='dist'){distSection.style.display='block';renderDistView();}else distSection.style.display='none';
+  const masterSection=gid('masterSection');if(masterSection)masterSection.style.display=v==='master'?'block':'none';
+  if(v==='master'){renderFreightMatrix();renderMasterStationOptions();renderStationDistEditor();}
   if(v==='station')updateView();
   if(v==='depot')setTimeout(renderDepotView,100);
 }
