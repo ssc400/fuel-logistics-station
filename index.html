@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>成品油物流工作空间站</title>
-<script src="https://webapi.amap.com/maps?v=2.0&key=3f608d56cf06c8b64f6e8cf6612d8834"></script>
+<script defer src="https://webapi.amap.com/maps?v=2.0&key=3f608d56cf06c8b64f6e8cf6612d8834"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
 <script src="js/xlsx.full.min.js"></script>
 <script src="js/config.js"></script>
@@ -748,7 +748,7 @@ function rd(c){
       '<div class="tab" onclick="rdTab(this,1)">📊 批量复核</div>'+
     '</div>'+
     '<div id="rdContent" style="flex:1;display:flex;flex-direction:column;min-height:0"></div>';
-  rdTab(null,0);
+  rdTab(null,1);
 }
 function rdTab(el,idx){
   try{
