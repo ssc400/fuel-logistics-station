@@ -993,16 +993,11 @@ function renderPlanResults(keepPage){
     +'<th rowspan="2">序号</th><th rowspan="2">配送日期</th><th rowspan="2">配送单号</th><th rowspan="2">状态</th><th rowspan="2">业务类型</th><th rowspan="2">分公司</th><th rowspan="2">收油机构</th><th rowspan="2">油品</th><th rowspan="2">出库(吨)</th><th rowspan="2">实际出库点</th><th rowspan="2">库类型</th><th rowspan="2">第一出库点</th><th rowspan="2">第二出库点</th><th rowspan="2">第三出库点</th><th rowspan="2">第四出库点</th><th rowspan="2">第五出库点</th><th rowspan="2">排名</th><th rowspan="2">自有库排名</th><th rowspan="2">核对结果</th>'
     +'<th colspan="4" class="th-group" style="background:#edf2f7">现在出库点运费</th>'
     +'<th colspan="5" class="th-group" style="background:#e6fffa">最优(第一)出库点运费</th>'
-    +'<th colspan="16" class="th-group" style="background:#fff5f5">与最优差值(现在−各配送点)</th>'
     +'<th rowspan="2">一次吨油运费增加(元/吨)</th><th rowspan="2">二次吨油运费增加(元/吨)</th><th rowspan="2">一二次整体吨油运费增加(元/吨)</th><th rowspan="2">实际运费增加(元)</th>'
     +'</tr>'
     +'<tr class="th-sub-row">'
     +'<th class="th-sub" style="background:#edf2f7">运距(km)</th><th class="th-sub" style="background:#edf2f7">一次运费(元/吨)</th><th class="th-sub" style="background:#edf2f7">二次运费(元/吨)</th><th class="th-sub" style="background:#edf2f7">合计运费(元/吨)</th>'
     +'<th class="th-sub" style="background:#e6fffa">运距(km)</th><th class="th-sub" style="background:#e6fffa">一次运费(元/吨)</th><th class="th-sub" style="background:#e6fffa">二次运费(元/吨)</th><th class="th-sub" style="background:#e6fffa">合计运费(元/吨)</th><th class="th-sub" style="background:#e6fffa">二次运距(km)</th>'
-    +'<th class="th-sub" style="background:#fff5f5">一次(元/吨)</th><th class="th-sub" style="background:#fff5f5">二次(元/吨)</th><th class="th-sub" style="background:#fff5f5">合计(元/吨)</th><th class="th-sub" style="background:#fff5f5">二次运距(km)</th>'
-    +'<th class="th-sub" style="background:#fff5f5">一次(元/吨)</th><th class="th-sub" style="background:#fff5f5">二次(元/吨)</th><th class="th-sub" style="background:#fff5f5">合计(元/吨)</th><th class="th-sub" style="background:#fff5f5">二次运距(km)</th>'
-    +'<th class="th-sub" style="background:#fff5f5">一次(元/吨)</th><th class="th-sub" style="background:#fff5f5">二次(元/吨)</th><th class="th-sub" style="background:#fff5f5">合计(元/吨)</th><th class="th-sub" style="background:#fff5f5">二次运距(km)</th>'
-    +'<th class="th-sub" style="background:#fff5f5">一次(元/吨)</th><th class="th-sub" style="background:#fff5f5">二次(元/吨)</th><th class="th-sub" style="background:#fff5f5">合计(元/吨)</th><th class="th-sub" style="background:#fff5f5">二次运距(km)</th>'
     +'</tr></thead><tbody>';
   pageRows.forEach((r,i)=>{
     let cls='',badge='',bk='',rankText='—';
@@ -1031,17 +1026,9 @@ function renderPlanResults(keepPage){
     const nowCells=[cell2(aDist,1),cell2(aFf,2),cell2(aSf,2),cell2(aTt,2)].join('</td><td style="text-align:right">');
     const fDist=r.firstDist,fFf=r.firstFf,fSf=r.firstSf,fTt=r.firstTt;
     const optCells=[cell2(fDist,1),cell2(fFf,2),cell2(fSf,2),cell2(fTt,2),cell2(fDist,1)].join('</td><td style="text-align:right">');
-    const fmtDiff=function(v,dec){if(v==null)return '—';const s=(v>0?'+':'')+(dec===1?v.toFixed(1):v.toFixed(2));const col=v>0?'#c53030':(v<0?'#276749':'#718096');return '<span style="color:'+col+'">'+s+'</span>';};
-    const diffSet=function(k){
-      const o=r.optimalRanking[k];
-      if(!o||aFf==null||aSf==null||aTt==null||aDist==null||o.ff==null||o.sf==null||o.tt==null||o.dist==null)return ['—','—','—','—'];
-      return [fmtDiff(aFf-o.ff,2),fmtDiff(aSf-o.sf,2),fmtDiff(aTt-o.tt,2),fmtDiff(aDist-o.dist,1)];
-    };
-    const diffCells=[0,1,2,3].map(function(k){return diffSet(k).join('</td><td style="text-align:right">');}).join('</td><td style="text-align:right">');
     h+='<tr class="'+cls+'"><td>'+(start+i+1)+'</td><td>'+(r.date||'')+'</td><td>'+(r.orderNo||'')+'</td><td>'+((r.status==='复核通过')?'<span class="match-badge ok" style="font-size:11px">复核通过</span>':(r.status==='已下发')?'<span class="match-badge r2" style="font-size:11px">已下发</span>':(r.status||'—'))+'</td><td>'+(r.bizType||'—')+'</td><td>'+r.region+'</td><td>'+r.stationName+'</td><td>'+r.productName+'</td><td style="text-align:right;font-weight:600">'+(Number(r.tons)||0).toFixed(2)+'</td><td>'+r.actualDepotName+'</td><td>'+r.actualDepotType+'</td><td>'+r1+'</td><td>'+r2+'</td><td>'+r3+'</td><td>'+r4+'</td><td>'+r5+'</td><td style="text-align:center">'+rankText+'</td><td style="text-align:center">'+ownRankText+'</td><td>'+badge+'<br><span style="font-size:10px;color:#718096;">'+bk+'</span></td>'
       +'<td style="text-align:right">'+nowCells+'</td>'
       +'<td style="text-align:right">'+optCells+'</td>'
-      +'<td style="text-align:right">'+diffCells+'</td>'
       +'<td style="text-align:right">'+fmtInc(pi.d1)+'</td><td style="text-align:right">'+fmtInc(pi.d2)+'</td><td style="text-align:right">'+fmtInc(pi.dT)+'</td><td style="text-align:right">'+moneyCell+'</td></tr>';
   });
   h+='</tbody></table>';c.innerHTML=h;gid('planRowCount').textContent='共 '+filtered.length+' 条计划 · 第 '+_planPage+'/'+pages+' 页 · 显示 '+(start+1)+'-'+end+' 行';
@@ -1061,45 +1048,31 @@ function renderPlanPager(cur,pages){
   el.innerHTML=html;
 }
 function goPlanPage(p){if(!p||p<1)p=1;_planPage=p;renderPlanResults(true);window.scrollTo({top:0,behavior:'smooth'});}
-function planDiffObj(r,k){
-  const o=r.optimalRanking[k];
-  if(!o||r.actualFf==null||r.actualSf==null||r.actualTt==null||r.actualDist==null||o.ff==null||o.sf==null||o.tt==null||o.dist==null)
-    return {ff:'',sf:'',tt:'',dist:''};
-  return {ff:(r.actualFf-o.ff).toFixed(2),sf:(r.actualSf-o.sf).toFixed(2),tt:(r.actualTt-o.tt).toFixed(2),dist:(r.actualDist-o.dist).toFixed(1)};
-}
 function exportPlanAudit(){
   if(!planResults.length){alert('没有数据可导出');return;}
-  const rows=planResults.map(r=>{
-    const d1=planDiffObj(r,0),d2=planDiffObj(r,1),d3=planDiffObj(r,2),d4=planDiffObj(r,3);
-    return {'配送日期':r.date,'配送单号':r.orderNo,'状态':r.status||'','业务类型':r.bizType||'','分公司':r.region,'收油机构':r.stationName,'油品':r.productName,'出库(吨)':(Number(r.tons)||0).toFixed(2),'实际出库点':r.actualDepotName,'库类型':r.actualDepotType,'第一出库点':r.optimalRanking[0]?r.optimalRanking[0].dn+' ('+r.optimalRanking[0].dt+')':'','第二出库点':r.optimalRanking[1]?r.optimalRanking[1].dn+' ('+r.optimalRanking[1].dt+')':'','第三出库点':r.optimalRanking[2]?r.optimalRanking[2].dn+' ('+r.optimalRanking[2].dt+')':'','第四出库点':r.optimalRanking[3]?r.optimalRanking[3].dn+' ('+r.optimalRanking[3].dt+')':'','第五出库点':r.optimalRanking[4]?r.optimalRanking[4].dn+' ('+r.optimalRanking[4].dt+')':'','排名':r.rank?r.rank+'':'—','自有库排名':r.ownRank?r.ownRank+'':'—','核对结果':r.error||(r.rank===1?'符合':'不符合'),
-      '现在出库点运距(km)':r.actualDist!=null?r.actualDist.toFixed(1):'','现在出库点一次运费(元/吨)':r.actualFf!=null?r.actualFf.toFixed(2):'','现在出库点二次运费(元/吨)':r.actualSf!=null?r.actualSf.toFixed(2):'','现在出库点合计运费(元/吨)':r.actualTt!=null?r.actualTt.toFixed(2):'',
-      '最优第一出库点运距(km)':r.firstDist!=null?r.firstDist.toFixed(1):'','最优第一出库点一次运费(元/吨)':r.firstFf!=null?r.firstFf.toFixed(2):'','最优第一出库点二次运费(元/吨)':r.firstSf!=null?r.firstSf.toFixed(2):'','最优第一出库点合计运费(元/吨)':r.firstTt!=null?r.firstTt.toFixed(2):'','最优第一出库点二次运距(km)':r.firstDist!=null?r.firstDist.toFixed(1):'',
-      '差值vs第一 一次运费(元/吨)':d1.ff,'差值vs第一 二次运费(元/吨)':d1.sf,'差值vs第一 合计运费(元/吨)':d1.tt,'差值vs第一 二次运距(km)':d1.dist,
-      '差值vs第二 一次运费(元/吨)':d2.ff,'差值vs第二 二次运费(元/吨)':d2.sf,'差值vs第二 合计运费(元/吨)':d2.tt,'差值vs第二 二次运距(km)':d2.dist,
-      '差值vs第三 一次运费(元/吨)':d3.ff,'差值vs第三 二次运费(元/吨)':d3.sf,'差值vs第三 合计运费(元/吨)':d3.tt,'差值vs第三 二次运距(km)':d3.dist,
-      '差值vs第四 一次运费(元/吨)':d4.ff,'差值vs第四 二次运费(元/吨)':d4.sf,'差值vs第四 合计运费(元/吨)':d4.tt,'差值vs第四 二次运距(km)':d4.dist,
-      '吨数(吨)':(Number(r.tons)||0).toFixed(2),'一次吨油运费增加(元/吨)':(r.actualFf!=null&&r.firstFf!=null?(r.actualFf-r.firstFf).toFixed(2):''),'二次吨油运费增加(元/吨)':(r.actualSf!=null&&r.firstSf!=null?(r.actualSf-r.firstSf).toFixed(2):''),'一二次整体吨油运费增加(元/吨)':(r.actualTt!=null&&r.firstTt!=null?(r.actualTt-r.firstTt).toFixed(2):''),'实际运费增加(元)':(r.actualTt!=null&&r.firstTt!=null?((r.actualTt-r.firstTt)*(Number(r.tons)||0)).toFixed(2):''),'备注':r.error||''};
-  });
+  const rows=planResults.map(r=>({
+    '配送日期':r.date,'配送单号':r.orderNo,'状态':r.status||'','业务类型':r.bizType||'','分公司':r.region,'收油机构':r.stationName,'油品':r.productName,'出库(吨)':(Number(r.tons)||0).toFixed(2),'实际出库点':r.actualDepotName,'库类型':r.actualDepotType,
+    '第一出库点':r.optimalRanking[0]?r.optimalRanking[0].dn+' ('+r.optimalRanking[0].dt+')':'','第二出库点':r.optimalRanking[1]?r.optimalRanking[1].dn+' ('+r.optimalRanking[1].dt+')':'','第三出库点':r.optimalRanking[2]?r.optimalRanking[2].dn+' ('+r.optimalRanking[2].dt+')':'','第四出库点':r.optimalRanking[3]?r.optimalRanking[3].dn+' ('+r.optimalRanking[3].dt+')':'','第五出库点':r.optimalRanking[4]?r.optimalRanking[4].dn+' ('+r.optimalRanking[4].dt+')':'',
+    '排名':r.rank?r.rank+'':'—','自有库排名':r.ownRank?r.ownRank+'':'—','核对结果':r.error||(r.rank===1?'符合':'不符合'),
+    '现在出库点运距(km)':r.actualDist!=null?r.actualDist.toFixed(1):'','现在出库点一次运费(元/吨)':r.actualFf!=null?r.actualFf.toFixed(2):'','现在出库点二次运费(元/吨)':r.actualSf!=null?r.actualSf.toFixed(2):'','现在出库点合计运费(元/吨)':r.actualTt!=null?r.actualTt.toFixed(2):'',
+    '最优第一出库点运距(km)':r.firstDist!=null?r.firstDist.toFixed(1):'','最优第一出库点一次运费(元/吨)':r.firstFf!=null?r.firstFf.toFixed(2):'','最优第一出库点二次运费(元/吨)':r.firstSf!=null?r.firstSf.toFixed(2):'','最优第一出库点合计运费(元/吨)':r.firstTt!=null?r.firstTt.toFixed(2):'','最优第一出库点二次运距(km)':r.firstDist!=null?r.firstDist.toFixed(1):'',
+    '吨数(吨)':(Number(r.tons)||0).toFixed(2),'一次吨油运费增加(元/吨)':(r.actualFf!=null&&r.firstFf!=null?(r.actualFf-r.firstFf).toFixed(2):''),'二次吨油运费增加(元/吨)':(r.actualSf!=null&&r.firstSf!=null?(r.actualSf-r.firstSf).toFixed(2):''),'一二次整体吨油运费增加(元/吨)':(r.actualTt!=null&&r.firstTt!=null?(r.actualTt-r.firstTt).toFixed(2):''),'实际运费增加(元)':(r.actualTt!=null&&r.firstTt!=null?((r.actualTt-r.firstTt)*(Number(r.tons)||0)).toFixed(2):''),'备注':r.error||''
+  }));
   const ws=XLSX.utils.json_to_sheet(rows);
-  ws['!cols']=[{wch:12},{wch:22},{wch:10},{wch:18},{wch:32},{wch:18},{wch:16},{wch:10},{wch:18},{wch:20},{wch:20},{wch:20},{wch:20},{wch:20},{wch:6},{wch:8},{wch:10},{wch:12},{wch:10},{wch:12},{wch:14},{wch:14},{wch:14},{wch:12},{wch:14},{wch:14},{wch:14},{wch:14},{wch:14},{wch:14},{wch:12},{wch:14},{wch:14},{wch:14},{wch:14},{wch:14},{wch:14},{wch:12},{wch:14},{wch:14},{wch:14},{wch:12},{wch:14},{wch:14},{wch:14},{wch:14},{wch:14},{wch:14},{wch:12},{wch:16},{wch:12}];
+  ws['!cols']=[{wch:12},{wch:22},{wch:10},{wch:18},{wch:32},{wch:18},{wch:16},{wch:10},{wch:18},{wch:20},{wch:20},{wch:20},{wch:20},{wch:20},{wch:6},{wch:8},{wch:10},{wch:12},{wch:10},{wch:12},{wch:14},{wch:14},{wch:14},{wch:14},{wch:12},{wch:14},{wch:14},{wch:14},{wch:14},{wch:14},{wch:12},{wch:16},{wch:12}];
   const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,'配送计划核对');XLSX.writeFile(wb,'配送计划核对_'+new Date().toISOString().slice(0,10)+'.xlsx');
 }
 function exportNonFirst(){
   const nf=planResults.filter(r=>r.rank&&r.rank>1);
   if(!nf.length){alert('没有非第一出库点的记录');return;}
   const rows=nf.map(r=>{
-    const d1=planDiffObj(r,0),d2=planDiffObj(r,1),d3=planDiffObj(r,2),d4=planDiffObj(r,3);
     return {'配送日期':r.date,'配送单号':r.orderNo,'状态':r.status||'','业务类型':r.bizType||'','分公司':r.region,'收油机构':r.stationName,'油品':r.productName,'出库(吨)':(Number(r.tons)||0).toFixed(2),'实际出库点':r.actualDepotName,'库类型':r.actualDepotType,'第一出库点':r.optimalRanking[0]?r.optimalRanking[0].dn+' ('+r.optimalRanking[0].dt+')':'','第二出库点':r.optimalRanking[1]?r.optimalRanking[1].dn+' ('+r.optimalRanking[1].dt+')':'','第三出库点':r.optimalRanking[2]?r.optimalRanking[2].dn+' ('+r.optimalRanking[2].dt+')':'','第四出库点':r.optimalRanking[3]?r.optimalRanking[3].dn+' ('+r.optimalRanking[3].dt+')':'','第五出库点':r.optimalRanking[4]?r.optimalRanking[4].dn+' ('+r.optimalRanking[4].dt+')':'','排名':r.rank?r.rank+'':'—',
       '现在出库点运距(km)':r.actualDist!=null?r.actualDist.toFixed(1):'','现在出库点一次运费(元/吨)':r.actualFf!=null?r.actualFf.toFixed(2):'','现在出库点二次运费(元/吨)':r.actualSf!=null?r.actualSf.toFixed(2):'','现在出库点合计运费(元/吨)':r.actualTt!=null?r.actualTt.toFixed(2):'',
-      '最优第一出库点运距(km)':r.firstDist!=null?r.firstDist.toFixed(1):'','最优第一出库点一次运费(元/吨)':r.firstFf!=null?r.firstFf.toFixed(2):'','最优第一出库点二次运费(元/吨)':r.firstSf!=null?r.firstSf.toFixed(2):'','最优第一出库点合计运费(元/吨)':r.firstTt!=null?r.firstTt.toFixed(2):'','最优第一出库点二次运距(km)':r.firstDist!=null?r.firstDist.toFixed(1):'',
-      '差值vs第一 一次运费(元/吨)':d1.ff,'差值vs第一 二次运费(元/吨)':d1.sf,'差值vs第一 合计运费(元/吨)':d1.tt,'差值vs第一 二次运距(km)':d1.dist,
-      '差值vs第二 一次运费(元/吨)':d2.ff,'差值vs第二 二次运费(元/吨)':d2.sf,'差值vs第二 合计运费(元/吨)':d2.tt,'差值vs第二 二次运距(km)':d2.dist,
-      '差值vs第三 一次运费(元/吨)':d3.ff,'差值vs第三 二次运费(元/吨)':d3.sf,'差值vs第三 合计运费(元/吨)':d3.tt,'差值vs第三 二次运距(km)':d3.dist,
-      '差值vs第四 一次运费(元/吨)':d4.ff,'差值vs第四 二次运费(元/吨)':d4.sf,'差值vs第四 合计运费(元/吨)':d4.tt,'差值vs第四 二次运距(km)':d4.dist,
+      '最优第一出库点运距(km)':r.firstDist!=null?r.firstDist.toFixed(1):'','最优第一出库点一次运费(元/吨)':r.firstFf!=null?r.firstFf.toFixed(2):'','最优第一出库点二次运费(元/吨)':r.firstSf!=null?r.firstSf.toFixed(2):'','最优第一出库点合计运费(元/吨)':r.firstTt!=null?r.firstTt.toFixed(2):'',      '最优第一出库点二次运距(km)':r.firstDist!=null?r.firstDist.toFixed(1):'',
       '一次吨油运费增加(元/吨)':(r.actualFf!=null&&r.firstFf!=null?(r.actualFf-r.firstFf).toFixed(2):''),'二次吨油运费增加(元/吨)':(r.actualSf!=null&&r.firstSf!=null?(r.actualSf-r.firstSf).toFixed(2):''),'一二次整体吨油运费增加(元/吨)':(r.actualTt!=null&&r.firstTt!=null?(r.actualTt-r.firstTt).toFixed(2):''),'实际运费增加(元)':(r.actualTt!=null&&r.firstTt!=null?((r.actualTt-r.firstTt)*(Number(r.tons)||0)).toFixed(2):''),'吨数(吨)':(Number(r.tons)||0).toFixed(2),'自有库排名':r.ownRank?r.ownRank+'':'—'};
   });
   const ws=XLSX.utils.json_to_sheet(rows);
-  ws['!cols']=[{wch:12},{wch:22},{wch:10},{wch:18},{wch:32},{wch:18},{wch:16},{wch:10},{wch:18},{wch:20},{wch:20},{wch:20},{wch:20},{wch:20},{wch:6},{wch:8},{wch:12},{wch:14},{wch:14},{wch:14},{wch:14},{wch:12},{wch:14},{wch:14},{wch:14},{wch:14},{wch:14},{wch:14},{wch:12},{wch:14},{wch:14},{wch:14},{wch:14},{wch:14},{wch:14},{wch:12},{wch:14},{wch:14},{wch:14},{wch:12},{wch:14},{wch:14},{wch:14},{wch:14},{wch:14},{wch:14},{wch:12}];
+  ws['!cols']=Object.keys(rows[0]).map(function(k){return {wch:Math.min(34,Math.max(10,Math.round(k.replace(/[()]/g,'').length*1.4)))};});
   const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,'非第一出库点');XLSX.writeFile(wb,'非第一出库点汇总_'+new Date().toISOString().slice(0,10)+'.xlsx');
 }
 
