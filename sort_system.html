@@ -264,6 +264,10 @@ tr:hover td{background:#f7fafc}
       <select id="planTypeFilter" onchange="renderPlanResults()">
         <option value="all">全部</option><option value="自有库">自有库</option><option value="互供库">互供库</option><option value="外采库">外采库</option>
       </select>
+      <label>出库(吨)：</label>
+      <select id="planTonsFilter" onchange="renderPlanResults()">
+        <option value="all">全部</option><option value="gt0">仅不为0</option><option value="eq0">仅=0</option>
+      </select>
       <label>搜索：</label>
       <input type="text" id="planSearchInput" placeholder="配送日期/收油机构" style="min-width:160px" oninput="renderPlanResults()">
       <button class="btn btn-success btn-sm" onclick="exportPlanAudit()">📥 导出完整Excel</button>
@@ -955,10 +959,13 @@ async function analyzePlans(plans){
 }
 function renderPlanResults(keepPage){
   if(!keepPage)_planPage=1;
-  const tf=gid('planTypeFilter').value,sq=gid('planSearchInput').value.trim().toLowerCase();
+  const tf=gid('planTypeFilter').value,sq=gid('planSearchInput').value.trim().toLowerCase(),tof=gid('planTonsFilter').value;
   const prf=getMSVals('msRank'),porf=getMSVals('msOwnRank'),pcf=getMSVals('msCheck'),rgf=getMSVals('msPlanRegion'),pf=getMSVals('msProduct');
   let filtered=planResults.filter(r=>{
     if(tf!=='all'&&r.actualDepotType!==tf)return false;
+    const rt=Number(r.tons);
+    if(tof==='gt0'&&!(rt>0))return false;
+    if(tof==='eq0'&&!(rt===0))return false;
     if(sq){const d=(r.date||'').toLowerCase(),s=(r.stationName||'').toLowerCase();if(!d.includes(sq)&&!s.includes(sq))return false;}
     if(prf.length>0){const rk=r.rank;const matchRank=prf.some(function(v){if(v==='null')return rk===null;return rk!==null&&rk===parseInt(v);});if(!matchRank)return false;}
     if(porf.length>0){const or=r.ownRank;const matchOwn=porf.some(function(v){if(v==='null')return or===null;if(v==='gt2')return or!==null&&or>=3;return or!==null&&or===parseInt(v);});if(!matchOwn)return false;}
