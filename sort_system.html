@@ -1048,32 +1048,108 @@ function renderPlanPager(cur,pages){
   el.innerHTML=html;
 }
 function goPlanPage(p){if(!p||p<1)p=1;_planPage=p;renderPlanResults(true);window.scrollTo({top:0,behavior:'smooth'});}
+// ---- 导出样式常量 ----
+var _XF={
+  nowFill:{fgColor:{rgb:'D6E4F0'}},optFill:{fgColor:{rgb:'E6FFFA'}},
+  incHdrFill:{fgColor:{rgb:'FFF5F5'}},baseFill:{fgColor:{rgb:'EDF2F7'}},
+  whiteFill:{fgColor:{rgb:'FFFFFF'}},
+  redFont:{color:{rgb:'C53030'},bold:true},greenFont:{color:{rgb:'276749'},bold:true},
+  blackFont:{color:{rgb:'2D3748'},bold:true},grayFont:{color:{rgb:'718096'}},
+  whiteBFont:{color:{rgb:'FFFFFF'},bold:true},
+  thin:{style:'thin',color:{rgb:'E2E8F0'}},
+  border:{left:{style:'thin',color:{rgb:'E2E8F0'}},right:{style:'thin',color:{rgb:'E2E8F0'}},top:{style:'thin',color:{rgb:'E2E8F0'}},bottom:{style:'thin',color:{rgb:'E2E8F0'}}},
+  center:{horizontal:'center',vertical:'center'},
+  rightAlign:{horizontal:'right',vertical:'center'}
+};
+function _stCell(v,t,s){return {v:v,t:t||((typeof v==='number')?'n':'s'),s:s};}
+function _hdrCell(v,fill){return _stCell(v,'s',{font:_XF.whiteBFont,fill:fill,alignment:_XF.center,border:_XF.border});}
+function _subHdrCell(v){return _stCell(v,'s',{font:_XF.blackFont,fill:_XF.whiteFill,alignment:_XF.center,border:_XF.border});}
+function _dataCell(v,align){if(v==null||v==='')return _stCell('—','s',{font:_XF.grayFont,alignment:align||_XF.rightAlign,border:_XF.border});if(typeof v==='number'){return _stCell(v,'n',{font:_XF.blackFont,alignment:align||_XF.rightAlign,border:_XF.border});}return _stCell(String(v),'s',{font:_XF.blackFont,alignment:align||{horizontal:'left',vertical:'center'},border:_XF.border});}
+function _diffCell(v,dec){if(v==null||isNaN(v))return _stCell('—','s',{font:_XF.grayFont,alignment:_XF.rightAlign,border:_XF.border});var s=(v>0?'+':'')+(dec===1?v.toFixed(1):v.toFixed(2));var font=v>0?_XF.redFont:(v<0?_XF.greenFont:{color:{rgb:'718096'}});return _stCell(s,'s',{font:font,alignment:_XF.rightAlign,border:_XF.border});}
+function _moneyDiffCell(v){if(v==null||isNaN(v))return _stCell('—','s',{font:_XF.grayFont,alignment:_XF.rightAlign,border:_XF.border});var s=(v>=0?'+':'')+v.toFixed(2)+' 元';var font=v>0?_XF.redFont:(v<0?_XF.greenFont:{color:{rgb:'718096'}});return _stCell(s,'s',{font:font,alignment:_XF.rightAlign,border:_XF.border});}
+
+function buildStyledAuditSheet(dataRows){
+  var COLS=[
+    ['序号',6],['配送日期',12],['配送单号',22],['状态',10],['业务类型',18],
+    ['分公司',32],['收油机构',18],['油品',16],['出库(吨)',10],['实际出库点',20],
+    ['库类型',12],['第一出库点',20],['第二出库点',20],['第三出库点',20],
+    ['第四出库点',20],['第五出库点',20],['排名',6],['自有库排名',8],['核对结果',10],
+    ['now_dist',12],['now_ff',14],['now_sf',14],['now_tt',14],
+    ['opt_dist',12],['opt_ff',14],['opt_sf',14],['opt_tt',14],['opt_dist2',12],
+    ['d_ff',16],['d_sf',16],['d_tt',20],['d_money',14],
+    ['tons',10],['备注',12]
+  ];
+  var NC=COLS.length,out=[];
+  // Row1 group header
+  var r1=[],ci=0;
+  for(var b=0;b<19;b++){r1.push(_hdrCell(COLS[ci][0]==='序号'?'序号':COLS[ci][0]==='排名'?'排名':COLS[ci][0]==='自有库排名'?'自有库排名':COLS[ci][0]==='核对结果'?'核对结果':COLS[ci][0],_XF.baseFill));ci++;}
+  r1.push(_hdrCell('现在出库点运费',_XF.nowFill));r1.push(_hdrCell('',_XF.nowFill));r1.push(_hdrCell('',_XF.nowFill));r1.push(_hdrCell('',_XF.nowFill));ci+=4;
+  r1.push(_hdrCell('最优(第一)出库点运费',_XF.optFill));r1.push(_hdrCell('',_XF.optFill));r1.push(_hdrCell('',_XF.optFill));r1.push(_hdrCell('',_XF.optFill));r1.push(_hdrCell('',_XF.optFill));ci+=5;
+  r1.push(_hdrCell('运费增加',_XF.incHdrFill));r1.push(_hdrCell('',_XF.incHdrFill));r1.push(_hdrCell('',_XF.incHdrFill));r1.push(_hdrCell('',_XF.incHdrFill));ci+=4;
+  r1.push(_hdrCell('',_XF.baseFill));r1.push(_hdrCell('',_XF.baseFill));
+  out.push(r1);
+  // Row2 sub-header
+  var r2=[];
+  var SUB=['序号','配送日期','配送单号','状态','业务类型','分公司','收油机构','油品','出库(吨)','实际出库点','库类型',
+    '第一出库点','第二出库点','第三出库点','第四出库点','第五出库点','排名','自有库排名','核对结果',
+    '运距(km)','一次运费(元/吨)','二次运费(元/吨)','合计运费(元/吨)',
+    '运距(km)','一次运费(元/吨)','二次运费(元/吨)','合计运费(元/吨)','二次运距(km)',
+    '一次吨油运费增加(元/吨)','二次吨油运费增加(元/吨)','一二次整体吨油运费增加(元/吨)','实际运费增加(元)',
+    '吨数(吨)','备注'];
+  for(var s=0;s<NC;s++)r2.push(_subHdrCell(SUB[s]));
+  out.push(r2);
+  // Data rows
+  for(var i=0;i<dataRows.length;i++){
+    var r=dataRows[i];var tons=Number(r.tons)||0;
+    var aFf=r.actualFf,aSf=r.actualSf,aTt=r.actualTt,aDist=r.actualDist;
+    var fFf=r.firstFf,fSf=r.firstSf,fTt=r.firstTt,fDist=r.firstDist;
+    var d1=(aFf!=null&&fFf!=null)?aFf-fFf:null,d2=(aSf!=null&&fSf!=null)?aSf-fSf:null,dT=(aTt!=null&&fTt!=null)?aTt-fTt:null,dM=(dT!=null)?dT*tons:null;
+    var row=[];
+    row.push(_dataCell(i+1,_XF.center));
+    row.push(_dataCell(r.date||''));row.push(_dataCell(r.orderNo||''));
+    row.push(_dataCell(r.status==='复核通过'?'复核通过':r.status==='已下发'?'已下达':(r.status||'')));
+    row.push(_dataCell(r.bizType||'—'));row.push(_dataCell(r.region));row.push(_dataCell(r.stationName));
+    row.push(_dataCell(r.productName));row.push(_dataCell(+tons.toFixed(2)));
+    row.push(_dataCell(r.actualDepotName));row.push(_dataCell(r.actualDepotType||''));
+    row.push(_dataCell(r.optimalRanking[0]?r.optimalRanking[0].dn+' ('+r.optimalRanking[0].dt+')':''));
+    row.push(_dataCell(r.optimalRanking[1]?r.optimalRanking[1].dn+' ('+r.optimalRanking[1].dt+')':''));
+    row.push(_dataCell(r.optimalRanking[2]?r.optimalRanking[2].dn+' ('+r.optimalRanking[2].dt+')':''));
+    row.push(_dataCell(r.optimalRanking[3]?r.optimalRanking[3].dn+' ('+r.optimalRanking[3].dt+')':''));
+    row.push(_dataCell(r.optimalRanking[4]?r.optimalRanking[4].dn+' ('+r.optimalRanking[4].dt+')':''));
+    row.push(_dataCell(r.rank?r.rank+'':'—',_XF.center));row.push(_dataCell(r.ownRank?r.ownRank+'':'—',_XF.center));
+    row.push(_dataCell(r.error||(r.rank===1?'符合':'不符合')));
+    var nS={fill:_XF.nowFill,border:_XF.border,alignment:_XF.rightAlign};
+    row.push(_stCell(aDist!=null?+aDist.toFixed(1):'—','n',Object.assign({font:_XF.blackFont},nS)));
+    row.push(_stCell(aFf!=null?+aFf.toFixed(2):'—','n',Object.assign({font:_XF.blackFont},nS)));
+    row.push(_stCell(aSf!=null?+aSf.toFixed(2):'—','n',Object.assign({font:_XF.blackFont},nS)));
+    row.push(_stCell(aTt!=null?+aTt.toFixed(2):'—','n',Object.assign({font:_XF.blackFont},nS)));
+    var oS={fill:_XF.optFill,border:_XF.border,alignment:_XF.rightAlign};
+    row.push(_stCell(fDist!=null?+fDist.toFixed(1):'—','n',Object.assign({font:_XF.blackFont},oS)));
+    row.push(_stCell(fFf!=null?+fFf.toFixed(2):'—','n',Object.assign({font:_XF.blackFont},oS)));
+    row.push(_stCell(fSf!=null?+fSf.toFixed(2):'—','n',Object.assign({font:_XF.blackFont},oS)));
+    row.push(_stCell(fTt!=null?+fTt.toFixed(2):'—','n',Object.assign({font:_XF.blackFont},oS)));
+    row.push(_stCell(fDist!=null?+fDist.toFixed(1):'—','n',Object.assign({font:_XF.blackFont},oS)));
+    row.push(_diffCell(d1,2));row.push(_diffCell(d2,2));row.push(_diffCell(dT,2));row.push(_moneyDiffCell(dM));
+    row.push(_dataCell(+tons.toFixed(2)));row.push(_dataCell(r.error||''));
+    out.push(row);
+  }
+  var ws=XLSX.utils.aoa_to_sheet(out);
+  ws['!merges']=[{s:{r:0,c:19},e:{r:0,c:22}},{s:{r:0,c:23}, e:{r:0,c:27}},{s:{r:0,c:28}, e:{r:0,c:31}}];
+  ws['!cols']=COLS.map(function(c){return {wch:c[1]};});
+  return ws;
+}
 function exportPlanAudit(){
   if(!planResults.length){alert('没有数据可导出');return;}
-  const rows=planResults.map(r=>({
-    '配送日期':r.date,'配送单号':r.orderNo,'状态':r.status||'','业务类型':r.bizType||'','分公司':r.region,'收油机构':r.stationName,'油品':r.productName,'出库(吨)':(Number(r.tons)||0).toFixed(2),'实际出库点':r.actualDepotName,'库类型':r.actualDepotType,
-    '第一出库点':r.optimalRanking[0]?r.optimalRanking[0].dn+' ('+r.optimalRanking[0].dt+')':'','第二出库点':r.optimalRanking[1]?r.optimalRanking[1].dn+' ('+r.optimalRanking[1].dt+')':'','第三出库点':r.optimalRanking[2]?r.optimalRanking[2].dn+' ('+r.optimalRanking[2].dt+')':'','第四出库点':r.optimalRanking[3]?r.optimalRanking[3].dn+' ('+r.optimalRanking[3].dt+')':'','第五出库点':r.optimalRanking[4]?r.optimalRanking[4].dn+' ('+r.optimalRanking[4].dt+')':'',
-    '排名':r.rank?r.rank+'':'—','自有库排名':r.ownRank?r.ownRank+'':'—','核对结果':r.error||(r.rank===1?'符合':'不符合'),
-    '现在出库点运距(km)':r.actualDist!=null?r.actualDist.toFixed(1):'','现在出库点一次运费(元/吨)':r.actualFf!=null?r.actualFf.toFixed(2):'','现在出库点二次运费(元/吨)':r.actualSf!=null?r.actualSf.toFixed(2):'','现在出库点合计运费(元/吨)':r.actualTt!=null?r.actualTt.toFixed(2):'',
-    '最优第一出库点运距(km)':r.firstDist!=null?r.firstDist.toFixed(1):'','最优第一出库点一次运费(元/吨)':r.firstFf!=null?r.firstFf.toFixed(2):'','最优第一出库点二次运费(元/吨)':r.firstSf!=null?r.firstSf.toFixed(2):'','最优第一出库点合计运费(元/吨)':r.firstTt!=null?r.firstTt.toFixed(2):'','最优第一出库点二次运距(km)':r.firstDist!=null?r.firstDist.toFixed(1):'',
-    '吨数(吨)':(Number(r.tons)||0).toFixed(2),'一次吨油运费增加(元/吨)':(r.actualFf!=null&&r.firstFf!=null?(r.actualFf-r.firstFf).toFixed(2):''),'二次吨油运费增加(元/吨)':(r.actualSf!=null&&r.firstSf!=null?(r.actualSf-r.firstSf).toFixed(2):''),'一二次整体吨油运费增加(元/吨)':(r.actualTt!=null&&r.firstTt!=null?(r.actualTt-r.firstTt).toFixed(2):''),'实际运费增加(元)':(r.actualTt!=null&&r.firstTt!=null?((r.actualTt-r.firstTt)*(Number(r.tons)||0)).toFixed(2):''),'备注':r.error||''
-  }));
-  const ws=XLSX.utils.json_to_sheet(rows);
-  ws['!cols']=[{wch:12},{wch:22},{wch:10},{wch:18},{wch:32},{wch:18},{wch:16},{wch:10},{wch:18},{wch:20},{wch:20},{wch:20},{wch:20},{wch:20},{wch:6},{wch:8},{wch:10},{wch:12},{wch:10},{wch:12},{wch:14},{wch:14},{wch:14},{wch:14},{wch:12},{wch:14},{wch:14},{wch:14},{wch:14},{wch:14},{wch:12},{wch:16},{wch:12}];
-  const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,'配送计划核对');XLSX.writeFile(wb,'配送计划核对_'+new Date().toISOString().slice(0,10)+'.xlsx');
+  var ws=buildStyledAuditSheet(planResults);
+  var wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,'配送计划核对');
+  XLSX.writeFile(wb,'配送计划核对_'+new Date().toISOString().slice(0,10)+'.xlsx');
 }
 function exportNonFirst(){
-  const nf=planResults.filter(r=>r.rank&&r.rank>1);
+  var nf=planResults.filter(function(r){return r.rank&&r.rank>1;});
   if(!nf.length){alert('没有非第一出库点的记录');return;}
-  const rows=nf.map(r=>{
-    return {'配送日期':r.date,'配送单号':r.orderNo,'状态':r.status||'','业务类型':r.bizType||'','分公司':r.region,'收油机构':r.stationName,'油品':r.productName,'出库(吨)':(Number(r.tons)||0).toFixed(2),'实际出库点':r.actualDepotName,'库类型':r.actualDepotType,'第一出库点':r.optimalRanking[0]?r.optimalRanking[0].dn+' ('+r.optimalRanking[0].dt+')':'','第二出库点':r.optimalRanking[1]?r.optimalRanking[1].dn+' ('+r.optimalRanking[1].dt+')':'','第三出库点':r.optimalRanking[2]?r.optimalRanking[2].dn+' ('+r.optimalRanking[2].dt+')':'','第四出库点':r.optimalRanking[3]?r.optimalRanking[3].dn+' ('+r.optimalRanking[3].dt+')':'','第五出库点':r.optimalRanking[4]?r.optimalRanking[4].dn+' ('+r.optimalRanking[4].dt+')':'','排名':r.rank?r.rank+'':'—',
-      '现在出库点运距(km)':r.actualDist!=null?r.actualDist.toFixed(1):'','现在出库点一次运费(元/吨)':r.actualFf!=null?r.actualFf.toFixed(2):'','现在出库点二次运费(元/吨)':r.actualSf!=null?r.actualSf.toFixed(2):'','现在出库点合计运费(元/吨)':r.actualTt!=null?r.actualTt.toFixed(2):'',
-      '最优第一出库点运距(km)':r.firstDist!=null?r.firstDist.toFixed(1):'','最优第一出库点一次运费(元/吨)':r.firstFf!=null?r.firstFf.toFixed(2):'','最优第一出库点二次运费(元/吨)':r.firstSf!=null?r.firstSf.toFixed(2):'','最优第一出库点合计运费(元/吨)':r.firstTt!=null?r.firstTt.toFixed(2):'',      '最优第一出库点二次运距(km)':r.firstDist!=null?r.firstDist.toFixed(1):'',
-      '一次吨油运费增加(元/吨)':(r.actualFf!=null&&r.firstFf!=null?(r.actualFf-r.firstFf).toFixed(2):''),'二次吨油运费增加(元/吨)':(r.actualSf!=null&&r.firstSf!=null?(r.actualSf-r.firstSf).toFixed(2):''),'一二次整体吨油运费增加(元/吨)':(r.actualTt!=null&&r.firstTt!=null?(r.actualTt-r.firstTt).toFixed(2):''),'实际运费增加(元)':(r.actualTt!=null&&r.firstTt!=null?((r.actualTt-r.firstTt)*(Number(r.tons)||0)).toFixed(2):''),'吨数(吨)':(Number(r.tons)||0).toFixed(2),'自有库排名':r.ownRank?r.ownRank+'':'—'};
-  });
-  const ws=XLSX.utils.json_to_sheet(rows);
-  ws['!cols']=Object.keys(rows[0]).map(function(k){return {wch:Math.min(34,Math.max(10,Math.round(k.replace(/[()]/g,'').length*1.4)))};});
-  const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,'非第一出库点');XLSX.writeFile(wb,'非第一出库点汇总_'+new Date().toISOString().slice(0,10)+'.xlsx');
+  var ws=buildStyledAuditSheet(nf);
+  var wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,'非第一出库点');
+  XLSX.writeFile(wb,'非第一出库点汇总_'+new Date().toISOString().slice(0,10)+'.xlsx');
 }
 
 // ===== 油品可用性维护 =====
