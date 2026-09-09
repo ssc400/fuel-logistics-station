@@ -538,9 +538,9 @@ function toggleMSDrop(id){
 }
 function msToggleVal(id,val){
   var s=_msState[id];if(!s)return;
-  // 点某一项 → 只选这一项（其他全部取消√）；再点同一项 → 取消选择（=全部显示）
-  var only=(s.vals.length===1&&s.vals[0]===val);
-  s.vals=only?[]:[val];
+  // 多选：点某一项 → 切换该项选中/取消，不影响其他项（勾上的保留，未勾的移除√）
+  var idx=s.vals.indexOf(val);
+  if(idx>=0)s.vals.splice(idx,1);else s.vals.push(val);
   // 只更新复选框状态和触发器文字，不重建整个下拉（保持打开）
   var dd=document.getElementById(s.ddId);
   if(dd){
