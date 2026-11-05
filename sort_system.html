@@ -483,62 +483,114 @@ function buildStationIndex(){
 // 获取加油站所属公司完整信息：{type, display}
 function gi(n,r){for(const[k,fn,t]of CP){if(n.includes(k)||r.includes(k))return{type:t,display:fn+'('+(t==='konggu'?'控股':'参股')+')'};}return{type:'own',display:r+'分公司'};}
 function bm(d,ch){const cd={},dc={};for(const[ci,hn]of Object.entries(ch)){if(!hn||hn=='None')continue;let bm=null,bs=0;for(const dd of d){if(dd.type=='以站代库')continue;let s=0;const dn=dd.name;if(dn===hn)s=100;else if(dn.includes(hn)||hn.includes(dn))s=80;else for(const c of dn)if(hn.includes(c))s+=5;if(s>bs){bs=s;bm=dd;}}cd[ci]=bm&&bs>=30?bm.code:'_none_';if(bm&&bs>=30)dc[bm.code]=parseInt(ci);}return{cd,dc};}
-function pfExcel(wb){const ws=wb.Sheets[wb.SheetNames[0]],rows=XLSX.utils.sheet_to_json(ws,{header:1,defval:''});const d=[];for(let i=2;i<rows.length;i++){const r=rows[i];if(!r||!r[0])continue;const n=String(r[0]).trim(),c=String(r[1]).trim();if(!n&&!c)continue;const g=v=>{if(v===''||v==null)return null;const n=parseFloat(v);return isNaN(n)?null:n;};d.push({code:c,name:n,region:String(r[2]||'').trim(),arrivalDepot:String(r[3]||'').trim(),f92:g(r[4]),fe92:g(r[5]),f95:g(r[6]),f0:g(r[7]),f98:g(r[8]),type:String(r[9]||'').trim()});}return d;}
+function pfExcel(wb){
+  const ws=wb.Sheets[wb.SheetNames[0]],rows=XLSX.utils.sheet_to_json(ws,{header:1,defval:''});
+  if(!rows||rows.length<2)return [];
+  const S=v=>String(v==null?'':v).trim();
+  const g=v=>{if(v===''||v==null)return null;const n=parseFloat(v);return isNaN(n)?null:n;};
+  const normType=t=>{t=S(t);if(t.indexOf('以站代库')>=0)return '以站代库';if(t.indexOf('自有')>=0)return '自有库';if(t.indexOf('互供')>=0)return '互供库';if(t.indexOf('外采')>=0)return '外采库';return t;};
+  const h1=(rows[0]||[]).map(S),h2=(rows[1]||[]).map(S);
+  const ix=(arr,names)=>{for(const n of names){const j=arr.findIndex(v=>v===n);if(j>=0)return j;}return -1;};
+  const hasTwoRow=h2.some(v=>/^(0#|92#|95#|98#|E92#)/.test(v));
+  // v3.08 模板驱动：识别《油库位置_坐标修订版》两行表头（油库/编号/铁路到站/一次到货油库/一次吨油运费/油库类型…）
+  const isTpl=ix(h1,['油库','油库名称'])>=0&&ix(h1,['编号','油库编号'])>=0;
+  const feeH=hasTwoRow?h2:h1;
+  const C=isTpl?{
+    name:ix(h1,['油库','油库名称']),code:ix(h1,['编号','油库编号']),
+    region:ix(h1,['铁路到站']),arrival:ix(h1,['一次到货油库']),type:ix(h1,['油库类型','类型']),
+    f92:ix(feeH,['92#']),fe92:ix(feeH,['E92#(组分汽油)','E92#']),f95:ix(feeH,['95#']),
+    f0:ix(feeH,['0#']),f98:ix(feeH,['98#']),addr:ix(h1,['地址']),
+    dataStart:hasTwoRow?2:1
+  }:null;
+  // v3.08 第二口径：「0#（含珠海油库一次费用）」——模板中位于地址之后、表头为空、仅少数行有值的数值列
+  let f0zCol=-1;
+  if(C){
+    const from=C.addr>=0?C.addr+1:Math.max(C.f98+1,0);
+    for(let j=from;j<h1.length;j++){
+      if(h1[j]||h2[j])continue;
+      let has=false;
+      for(let i=C.dataStart;i<rows.length&&!has;i++){const v=rows[i][j];if(v!==''&&v!=null){const n=parseFloat(v);if(!isNaN(n)&&n>0)has=true;}}
+      if(has)f0zCol=j;
+    }
+  }
+  const d=[];
+  const start=C?C.dataStart:2;
+  for(let i=start;i<rows.length;i++){
+    const r=rows[i];if(!r)continue;
+    let o;
+    if(C){
+      const n=S(r[C.name]);if(!n)continue;
+      let code=S(r[C.code]);
+      if(!code)code='_PF'+(i+1);              // 编号为空时生成唯一 code，避免 depotToCol 互相覆盖
+      o={code:code,name:n,region:C.region>=0?S(r[C.region]):'',arrivalDepot:C.arrival>=0?S(r[C.arrival]):'',
+        f92:C.f92>=0?g(r[C.f92]):null,fe92:C.fe92>=0?g(r[C.fe92]):null,f95:C.f95>=0?g(r[C.f95]):null,
+        f0:C.f0>=0?g(r[C.f0]):null,f98:C.f98>=0?g(r[C.f98]):null,
+        type:C.type>=0?normType(r[C.type]):'',f0z:f0zCol>=0?g(r[f0zCol]):null};
+    }else{
+      if(!r[0])continue;
+      const n=S(r[0]),c=S(r[1]);if(!n&&!c)continue;
+      o={code:c,name:n,region:S(r[2]),arrivalDepot:S(r[3]),f92:g(r[4]),fe92:g(r[5]),f95:g(r[6]),f0:g(r[7]),f98:g(r[8]),type:S(r[9]),f0z:null};
+    }
+    d.push(o);
+  }
+  return d;
+}
 function pdExcel(wb){
-if(!wb||!wb.SheetNames||!wb.SheetNames.length)return null;
-const ATTR_KEYS=['序号','编号','地区','区域','站名','加油站名称','加油站站名','加油站','编码','经度','纬度','地址','城市','区县','负责人','性质','销量','地理位置','库类型','出库点类型','车辆','车牌','司机','电话','手机','备注','起运','到达','日期','时间'];
-const isAttr=function(s){for(const k of ATTR_KEYS){if(s.indexOf(k)>=0)return true;}return false;};
-const isDepotName=function(s){return s.indexOf('油库')>=0||s.indexOf('出库点')>=0||s.indexOf('直发库')>=0;};
-// 库名语义（库/石化/直发 等），用于整列为空时也能保留该列
-const isDepotish=function(s){return s.indexOf('油库')>=0||s.indexOf('出库点')>=0||s.indexOf('直发库')>=0||s.indexOf('库')>=0||s.indexOf('石化')>=0||s.indexOf('储油')>=0||s.indexOf('油站')>=0;};
-// 选 sheet：优先「油库列名命中数」最多者，其次「数值型数据列数」最多者
-let ws=null,bestName=-1,bestNum=-1;
-for(const sn of wb.SheetNames){
-  const t=wb.Sheets[sn];if(!t)continue;
-  const r0=XLSX.utils.sheet_to_json(t,{header:1,defval:''});
-  const h0=r0[0]||[];let cName=0,cNum=0;
-  for(let j=0;j<h0.length;j++){const v=String(h0[j]||'').trim();if(!v)continue;if(isDepotName(v))cName++;if(!isAttr(v))cNum++;}
-  if(cName>bestName||(cName===bestName&&cNum>bestNum)){bestName=cName;bestNum=cNum;ws=t;}
-}
-if(!ws)return null;
-const rows=XLSX.utils.sheet_to_json(ws,{header:1,defval:''});
-if(!rows||rows.length<2)return null;
-const h=rows[0];
-let nameCol=-1,regionCol=-1,codeCol=-1;
-for(let j=0;j<h.length;j++){
-  const v=String(h[j]||'').trim();if(!v)continue;
-  if(nameCol<0&&(v.indexOf('站名')>=0||(v.indexOf('加油站')>=0&&v.indexOf('编码')<0)))nameCol=j;
-  if(regionCol<0&&(v==='地区'||v.indexOf('地区')>=0))regionCol=j;
-  if(codeCol<0&&v.indexOf('编码')>=0)codeCol=j;
-}
-const depotCols=[];
-for(let j=0;j<h.length;j++){
-  const v=String(h[j]||'').trim();
-  if(!v)continue;
-  if(j===nameCol||j===regionCol||j===codeCol)continue;
-  if(isAttr(v))continue;
-  if(isDepotName(v)){depotCols.push({idx:j,name:v});continue;}
-  // 库名语义但整列为空 → 仍然保留（避免无数据列丢失）
-  if(isDepotish(v)){depotCols.push({idx:j,name:v});continue;}
-  // 弱信号：该列若存在 >0 的数字（运距），且表头不是属性列 → 判为油库列
-  let hasNum=false;
-  for(let i=1;i<rows.length&&!hasNum;i++){const cell=rows[i][j];if(cell!==''&&cell!=null){const d=parseFloat(cell);if(!isNaN(d)&&d>0)hasNum=true;}}
-  if(hasNum)depotCols.push({idx:j,name:v});
-}
-if(!depotCols.length)return null;
-const dh={};depotCols.forEach(c=>dh[String(c.idx)]=c.name);
-const st=[];
-for(let i=1;i<rows.length;i++){
-  const r=rows[i];if(!r)continue;
-  const n=nameCol>=0?String(r[nameCol]||'').trim():(r[2]!=null?String(r[2]).trim():'');
-  if(!n)continue;
-  const rg=regionCol>=0?String(r[regionCol]||'').trim():(r[1]!=null?String(r[1]).trim():'');
-  const code=codeCol>=0?String(r[codeCol]||'').trim():'';
-  const ds={};
-  depotCols.forEach(c=>{const v=r[c.idx];if(v!==''&&v!=null){const d=parseFloat(v);if(!isNaN(d)&&d>0)ds[String(c.idx)]=d;}});
-  st.push({region:rg,name:n,distances:ds,refCode:code,code:code});
-}
-return{st,dh};
+  if(!wb||!wb.SheetNames||!wb.SheetNames.length)return null;
+  const S=v=>String(v==null?'':v).trim();
+  // v3.08 按《加油站运距_补充修正部分》模板精确排除属性列/销量列/派生列
+  const ATTR_EXACT=new Set(['序号','地区','区域','加油站站名','站名','加油站名称','经度','纬度','经纬度','地址','城市','区县',
+    '匹配状态','负责人','性质','加油站编码','编码','E92#汽油','92#汽油','95#汽油','98#汽油','汽油小计','柴油小计',
+    '年度合计','日度合计','地理位置','备注','库类型','出库点类型','车牌','司机','电话','起运','到达','日期','时间']);
+  const ATTR_KEYS=['小计','合计','自有库第一出库点','第一出库点','经度','纬度','经纬度','地址','负责人','性质','匹配状态','销量','地理位置','编码','序号','地区','站名'];
+  const isAttr=s=>{if(ATTR_EXACT.has(s))return true;for(const k of ATTR_KEYS){if(s.indexOf(k)>=0)return true;}return false;};
+  const isDepotish=s=>s.indexOf('油库')>=0||s.indexOf('直发库')>=0||s.indexOf('出库点')>=0||s.indexOf('库')>=0||s.indexOf('石化')>=0||s.indexOf('储油')>=0;
+  // 选 sheet：油库列名命中最多者，其次数值列最多者
+  let ws=null,bestName=-1,bestNum=-1;
+  for(const sn of wb.SheetNames){
+    const t=wb.Sheets[sn];if(!t)continue;
+    const r0=XLSX.utils.sheet_to_json(t,{header:1,defval:''});const h0=r0[0]||[];
+    let cName=0,cNum=0;
+    for(let j=0;j<h0.length;j++){const v=S(h0[j]);if(!v)continue;if(isDepotish(v)&&!isAttr(v))cName++;if(!isAttr(v))cNum++;}
+    if(cName>bestName||(cName===bestName&&cNum>bestNum)){bestName=cName;bestNum=cNum;ws=t;}
+  }
+  if(!ws)return null;
+  const rows=XLSX.utils.sheet_to_json(ws,{header:1,defval:''});
+  if(!rows||rows.length<2)return null;
+  const h=rows[0]||[];
+  let nameCol=-1,regionCol=-1,codeCol=-1,ownerCol=-1;
+  for(let j=0;j<h.length;j++){
+    const v=S(h[j]);if(!v)continue;
+    if(nameCol<0&&(v.indexOf('站名')>=0||(v.indexOf('加油站')>=0&&v.indexOf('编码')<0&&v.indexOf('汽')<0)))nameCol=j;
+    if(regionCol<0&&(v==='地区'||v==='区域'))regionCol=j;
+    if(codeCol<0&&v.indexOf('编码')>=0)codeCol=j;
+    if(ownerCol<0&&(v.indexOf('负责人')>=0||v==='责任区'||v==='客户经理'))ownerCol=j;
+  }
+  const depotCols=[];
+  for(let j=0;j<h.length;j++){
+    const v=S(h[j]);if(!v)continue;
+    if(j===nameCol||j===regionCol||j===codeCol||j===ownerCol)continue;
+    if(isAttr(v))continue;
+    if(isDepotish(v)){depotCols.push({idx:j,name:v});continue;}
+    // 弱信号兜底：无库名语义但该列存在>0运距数值 → 仍视为油库列（兼容「崇左石化」等命名）
+    let hasNum=false;
+    for(let i=1;i<rows.length&&!hasNum;i++){const cell=rows[i][j];if(cell!==''&&cell!=null){const d=parseFloat(cell);if(!isNaN(d)&&d>0)hasNum=true;}}
+    if(hasNum)depotCols.push({idx:j,name:v});
+  }
+  if(!depotCols.length)return null;
+  const dh={};depotCols.forEach(c=>dh[String(c.idx)]=c.name);
+  const st=[];
+  for(let i=1;i<rows.length;i++){
+    const r=rows[i];if(!r)continue;
+    const n=nameCol>=0?S(r[nameCol]):S(r[2]);if(!n)continue;
+    const rg=regionCol>=0?S(r[regionCol]):S(r[1]);
+    const code=codeCol>=0?S(r[codeCol]):'';
+    const owner=ownerCol>=0?S(r[ownerCol]):'';
+    const ds={};
+    depotCols.forEach(c=>{const v=r[c.idx];if(v!==''&&v!=null){const d=parseFloat(v);if(!isNaN(d)&&d>0)ds[String(c.idx)]=d;}});
+    st.push({region:rg,name:n,distances:ds,refCode:code,code:code,owner:owner});
+  }
+  return{st,dh};
 }
 function applyData(fd,dr){if(!fd&&!dr)return;const nd=JSON.parse(JSON.stringify(appData));if(fd){nd.depots=fd;gid('freightStatus').className='file-status ok';gid('freightStatus').textContent='✅ 已更新 '+fd.length+' 个油库';}if(dr){const{st,dh}=dr;nd.stations=st;const m=bm(nd.depots,dh);nd.colToDepot=m.cd;nd.depotToCol=m.dc;nd.depotColNames=dh;gid('distanceStatus').className='file-status ok';gid('distanceStatus').textContent='✅ 已更新 '+st.length+' 个加油站';gid('statSource').textContent='已更新（用户上传）';gid('statSource').style.color='#b7791f';}
 gid('statStations').textContent=nd.stations.length;gid('statRegions').textContent=new Set(nd.stations.map(s=>s.region)).size;const ok=nd.depots.filter(d=>d.type!='以站代库'&&nd.depotToCol&&d.code in nd.depotToCol);gid('statDepots').textContent=ok.length;gid('statDepotsDetail').textContent='自有 '+ok.filter(d=>d.type=='自有库').length+' / 互供 '+ok.filter(d=>d.type=='互供库').length+' / 外采 '+ok.filter(d=>d.type=='外采库').length;appData=nd;dataModified=true;initProductAvailability();if(fd)updateAvailButtonStatus();buildCompanyFilter();if(availActivePreset){const ap=availPresets.find(p=>p.name===availActivePreset);if(ap)applyPresetToAvail(ap,true);}buildStationIndex();updateView();if(currentView==='master'){renderFreightMatrix();buildSdRegionFilter();_sdPage=1;renderStationDistEditor();}if(currentView==='plan'&&lastPlanData&&lastPlanData.length){if(_planProgFill){_planProgFill.style.width='0%';_planProgText.textContent='主数据已更新，自动重新核对...';}analyzePlans(lastPlanData);}}
@@ -558,7 +610,7 @@ var _msState={};
 function initMultiSelect(id,items,onChange){
   var wrap=document.getElementById(id);
   if(!wrap)return;
-  var state={items:items||[],vals:(items||[]).map(function(i){return i.value;}),onChange:onChange||function(){},ddId:'msdd_'+id};
+  var state={items:items||[],vals:(items||[]).map(function(i){return i.value;}),touched:false,onChange:onChange||function(){},ddId:'msdd_'+id};
   _msState[id]=state;
   renderMS(id);
 }
@@ -579,34 +631,35 @@ function renderMS(id){
   var wrap=document.getElementById(id);if(!wrap)return;
   var cnt=s.vals.length,tot=s.items.length;
   var txt=getMSText(id,s);
-  // 检测是否有分组
+  var EH=function(x){return String(x==null?'':x).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');};
+  // v3.08 复选框交互修复：事件只绑定到 input 自身（避免 label 二次转发导致 toggle 两次），
+  // 用稳定的 data-i 建立 DOM 与 s.items 的对应关系（避免分组重排后按索引错位）。
+  var optHtml=function(i,idx){
+    var ck=s.vals.indexOf(i.value)>=0?' checked':'';
+    return '<label class="ms-item"><input type="checkbox" data-i="'+idx+'"'+ck+
+      ' onclick="event.preventDefault();event.stopPropagation();msToggleValByIdx(\''+id+'\',this.getAttribute(\'data-i\'))">'+
+      '<span>'+EH(i.label)+'</span></label>';
+  };
   var hasGroup=s.items.some(function(i){return i.group;});
   var itemHtml;
   if(hasGroup){
-    // 按分组渲染，每组带标题行
     var groups={};
-    s.items.forEach(function(i){var g=i.group||'_';if(!groups[g])groups[g]=[];groups[g].push(i);});
+    s.items.forEach(function(i,idx){var g=i.group||'_';if(!groups[g])groups[g]=[];groups[g].push({item:i,idx:idx});});
     var gOrder=Object.keys(groups).sort();
     itemHtml=gOrder.map(function(g){
       var gLabel=g==='_'?'':((REGION_GROUPS[g]&&REGION_GROUPS[g].label)||g);
-      var hdr=gLabel?'<div class="ms-group-hdr">'+escHtml(gLabel)+'</div>':'';
-      return hdr+groups[g].map(function(i){
-        var ck=s.vals.indexOf(i.value)>=0?' checked':'';
-        return '<label onclick="event.preventDefault();event.stopPropagation();msToggleVal(\''+id+'\',\''+i.value.replace(/'/g,"\\'")+'\')">'+
-          '<input type="checkbox"'+ck+'> '+i.label+'</label>';
-      }).join('');
+      var hdr=gLabel?'<div class="ms-group-hdr">'+EH(gLabel)+'</div>':'';
+      return hdr+groups[g].map(function(x){return optHtml(x.item,x.idx);}).join('');
     }).join('');
   }else{
-    itemHtml=s.items.map(function(i){
-      var ck=s.vals.indexOf(i.value)>=0?' checked':'';
-      return '<label onclick="event.preventDefault();event.stopPropagation();msToggleVal(\''+id+'\',\''+i.value.replace(/'/g,"\\'")+'\')">'+
-        '<input type="checkbox"'+ck+'> '+i.label+'</label>';
-    }).join('');
+    itemHtml=s.items.map(function(i,idx){return optHtml(i,idx);}).join('');
   }
-  wrap.innerHTML='<div class="ms-trigger" onclick="toggleMSDrop(\''+id+'\')"><span>'+txt+'</span><span class="ms-arrow">▼</span></div>'+
-    '<div class="ms-dd" id="'+s.ddId+'" onclick="event.stopPropagation()">'+
-    '<label class="ms-all" onclick="event.preventDefault();event.stopPropagation();msToggleAll(\''+id+'\')">'+
-    '<input type="checkbox"'+(cnt===tot&&tot>0?' checked':'')+'> 全选</label>'+
+  // 重建 DOM 后保持「打开」状态，避免点击选项后下拉突然关闭
+  var isOpen=wrap.classList.contains('open');
+  wrap.innerHTML='<div class="ms-trigger" onclick="toggleMSDrop(\''+id+'\')"><span>'+EH(txt)+'</span><span class="ms-arrow">▼</span></div>'+
+    '<div class="ms-dd" id="'+s.ddId+'" style="display:'+(isOpen?'block':'none')+'" onclick="event.stopPropagation()">'+
+    '<label class="ms-all"><input type="checkbox"'+(cnt===tot&&tot>0?' checked':'')+
+    ' onclick="event.preventDefault();event.stopPropagation();msToggleAll(\''+id+'\')"> 全选</label>'+
     itemHtml+'</div>';
 }
 function toggleMSDrop(id){
@@ -617,76 +670,66 @@ function toggleMSDrop(id){
   document.querySelectorAll('.ms-wrap').forEach(function(el){el.classList.remove('open');});
   if(show){dd.style.display='block';document.getElementById(id).classList.add('open');}
 }
-function msToggleVal(id,val){
+function msToggleValByIdx(id,idx){
   var s=_msState[id];if(!s)return;
-  // 多选：点某一项 → 切换该项选中/取消，不影响其他项（勾上的保留，未勾的移除√）
-  var idx=s.vals.indexOf(val);
-  if(idx>=0)s.vals.splice(idx,1);else s.vals.push(val);
-  // 只更新复选框状态和触发器文字，不重建整个下拉（保持打开）
+  var item=s.items[Number(idx)];if(!item)return;
+  msToggleVal(id,item.value);
+}
+// v3.08：从 s.vals 精确回写 DOM，完全由状态驱动，不依赖浏览器默认 toggle
+function syncMSDOM(id){
+  var s=_msState[id];if(!s)return;
   var dd=document.getElementById(s.ddId);
   if(dd){
-    var cbs=dd.querySelectorAll('input[type=checkbox]');
-    cbs.forEach(function(cb,i){
-      if(i===0) cb.checked=s.vals.length===s.items.length&&s.items.length>0;
-      else{
-        var item=s.items[i-1];
-        if(item) cb.checked=s.vals.indexOf(item.value)>=0;
-      }
+    var all=dd.querySelector('.ms-all input');
+    if(all)all.checked=(s.vals.length===s.items.length&&s.items.length>0);
+    dd.querySelectorAll('.ms-item input[type=checkbox]').forEach(function(cb){
+      var i=s.items[Number(cb.getAttribute('data-i'))];
+      if(i)cb.checked=s.vals.indexOf(i.value)>=0;
     });
   }
   var wrap=document.getElementById(id);
-  if(wrap){
-    var txt=getMSText(id,s);
-    var t=wrap.querySelector('.ms-trigger span:first-child');
-    if(t) t.textContent=txt;
-  }
+  if(wrap){var t=wrap.querySelector('.ms-trigger span:first-child');if(t)t.textContent=getMSText(id,s);}
+}
+function msToggleVal(id,val){
+  var s=_msState[id];if(!s)return;
+  s.touched=true;
+  var idx=s.vals.indexOf(val);
+  if(idx>=0)s.vals.splice(idx,1);else s.vals.push(val);
+  syncMSDOM(id);
   s.onChange(s.vals.slice());
 }
 function msToggleAll(id){
   var s=_msState[id];if(!s)return;
+  s.touched=true;
   var dd=document.getElementById(s.ddId);
   var allCb=dd&&dd.querySelector('.ms-all input');
-  var allChecked=allCb?!allCb.checked:true; // 反选
-  if(allChecked) s.vals=s.items.map(function(i){return i.value;});
-  else s.vals=[];
-  // 更新所有复选框
-  if(dd){
-    dd.querySelectorAll('input[type=checkbox]').forEach(function(cb){cb.checked=allChecked;});
-  }
-  var wrap=document.getElementById(id);
-  if(wrap){
-    var txt=getMSText(id,s);
-    var t=wrap.querySelector('.ms-trigger span:first-child');
-    if(t) t.textContent=txt;
-  }
+  // preventDefault 已阻止默认 toggle，故 allCb.checked 仍是点击前的状态
+  var target=!(allCb&&allCb.checked);
+  s.vals=target?s.items.map(function(i){return i.value;}):[];
+  syncMSDOM(id);
   s.onChange(s.vals.slice());
 }
 function getMSVals(id){var s=_msState[id];return s?s.vals.slice():[];}
 function setMSItems(id,newItems){
   var s=_msState[id];if(!s)return;
-  // 检查选项是否真的变了，避免不必要的重建导致下拉关闭
   var changed=false;
   if(s.items.length!==newItems.length)changed=true;
   else{
     for(var si=0;si<s.items.length;si++){
-      if(s.items[si].value!==newItems[si].value||s.items[si].label!==newItems[si].label){
-        changed=true;break;
-      }
+      if(s.items[si].value!==newItems[si].value||s.items[si].label!==newItems[si].label){changed=true;break;}
     }
   }
   s.items=newItems;
-  // 保留仍在选项中的已选值
   var valid={};newItems.forEach(function(i){valid[i.value]=true;});
   s.vals=s.vals.filter(function(v){return valid[v];});
-  if(s.vals.length===0&&newItems.length>0) s.vals=newItems.map(function(i){return i.value;});
-  if(changed) renderMS(id);
+  // v3.08：仅「未经用户操作」的初始状态才默认全选；用户主动点「全不选」后不得被自动改回
+  if(!s.touched&&s.vals.length===0&&newItems.length>0)s.vals=newItems.map(function(i){return i.value;});
+  if(changed)renderMS(id);
   else{
-    // 没变化只更新触发器文字
     var wrap=document.getElementById(id);
     if(wrap){
-      var txt=getMSText(id,s);
       var t=wrap.querySelector('.ms-trigger span:first-child');
-      if(t) t.textContent=txt;
+      if(t)t.textContent=getMSText(id,s);
     }
   }
 }
@@ -721,10 +764,10 @@ function sdGoPage(p){_sdPage=p;renderStationDistEditor();const w=gid('stationDis
 function renderStationDistEditor(){const wrap=gid('stationDistEditor');if(!wrap)return;const list=sdFilteredStations();const info=gid('sdFilterInfo');const d2c=appData.depotToCol||{};const dh=appData.depotColNames||{};const rev={};Object.keys(d2c).forEach(function(c){rev[d2c[c]]=c;});const fdByCode={};appData.depots.forEach(function(d){if(d.type!='以站代库')fdByCode[d.code]=d;});const depots=Object.keys(dh).map(function(ci){const nm=dh[ci];const code=rev[ci];const fd=code?fdByCode[code]:null;return {col:ci,name:nm,type:fd?fd.type:'',code:code||('_sd_'+ci)};}).filter(function(x){return x.name;}).sort(function(a,b){return a.name.localeCompare(b.name,'zh');});if(!list.length){wrap.innerHTML='<div class="empty">没有符合条件的加油站</div>';if(info)info.textContent='筛选结果：0 个加油站';gid('sdPager').innerHTML='';return;}
   const tp=Math.max(1,Math.ceil(list.length/SD_PAGE_SIZE));if(_sdPage>tp)_sdPage=tp;if(_sdPage<1)_sdPage=1;const st0=(_sdPage-1)*SD_PAGE_SIZE;const page=list.slice(st0,st0+SD_PAGE_SIZE);
   if(info)info.textContent='筛选结果：'+list.length+' 个加油站 ｜ 第 '+_sdPage+'/'+tp+' 页 ｜ 本页 '+page.length+' 个 ｜ 油库列 '+depots.length+' 个';
-  let h='<table class="master-table"><thead><tr><th style="min-width:40px">序号</th><th style="min-width:80px">地区</th><th style="min-width:180px">加油站</th><th style="min-width:110px">编码</th>';
+  let h='<table class="master-table"><thead><tr><th style="min-width:40px">序号</th><th style="min-width:80px">地区</th><th style="min-width:180px">加油站</th><th style="min-width:110px">编码</th><th style="min-width:90px">片区负责人</th>';
   depots.forEach(function(d){h+='<th style="min-width:78px" title="'+d.name+'（'+(d.type||'')+'）">'+d.name+'</th>';});
   h+='</tr></thead><tbody>';
-  page.forEach(function(o,k){const s=o.s;h+='<tr><td>'+(st0+k+1)+'</td><td>'+(s.region||'')+'</td><td>'+(s.name||'')+'</td><td>'+(s.code||'')+'</td>';
+  page.forEach(function(o,k){const s=o.s;h+='<tr><td>'+(st0+k+1)+'</td><td>'+(s.region||'')+'</td><td>'+(s.name||'')+'</td><td>'+(s.code||'')+'</td><td>'+(s.owner||'')+'</td>';
     depots.forEach(function(d){const col=d.col;const dist=(s.distances&&s.distances[col]!=null)?s.distances[col]:'';h+='<td><input type="number" step="0.01" data-idx="'+o.i+'" data-col="'+col+'" value="'+dist+'" style="width:70px"></td>';});
     h+='</tr>';});
   h+='</tbody></table>';
@@ -998,8 +1041,8 @@ function fuzzyMatchDepot(dn){
   if(appData){for(const d of appData.depots){let s=0;for(const c of n)if(d.name.indexOf(c)>=0)s++;if(s>bs){bs=s;best=d;}}}
   return bs>=3?best:null;
 }
-function depotFreight(depot,station,pk){
-  const ff=depot[FF[pk]];
+function depotFreight(depot,station,pk,ffOverride){
+  const ff=(ffOverride!=null)?ffOverride:depot[FF[pk]];
   if(ff===null||ff===undefined)return null;
   const c2d=appData.colToDepot||{};
   let ci2=null;
@@ -1024,6 +1067,11 @@ async function analyzePlans(plans){
   const ci={};Object.entries(appData.colToDepot||{}).forEach(([c,dc])=>{
     if(dc==='_none_')return;const d=db[dc];if(!d||d.type==='以站代库')return;ci[c]=d;
   });
+  // v3.08 双费用口径：① 现有「新恒丰油库 0# 一次吨油费用」(f0)
+  //                  ② 新增「新恒丰 0#（含珠海油库一次费用）」(f0z，来自一次运费表末列)
+  const zDep=(appData.depots||[]).find(d=>d.name.indexOf('新恒丰')>=0);
+  const zCode=zDep?zDep.code:null;
+  const zF0=(zDep&&zDep.f0z!=null&&!isNaN(zDep.f0z))?Number(zDep.f0z):67;
   planResults=[];
   const CHUNK=2000;
   const total=plans.length;
@@ -1033,9 +1081,9 @@ async function analyzePlans(plans){
       const p=plans[j];
       const pk=mapProductToKey(p.productName);
       const station=fuzzyMatchStation(p.stationName,p.region);
-      if(!station){planResults.push({...p,productKey:pk,matched:false,error:'未匹配到加油站',rank:null,actualDepotName:'',actualDepotType:'',optimalRanking:[]});continue;}
+      if(!station){planResults.push({...p,productKey:pk,matched:false,error:'未匹配到加油站',rank:null,actualDepotName:'',actualDepotType:'',optimalRanking:[],owner:'',ownBest:null});continue;}
       const actualDepot=fuzzyMatchDepot(p.liftOrg);
-      if(!actualDepot){planResults.push({...p,productKey:pk,matched:true,error:'未匹配到出库点',rank:null,actualDepotName:p.liftOrg,actualDepotType:'',optimalRanking:[]});continue;}
+      if(!actualDepot){planResults.push({...p,productKey:pk,matched:true,error:'未匹配到出库点',rank:null,actualDepotName:p.liftOrg,actualDepotType:'',optimalRanking:[],owner:station.owner||'',ownBest:null});continue;}
       const es=[];
       for(const[ci2,d]of Object.entries(ci)){
         const ff=d[FF[pk]];if(ff===null||ff===undefined||!productAvailability[d.code]?.[pk])continue;
@@ -1044,15 +1092,30 @@ async function analyzePlans(plans){
         es.push({code:d.code,dn:d.name,dt:d.type,dist:dist,ff:ff,sf:sf,tt:ff+sf});
       }
       es.sort((a,b)=>a.tt-b.tt);
-      const rkIdx=es.findIndex(e=>e.code===actualDepot.code);
-      const top5=es.slice(0,5).map(e=>({dn:e.dn,dt:e.dt,dist:e.dist,ff:e.ff,sf:e.sf,tt:e.tt}));
-      const fE=es[0]?{dist:es[0].dist,ff:es[0].ff,sf:es[0].sf,tt:es[0].tt}:null;
-      let aE=null;
-      if(rkIdx>=0)aE={dist:es[rkIdx].dist,ff:es[rkIdx].ff,sf:es[rkIdx].sf,tt:es[rkIdx].tt};
-      else aE=depotFreight(actualDepot,station,pk);
-      let ownRank=null;
-      if(actualDepot.type==='自有库'){const ownEntries=top5.filter(e=>e.dt==='自有库');const ownIdx=ownEntries.findIndex(e=>e.dn===actualDepot.name);if(ownIdx>=0)ownRank=ownIdx+1;}
-      const r={...p,stationName:p.stationName,productName:p.productName,date:p.date,orderNo:p.orderNo,region:p.region,matched:true,productKey:pk,actualDepotName:actualDepot.name,actualDepotType:actualDepot.type||'',actualDist:aE?aE.dist:null,rank:rkIdx>=0?rkIdx+1:null,ownRank:ownRank,totalCost:rkIdx>=0?es[rkIdx].tt:null,optimalRanking:top5,error:'',firstDist:fE?fE.dist:null,firstFf:fE?fE.ff:null,firstSf:fE?fE.sf:null,firstTt:fE?fE.tt:null,actualFf:aE?aE.ff:null,actualSf:aE?aE.sf:null,actualTt:aE?aE.tt:null};
+      // 仅当品号为 0# 且本行可用油库含新恒丰时，第二口径结果才会不同
+      const needZ=(pk==='0'&&zCode&&es.some(e=>e.code===zCode));
+      let esZ=null;
+      if(needZ){esZ=es.map(e=>e.code===zCode?{...e,ff:zF0,tt:zF0+e.sf}:e);esZ.sort((a,b)=>a.tt-b.tt);}
+      const mkRow=(ex,isZ)=>{
+        const rkIdx=ex.findIndex(e=>e.code===actualDepot.code);
+        const top5=ex.slice(0,5).map(e=>({dn:e.dn,dt:e.dt,dist:e.dist,ff:e.ff,sf:e.sf,tt:e.tt}));
+        const fE=ex[0]?{dist:ex[0].dist,ff:ex[0].ff,sf:ex[0].sf,tt:ex[0].tt}:null;
+        let aE=null;
+        if(rkIdx>=0)aE={dist:ex[rkIdx].dist,ff:ex[rkIdx].ff,sf:ex[rkIdx].sf,tt:ex[rkIdx].tt};
+        else aE=depotFreight(actualDepot,station,pk,(isZ&&actualDepot.code===zCode)?zF0:null);
+        const ob=ex.find(e=>e.dt==='自有库')||null;
+        const ownBest=ob?{dn:ob.dn,dt:ob.dt,dist:ob.dist,ff:ob.ff,sf:ob.sf,tt:ob.tt,dist2:ob.dist}:null;
+        let ownRank=null;
+        if(actualDepot.type==='自有库'){const ownEntries=top5.filter(e=>e.dt==='自有库');const ownIdx=ownEntries.findIndex(e=>e.dn===actualDepot.name);if(ownIdx>=0)ownRank=ownIdx+1;}
+        return {...p,stationName:p.stationName,productName:p.productName,date:p.date,orderNo:p.orderNo,region:p.region,
+          matched:true,productKey:pk,owner:station.owner||'',ownBest:ownBest,
+          actualDepotName:actualDepot.name,actualDepotType:actualDepot.type||'',actualDist:aE?aE.dist:null,
+          rank:rkIdx>=0?rkIdx+1:null,ownRank:ownRank,totalCost:rkIdx>=0?ex[rkIdx].tt:null,
+          optimalRanking:top5,error:'',firstDist:fE?fE.dist:null,firstFf:fE?fE.ff:null,firstSf:fE?fE.sf:null,firstTt:fE?fE.tt:null,
+          actualFf:aE?aE.ff:null,actualSf:aE?aE.sf:null,actualTt:aE?aE.tt:null};
+      };
+      const r=mkRow(es,false);
+      r.z=esZ?mkRow(esZ,true):null;
       planResults.push(r);
     }
     if(_planProgFill){const pct=total?Math.round(endIdx/total*100):0;_planProgFill.style.width=pct+'%';_planProgText.textContent='匹配中 '+endIdx+' / '+total+' ('+pct+'%)';}
@@ -1173,7 +1236,8 @@ function _diffCell(v,dec){if(v==null||isNaN(v))return _stCell('—','s',{font:_X
 function _moneyDiffCell(v){if(v==null||isNaN(v))return _stCell('—','s',{font:_XF.grayFont,alignment:_XF.rightAlign,border:_XF.border});var font=v>0?_XF.redFont:(v<0?_XF.greenFont:{color:{rgb:'FF718096'}});return _stCell(+v.toFixed(2),'n',{font:font,numFmt:'+#,##0.00;-#,##0.00;0.00',alignment:_XF.rightAlign,border:_XF.border});}
 function _numCell(v,dec,style){if(v==null||isNaN(v))return _stCell('—','s',{font:_XF.grayFont,alignment:_XF.rightAlign,border:_XF.border});return _stCell(+v.toFixed(dec),'n',style);}
 
-function buildStyledAuditSheet(dataRows){
+function buildStyledAuditSheet(dataRows,mode){
+  var isZ=(mode==='z');
   var COLS=[
     ['序号',6],['配送日期',12],['配送单号',22],['状态',10],['业务类型',18],
     ['分公司',32],['收油机构',18],['油品',16],['出库(吨)',10],['实际出库点',20],
@@ -1182,30 +1246,46 @@ function buildStyledAuditSheet(dataRows){
     ['now_dist',12],['now_ff',14],['now_sf',14],['now_tt',14],
     ['opt_dist',12],['opt_ff',14],['opt_sf',14],['opt_tt',14],['opt_dist2',12],
     ['d_ff',16],['d_sf',16],['d_tt',20],['d_money',14],
-    ['tons',10],['备注',12]
+    ['tons',10],['备注',12],
+    ['片区负责人',14],
+    ['own_dist',12],['own_ff',14],['own_sf',14],['own_tt',14],['own_dist2',12],
+    ['dz_ff',16],['dz_sf',16],['dz_tt',20],['dz_money',14]
   ];
   var NC=COLS.length,out=[];
-  // Row1 group header
-  var r1=[],ci=0;
-  for(var b=0;b<19;b++){r1.push(_hdrCell(COLS[ci][0]==='序号'?'序号':COLS[ci][0]==='排名'?'排名':COLS[ci][0]==='自有库排名'?'自有库排名':COLS[ci][0]==='核对结果'?'核对结果':COLS[ci][0],_XF.baseFill));ci++;}
-  r1.push(_hdrCell('现在出库点运费',_XF.nowFill));r1.push(_hdrCell('',_XF.nowFill));r1.push(_hdrCell('',_XF.nowFill));r1.push(_hdrCell('',_XF.nowFill));ci+=4;
-  r1.push(_hdrCell('最优(第一)出库点运费',_XF.optFill));r1.push(_hdrCell('',_XF.optFill));r1.push(_hdrCell('',_XF.optFill));r1.push(_hdrCell('',_XF.optFill));r1.push(_hdrCell('',_XF.optFill));ci+=5;
-  r1.push(_hdrCell('运费增加',_XF.incHdrFill));r1.push(_hdrCell('',_XF.incHdrFill));r1.push(_hdrCell('',_XF.incHdrFill));r1.push(_hdrCell('',_XF.incHdrFill));ci+=4;
-  r1.push(_hdrCell('',_XF.baseFill));r1.push(_hdrCell('',_XF.baseFill));
+  var ownFill={patternType:'solid',fgColor:{rgb:'FFFFF7E6'}};
+  var ownIncFill={patternType:'solid',fgColor:{rgb:'FFF0FFF4'}};
+  // v3.08：最上方标题行文字改为红色（原白字配浅底纹不可读）
+  var redHdr=function(v,fill){return _stCell(v,'s',{font:_XF.redFont,fill:fill,alignment:_XF.center,border:_XF.border});};
+  // Row1 分组/标题行。前 19 列与「片区负责人」列在此保留列名，Row2 对应位置留空 → 重复表头只保留一处
+  var r1=[],b;
+  for(b=0;b<19;b++)r1.push(redHdr(COLS[b][0],_XF.baseFill));
+  r1.push(redHdr('现在出库点运费',_XF.nowFill));for(b=0;b<3;b++)r1.push(redHdr('',_XF.nowFill));
+  r1.push(redHdr('最优(第一)出库点运费',_XF.optFill));for(b=0;b<4;b++)r1.push(redHdr('',_XF.optFill));
+  r1.push(redHdr('运费增加',_XF.incHdrFill));for(b=0;b<3;b++)r1.push(redHdr('',_XF.incHdrFill));
+  r1.push(redHdr('',_XF.baseFill));r1.push(redHdr('',_XF.baseFill));
+  r1.push(redHdr('片区负责人',_XF.baseFill));
+  r1.push(redHdr('自有库最优出库点运费',ownFill));for(b=0;b<4;b++)r1.push(redHdr('',ownFill));
+  r1.push(redHdr('与自有库最优对比运费增减',ownIncFill));for(b=0;b<3;b++)r1.push(redHdr('',ownIncFill));
   out.push(r1);
-  // Row2 sub-header
-  var r2=[];
-  var SUB=['序号','配送日期','配送单号','状态','业务类型','分公司','收油机构','油品','出库(吨)','实际出库点','库类型',
-    '第一出库点','第二出库点','第三出库点','第四出库点','第五出库点','排名','自有库排名','核对结果',
+  // Row2 子表头（与 Row1 重复处留空）
+  var SUB=[
+    '','','','','','','','','','','','','','','','','','','',
     '运距(km)','一次运费(元/吨)','二次运费(元/吨)','合计运费(元/吨)',
     '运距(km)','一次运费(元/吨)','二次运费(元/吨)','合计运费(元/吨)','二次运距(km)',
     '一次吨油运费增加(元/吨)','二次吨油运费增加(元/吨)','一二次整体吨油运费增加(元/吨)','实际运费增加(元)',
-    '吨数(吨)','备注'];
+    '吨数(吨)','备注',
+    '',
+    '运距(km)','一次运费(元/吨)','二次运费(元/吨)','合计运费(元/吨)','二次运距(km)',
+    '一次吨油运费增加(元/吨)','二次吨油运费增加(元/吨)','一二次整体吨油运费增加(元/吨)','实际运费增加(元)'
+  ];
+  var r2=[];
   for(var s=0;s<NC;s++)r2.push(_subHdrCell(SUB[s]));
   out.push(r2);
-  // Data rows
+  // Data rows（现有 0~33 列内容与口径完全不变，仅追加新列）
   for(var i=0;i<dataRows.length;i++){
-    var r=dataRows[i];var tons=Number(r.tons)||0;
+    var raw=dataRows[i];
+    var r=isZ?(raw.z||raw):raw;
+    var tons=Number(r.tons)||0;
     var aFf=r.actualFf,aSf=r.actualSf,aTt=r.actualTt,aDist=r.actualDist;
     var fFf=r.firstFf,fSf=r.firstSf,fTt=r.firstTt,fDist=r.firstDist;
     var d1=(aFf!=null&&fFf!=null)?aFf-fFf:null,d2=(aSf!=null&&fSf!=null)?aSf-fSf:null,dT=(aTt!=null&&fTt!=null)?aTt-fTt:null,dM=(dT!=null)?dT*tons:null;
@@ -1229,28 +1309,41 @@ function buildStyledAuditSheet(dataRows){
     row.push(_numCell(fDist,1,oS));row.push(_numCell(fFf,2,oS));row.push(_numCell(fSf,2,oS));row.push(_numCell(fTt,2,oS));row.push(_numCell(fDist,1,oS));
     row.push(_diffCell(d1,2));row.push(_diffCell(d2,2));row.push(_diffCell(dT,2));row.push(_moneyDiffCell(dM));
     row.push(_dataCell(+tons.toFixed(2)));row.push(_dataCell(r.error||''));
+    // v3.08 新增：片区负责人 + 自有库最优出库点运费 + 与自有库最优对比的运费增减
+    var ob=r.ownBest||null;
+    row.push(_dataCell(r.owner||''));
+    var obS={fill:ownFill,border:_XF.border,alignment:_XF.rightAlign,font:_XF.blackFont};
+    row.push(_numCell(ob?ob.dist:null,1,obS));row.push(_numCell(ob?ob.ff:null,2,obS));
+    row.push(_numCell(ob?ob.sf:null,2,obS));row.push(_numCell(ob?ob.tt:null,2,obS));
+    row.push(_numCell(ob?ob.dist2:null,1,obS));
+    var z1=(aFf!=null&&ob)?aFf-ob.ff:null,z2=(aSf!=null&&ob)?aSf-ob.sf:null,
+        zT=(aTt!=null&&ob)?aTt-ob.tt:null,zM=(zT!=null)?zT*tons:null;
+    row.push(_diffCell(z1,2));row.push(_diffCell(z2,2));row.push(_diffCell(zT,2));row.push(_moneyDiffCell(zM));
     out.push(row);
   }
   var X=_wXLSX();
   var ws=X.utils.aoa_to_sheet(out);
-  ws['!merges']=[{s:{r:0,c:19},e:{r:0,c:22}},{s:{r:0,c:23}, e:{r:0,c:27}},{s:{r:0,c:28}, e:{r:0,c:31}}];
+  ws['!merges']=[{s:{r:0,c:19},e:{r:0,c:22}},{s:{r:0,c:23},e:{r:0,c:27}},{s:{r:0,c:28},e:{r:0,c:31}},
+    {s:{r:0,c:35},e:{r:0,c:39}},{s:{r:0,c:40},e:{r:0,c:43}}];
   ws['!cols']=COLS.map(function(c){return {wch:c[1]};});
   ws['!freeze']={xSplit:'0',ySplit:'2'};
   return ws;
 }
 function exportPlanAudit(){
   if(!planResults.length){alert('没有数据可导出');return;}
-  var ws=buildStyledAuditSheet(planResults);
   var X=_wXLSX();
-  var wb=X.utils.book_new();X.utils.book_append_sheet(wb,ws,'配送计划核对');
+  var wb=X.utils.book_new();
+  X.utils.book_append_sheet(wb,buildStyledAuditSheet(planResults,'base'),'配送计划核对');
+  X.utils.book_append_sheet(wb,buildStyledAuditSheet(planResults,'z'),'配送计划核对_含珠海0#');
   X.writeFile(wb,'配送计划核对_'+new Date().toISOString().slice(0,10)+'.xlsx');
 }
 function exportNonFirst(){
   var nf=planResults.filter(function(r){return r.rank&&r.rank>1;});
   if(!nf.length){alert('没有非第一出库点的记录');return;}
-  var ws=buildStyledAuditSheet(nf);
   var X=_wXLSX();
-  var wb=X.utils.book_new();X.utils.book_append_sheet(wb,ws,'非第一出库点');
+  var wb=X.utils.book_new();
+  X.utils.book_append_sheet(wb,buildStyledAuditSheet(nf,'base'),'非第一出库点');
+  X.utils.book_append_sheet(wb,buildStyledAuditSheet(nf,'z'),'非第一出库点_含珠海0#');
   X.writeFile(wb,'非第一出库点汇总_'+new Date().toISOString().slice(0,10)+'.xlsx');
 }
 
