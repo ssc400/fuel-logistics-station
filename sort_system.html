@@ -1050,6 +1050,8 @@ async function parsePlanCSV(text,onProg){
         liftOrg:String(cols[6]||'').trim(),
         stationName:String(cols[7]||'').trim(),
         productName:String(cols[9]||'').trim(),tons:parseFloat(String(cols[12]||'').replace(/,/g,''))||0,
+        // v3.11：日报第23列「运距」是该车实际出库点的真实运距，运距表未维护该站该库时用它兜底
+        csvDist:(cols.length>22?(parseFloat(String(cols[22]||'').replace(/,/g,''))||0):0),
         status:status,bizType:bizType
       });
     }
@@ -1095,17 +1097,20 @@ function fuzzyMatchDepot(dn){
   if(appData){for(const d of appData.depots){let s=0;for(const c of n)if(d.name.indexOf(c)>=0)s++;if(s>bs){bs=s;best=d;}}}
   return bs>=3?best:null;
 }
-function depotFreight(depot,station,pk,ffOverride){
+function depotFreight(depot,station,pk,ffOverride,csvDist){
   const ff=(ffOverride!=null)?ffOverride:depot[FF[pk]];
-  if(ff===null||ff===undefined||ff==='')return null;
+  // v3.11：一次费未登记（互供库/98#等空值）不再导致整组四列全空；按约束不填一次费，但运距/二次费照算
+  const hasFf=(ff!==null&&ff!==undefined&&ff!=='');
   const c2d=appData.colToDepot||{};
   let ci2=null;
   for(const c in c2d){if(c2d[c]===depot.code){ci2=c;break;}}
-  if(!ci2)return null;
-  const dist=station.distances[ci2];
+  let dist=(ci2&&station&&station.distances)?station.distances[ci2]:null;
+  // v3.11：二次运距表该站该库未维护时，回退到日报自带的真实运距
+  if(!dist&&csvDist>0)dist=csvDist;
   if(!dist)return null;
   const sf=dist>30?.67*dist:29;
-  return {dist:dist,ff:ff,sf:sf,tt:ff+sf};
+  const f=hasFf?Number(ff):null;
+  return {dist:dist,ff:f,sf:sf,tt:(f!=null?f+sf:null)};
 }
 function planIncs(r){
   const d1=(r.actualFf!=null&&r.firstFf!=null)?r.actualFf-r.firstFf:null;
@@ -1156,7 +1161,7 @@ async function analyzePlans(plans){
         const fE=ex[0]?{dist:ex[0].dist,ff:ex[0].ff,sf:ex[0].sf,tt:ex[0].tt}:null;
         let aE=null;
         if(rkIdx>=0)aE={dist:ex[rkIdx].dist,ff:ex[rkIdx].ff,sf:ex[rkIdx].sf,tt:ex[rkIdx].tt};
-        else aE=depotFreight(actualDepot,station,pk,(isZ&&actualDepot.code===zCode)?zF0:null);
+        else aE=depotFreight(actualDepot,station,pk,(isZ&&actualDepot.code===zCode)?zF0:null,p.csvDist);
         const ob=ex.find(e=>e.dt==='自有库')||null;
         const ownBest=ob?{dn:ob.dn,dt:ob.dt,dist:ob.dist,ff:ob.ff,sf:ob.sf,tt:ob.tt,dist2:ob.dist}:null;
         let ownRank=null;
