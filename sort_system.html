@@ -295,6 +295,7 @@ tr:hover td{background:#f7fafc}
       <input type="file" id="salesFileInput" accept=".xlsx,.xls,.csv" style="display:none" onchange="uploadSalesData(event)">
       <span id="salesStatus" class="sales-status empty">⏳ 未上传销量数据</span>
       <span id="salesSummary" style="font-size:12px;color:#718096;"></span>
+      <div id="salesDiag" style="grid-column:1/-1;font-size:12px;line-height:1.7;padding:6px 10px;background:#fffaf0;border:1px solid #fbd38d;border-radius:6px;color:#744210;"></div>
     </div>
     <div class="company-hint" style="font-size:11px;color:#a0aec0;margin-top:8px;padding:8px;background:#f7fafc;border-radius:6px;">
       <strong>分组规则：</strong>①自有站→XX分公司 ②控股/参股→公司全称(控股/参股)
@@ -817,6 +818,7 @@ function loadData(){
     if(loadMaster()){gid('statSource').textContent='本地备份';gid('statSource').style.color='#b7791f';}
     defaultData=JSON.parse(JSON.stringify(appData));
     buildStationIndex();
+    loadSalesLocal();
     gid('statStations').textContent=appData.stations.length;
     gid('statRegions').textContent=new Set(appData.stations.map(s=>s.region)).size;
     gid('statSource').textContent='默认数据';
@@ -879,7 +881,7 @@ function switchView(v){
   if(v==='station')updateView();
   if(v==='depot')setTimeout(renderDepotView,100);
 }
-function updateView(){if(!appData)return;try{if(currentView==='station')runStationView();else if(currentView==='depot')renderDepotView();}catch(e){console.error('[updateView] 渲染异常:',e);gid('statStatus').textContent='渲染出错：'+e.message;gid('tableContainer').innerHTML='<div class="empty">视图渲染出错：'+e.message+'</div>';}}
+function updateView(){if(!appData)return;try{if(currentView==='station')runStationView();else if(currentView==='depot')renderDepotView();try{renderSalesStatus();}catch(_se){}}catch(e){console.error('[updateView] 渲染异常:',e);gid('statStatus').textContent='渲染出错：'+e.message;gid('tableContainer').innerHTML='<div class="empty">视图渲染出错：'+e.message+'</div>';}}
 
 // ===== Station View with Grouping =====
 function runStationView(){if(!appData)return;_curPage=1;
@@ -887,11 +889,18 @@ if(!_msState['msRegion'])buildCompanyFilter();
 const bp=gid('productSelect').value,rf=getMSVals('msRegion'),tf=gid('typeFilter').value,cf=gid('companyFilter').value,ss=gid('stationSearch').value.trim().toLowerCase();
 console.log('[runStationView] 触发筛选:',JSON.stringify({bp:bp,rf:rf,tf:tf,cf:cf,ss:ss,currentView:currentView}));
 const t2k={'自有库':'ziyou','互供库':'hugong','外采库':'waicai','以站代库':'yizhan'};const db=Object.fromEntries(appData.depots.map(d=>[d.code,d]));const ci={};Object.entries(appData.colToDepot||{}).forEach(([c,dc]) => {if(dc==='_none_')return;const d=db[dc];if(!d||d.type==='以站代库')return;ci[c]=d;});
-const gs=[];for(const st of appData.stations){const ciInfo=gi(st.name,st.region);if(rf.length>0&&!rf.includes(ciInfo.display))continue;if(cf!=='all'&&ciInfo.type!==cf)continue;if(ss&&!st.name.toLowerCase().includes(ss))continue;const es=[];for(const[ci2,dist]of Object.entries(st.distances)){const d=ci[ci2];if(!d)continue;const tm={'ziyou':'自有库','hugong':'互供库','waicai':'外采库'};if(tf!=='all'&&d.type!==tm[tf])continue;if(!productAvailability[d.code]?.[bp]||!hasDepotProduct(d,bp))continue;const ff=d[FF[bp]];const sf=dist>30?.67*dist:29,tt=ff+sf,dk=t2k[d.type]||'unknown';es.push({dn:d.name,dt:dk,dtc:TC[dk]||d.type,ff:ff,di:dist,sf:Math.round(sf*1e4)/1e4,tt:Math.round(tt*1e4)/1e4});}
-if(!es.length)continue;es.sort((a,b)=>a.tt-b.tt);
+const gs=[];for(const st of appData.stations){const ciInfo=gi(st.name,st.region);if(rf.length>0&&!rf.includes(ciInfo.display))continue;if(cf!=='all'&&ciInfo.type!==cf)continue;if(ss&&!st.name.toLowerCase().includes(ss))continue;
+const allEs=[];for(const[ci2,dist]of Object.entries(st.distances)){const d=ci[ci2];if(!d)continue;if(!productAvailability[d.code]?.[bp]||!hasDepotProduct(d,bp))continue;const ff=d[FF[bp]];const sf=dist>30?.67*dist:29,tt=ff+sf,dk=t2k[d.type]||'unknown';allEs.push({dn:d.name,dt:dk,dtc:TC[dk]||d.type,ff:ff,di:dist,sf:Math.round(sf*1e4)/1e4,tt:Math.round(tt*1e4)/1e4});}
+if(!allEs.length)continue;allEs.sort((a,b)=>a.tt-b.tt);
+// v3.13：统一对比基准 = 全量候选中「自有库」全程运费最低者，不受油库类型筛选影响
+const ownFirst=allEs.find(e=>e.dt==='ziyou')||null;
+const tm={'ziyou':'自有库','hugong':'互供库','waicai':'外采库'};
+const es=(tf==='all')?allEs:allEs.filter(e=>!tm[tf]||e.dtc===tm[tf]);
+if(!es.length)continue;
 const sa=Object.assign({},dailyToSales(st.salesDaily),salesData[st.name]||{});
-const ownFirst=es.find(e=>e.dt==='ziyou')||null;
-gs.push({st:st.name,rg:st.region,code:st.code||st.refCode||'',dn:ciInfo.display,ct:ciInfo.type,cl:CC[ciInfo.type]||'自有站',sa,ownFirst,ot:es.slice(0,5).map((e,i)=>({rk:i+1,...e}))});}
+const sv=sa[bp],hasSales=(sv!=null&&sv!==''&&isFinite(Number(sv))),dayTons=hasSales?Number(sv):0;
+const baseTt=ownFirst?ownFirst.tt:null;
+gs.push({st:st.name,rg:st.region,code:st.code||st.refCode||'',dn:ciInfo.display,ct:ciInfo.type,cl:CC[ciInfo.type]||'自有站',sa,ownFirst,baseTt,hasSales,dayTons,ot:es.slice(0,5).map((e,i)=>({rk:i+1,...e}))});}
 stationResults=gs;renderStationTable(gs);gid('statStatus').textContent='已完成';gid('statFiltered').textContent=gs.length;const own=gs.filter(g=>g.ct==='own').length,kg=gs.filter(g=>g.ct==='konggu').length,cg=gs.filter(g=>g.ct==='cangu').length;gid('statFilteredDetail').textContent='自有 '+own+' / 控股 '+kg+' / 参股 '+cg;}
 
 // 分页状态
@@ -912,16 +921,35 @@ function renderStationTable(gs){
   for(const grp of order){(groups[grp]||[]).forEach(g=>{seq++;allRows.push({seq,grp,g});});}
   const pageRows=allRows.slice(start,end);
   const bp=gid('productSelect').value;
-  let h='<table><thead><tr><th rowspan="2">序号</th><th rowspan="2">分组</th><th rowspan="2">分公司</th><th rowspan="2">站类型</th><th rowspan="2">加油站名称</th><th rowspan="2">吨数（'+PN[bp]+'日销量,吨）</th><th colspan="5">产品日销量（吨）</th><th colspan="5">各优先级出库点</th></tr><tr><th>0#</th><th>92#</th><th>E92#乙醇</th><th>95#</th><th>98#</th>';
+  const _noS=gs.filter(g=>!g.hasSales).length,_noB=gs.filter(g=>g.baseTt==null).length,_hg=gs.filter(g=>g.ot&&g.ot[0]&&g.ot[0].dt!=='ziyou').length;
+  let h='<div style="display:flex;flex-wrap:wrap;gap:14px;align-items:center;padding:8px 12px;margin-bottom:8px;background:#ebf8ff;border:1px solid #90cdf4;border-radius:6px;font-size:12px;color:#2c5282;">'
+    +'<span>📌 <b>统一对比基准：自有库第一出库点</b>（库类型=自有库 且 全程运费最低，不受油库类型筛选影响）</span>'
+    +'<span style="color:'+(_hg?'#b7791f':'#718096')+'">⚠ 第一出库点为非自有库：'+_hg+' 站（已标识，仍按同一基准对比）</span>'
+    +'<span style="color:'+(_noS?'#c53030':'#718096')+'">无销量：'+_noS+' 站</span>'
+    +'<span style="color:'+(_noB?'#c53030':'#718096')+'">无可选自有库：'+_noB+' 站</span></div>';
+  h+='<table><thead><tr><th rowspan="2">序号</th><th rowspan="2">分组</th><th rowspan="2">分公司</th><th rowspan="2">站类型</th><th rowspan="2">加油站名称</th><th rowspan="2">吨数（'+PN[bp]+'日销量,吨）</th><th colspan="5">产品日销量（吨）</th><th colspan="5">各优先级出库点</th></tr><tr><th>0#</th><th>92#</th><th>E92#乙醇</th><th>95#</th><th>98#</th>';
   for(let i=0;i<5;i++)h+='<th>'+RL[i]+'<br><span style="font-weight:400;font-size:10px;color:#718096;">油库|类型|一次|运距|二次|合计</span></th>';h+='</tr></thead><tbody>';
   for(const grp of order){
     const items=pageRows.filter(r=>r.grp===grp);
     if(!items.length)continue;
     h+='<tr class="section-header '+grp+'"><td colspan="16"><span style="display:flex;align-items:center;gap:8px;">▎'+labels[grp]+' <span class="count">（本页 '+items.length+' / 共 '+(groups[grp]||[]).length+' 站）</span></span></td></tr>';
     items.forEach(r=>{const g=r.g,cb=g.ct=='own'?'own':g.ct=='konggu'?'konggu':'cangu';
-      h+='<tr><td>'+r.seq+'</td><td><span class="company-badge '+cb+'">'+g.cl+'</span></td><td>'+g.dn+'</td><td><span class="company-badge '+cb+'">'+g.cl+'</span></td><td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;" title="'+g.st+'">'+g.st+'</td><td style="text-align:center;font-weight:600;color:#2d3748">'+((g.sa&&g.sa[bp]!=null&&g.sa[bp]!=='')?g.sa[bp]:'—')+'</td><td>'+(g.sa['0']??'')+'</td><td>'+(g.sa['92']??'')+'</td><td>'+(g.sa['E92']??'')+'</td><td>'+(g.sa['95']??'')+'</td><td>'+(g.sa['98']??'')+'</td>';
-      const saT=Number(g.sa&&g.sa[bp]!=null&&g.sa[bp]!==''?g.sa[bp]:0)||0;const firstTt=g.ot[0]?g.ot[0].tt:null;
-      for(let i2=0;i2<5;i2++){const o=g.ot[i2];if(o){const tc=o.dt=='ziyou'?'ziyou':o.dt=='waicai'?'waicai':'hugong';const inc=(i2===0||firstTt==null)?0:(o.tt-firstTt)*saT;let incHtml;if(i2===0||firstTt==null){incHtml='<div class="ok-inc" style="color:#718096;font-size:10px">基准点</div>';}else if(saT>0){incHtml='<div class="ok-inc" style="font-size:10px;font-weight:600;color:'+(inc>0?'#c53030':'#276749')+'">'+(inc>0?'增加 ':'节省 ')+Math.abs(inc).toFixed(2)+' 元</div>';}else{incHtml='<div class="ok-inc" style="color:#718096;font-size:10px">—</div>';}h+='<td><div class="outlet-cell"><div class="ok-name">'+o.dn+' <span class="depot-badge '+tc+'">'+o.dtc+'</span></div><div class="ok-detail">一次 '+o.ff+' 元/吨</div><div class="ok-detail">运距 '+o.di+' km | 二次 '+o.sf.toFixed(2)+' 元/吨</div><div class="ok-total" style="color:'+['#276749','#b7791f','#c53030','#553c9a','#7B1F1F'][i2]+'">合计 '+o.tt.toFixed(2)+' 元/吨</div>'+incHtml+'</div></td>';}else h+='<td><div class="outlet-cell"><span class="outlet-empty">—</span></div></td>';}
+      h+='<tr><td>'+r.seq+'</td><td><span class="company-badge '+cb+'">'+g.cl+'</span></td><td>'+g.dn+'</td><td><span class="company-badge '+cb+'">'+g.cl+'</span></td><td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;" title="'+g.st+'">'+g.st+'</td><td style="text-align:center;font-weight:600;color:'+(g.hasSales?'#2d3748':'#c53030')+'">'+(g.hasSales?g.sa[bp]:'⚠ 无销量')+'</td><td>'+(g.sa['0']??'')+'</td><td>'+(g.sa['92']??'')+'</td><td>'+(g.sa['E92']??'')+'</td><td>'+(g.sa['95']??'')+'</td><td>'+(g.sa['98']??'')+'</td>';
+      const saT=g.dayTons,baseTt=g.baseTt,hasBase=baseTt!=null;
+      for(let i2=0;i2<5;i2++){const o=g.ot[i2];if(o){
+        const dpt=hasBase?(o.tt-baseTt):null;
+        const inc=(hasBase&&g.hasSales)?dpt*saT:null;
+        let incHtml;
+        if(!hasBase)incHtml='<div style="color:#c53030;font-size:10px;font-weight:600">⚠ 无自有库基准，差异不可用</div>';
+        else if(!g.hasSales)incHtml='<div style="color:#c53030;font-size:10px;font-weight:600">⚠ 无销量，差异不参与计算</div>';
+        else{const cc=dpt>0?'#c53030':(dpt<0?'#276749':'#718096');const wd=dpt>0?'增加 ':(dpt<0?'节省 ':'与基准持平 ');
+          incHtml='<div style="font-size:10px;font-weight:600;color:'+cc+'">'+wd+(dpt===0?'':Math.abs(dpt).toFixed(2)+' 元/吨')+(saT>0&&dpt!==0?' → '+Math.abs(inc).toFixed(2)+' 元':'')+'</div>';}
+        let flag='';
+        if(i2===0){if(o.dt!=='ziyou')flag='<div style="font-size:10px;font-weight:700;color:#b7791f;background:#fffaf0;border:1px solid #fbd38d;border-radius:3px;padding:1px 4px;margin-bottom:2px;">⚠ 第一出库点为'+o.dtc+'（非基准）</div>';
+          else flag='<div style="font-size:10px;color:#276749;margin-bottom:2px;">✓ 自有库基准</div>';}
+        const tc=o.dt=='ziyou'?'ziyou':o.dt=='waicai'?'waicai':'hugong';
+        h+='<td><div class="outlet-cell">'+flag+'<div class="ok-name">'+o.dn+' <span class="depot-badge '+tc+'">'+o.dtc+'</span></div><div class="ok-detail">一次 '+o.ff+' 元/吨</div><div class="ok-detail">运距 '+o.di+' km | 二次 '+o.sf.toFixed(2)+' 元/吨</div><div class="ok-total" style="color:'+['#276749','#b7791f','#c53030','#553c9a','#7B1F1F'][i2]+'">合计 '+o.tt.toFixed(2)+' 元/吨</div>'+incHtml+'</div></td>';}
+        else h+='<td><div class="outlet-cell"><span class="outlet-empty">—</span></div></td>';}
       h+='</tr>';});
   }
   h+='</tbody></table>';c.innerHTML=h;
@@ -954,13 +982,19 @@ const colInfo={};Object.entries(appData.colToDepot||{}).forEach(([c,dc])=>{if(dc
 const rows=[];for(const st of appData.stations){const ciInfo=gi(st.name,st.region);if(rf.length>0&&!rf.includes(ciInfo.display))continue;if(cf!=='all'&&ciInfo.type!==cf)continue;
 const distKey=String(depotColIdx);const dist=st.distances[distKey];if(!dist)continue;
 const ff=depot[FF[bp]];if(ff===null||ff===undefined||!productAvailability[depot.code]?.[bp])continue;const sf=dist>30?.67*dist:29,tt=ff+sf;
-let rank=null;const allEntries=[];for(const[ci2,d2]of Object.entries(colInfo)){if(!productAvailability[d2.code]?.[bp])continue;const ff2=d2[FF[bp]];if(ff2===null||ff2===undefined)continue;const dist2=st.distances[ci2];if(!dist2)continue;const sf2=dist2>30?.67*dist2:29;allEntries.push({code:d2.code,tt:ff2+sf2});}allEntries.sort((a,b)=>a.tt-b.tt);const rankIdx=allEntries.findIndex(e=>e.code===depotCode);rank=rankIdx>=0&&rankIdx<5?rankIdx+1:null;
-rows.push({region:ciInfo.display,name:st.name,type:ciInfo.type,firstFreight:ff,distance:dist,secondFreight:Math.round(sf*1e4)/1e4,total:Math.round(tt*1e4)/1e4,rank,tons:Number((salesData[st.name]||{})[bp]||0),firstTotal:allEntries.length?allEntries[0].tt:null});}
+let rank=null;const allEntries=[];for(const[ci2,d2]of Object.entries(colInfo)){if(!productAvailability[d2.code]?.[bp])continue;const ff2=d2[FF[bp]];if(ff2===null||ff2===undefined)continue;const dist2=st.distances[ci2];if(!dist2)continue;const sf2=dist2>30?.67*dist2:29;allEntries.push({code:d2.code,tt:ff2+sf2,type:d2.type});}allEntries.sort((a,b)=>a.tt-b.tt);const rankIdx=allEntries.findIndex(e=>e.code===depotCode);rank=rankIdx>=0&&rankIdx<5?rankIdx+1:null;
+const own0=allEntries.find(e=>e.type==='自有库');const firstTotal=own0?own0.tt:null;
+const sa=Object.assign({},dailyToSales(st.salesDaily),salesData[st.name]||{});const sv=sa[bp],hasSales=(sv!=null&&sv!==''&&isFinite(Number(sv))),tons=hasSales?Number(sv):0;
+rows.push({region:ciInfo.display,name:st.name,type:ciInfo.type,firstFreight:ff,distance:dist,secondFreight:Math.round(sf*1e4)/1e4,total:Math.round(tt*1e4)/1e4,rank,tons:tons,hasSales:hasSales,firstTotal:firstTotal});}
 gid('depotStats').textContent='找到 '+rows.length+' 个加油站';const c=gid('tableContainer');if(!rows.length){c.innerHTML='<div class="empty">该油库在当前筛选项下无匹配加油站</div>';gid('rowCount').textContent='共 0 行';return;}
 let h='<table><thead><tr><th>序号</th><th>分公司</th><th>站类型</th><th>加油站名称</th><th>该库优先级</th><th>一次运费(元/吨)</th><th>运距(km)</th><th>二次运费(元/吨)</th><th>合计运费(元/吨)</th></tr></thead><tbody>';
 rows.sort((a,b)=>{const o=['own','konggu','cangu'];const ai=o.indexOf(a.type),bi=o.indexOf(b.type);return ai!==bi?ai-bi:a.region.localeCompare(b.region,'zh')||a.name.localeCompare(b.name,'zh');}).forEach((r,i)=>{
 const cb=r.type=='own'?'own':r.type=='konggu'?'konggu':'cangu';const rkCls=r.rank?'rank-'+r.rank:'';
-const dvInc=(r.firstTotal!=null)?(r.total-r.firstTotal)*r.tons:null;const dvIncHtml=dvInc==null?'—':(r.tons>0?(dvInc>0?'<span style="color:#c53030;font-weight:600">+'+dvInc.toFixed(2)+'</span>':(dvInc<0?'<span style="color:#276749">'+dvInc.toFixed(2)+'</span>':'<span style="color:#718096">0.00</span>')):'<span style="color:#718096">—</span>');h+='<tr><td>'+(i+1)+'</td><td>'+r.region+'</td><td><span class="company-badge '+cb+'">'+CC[r.type]+'</span></td><td>'+r.name+'</td><td style="text-align:center;font-weight:600;color:#2d3748">'+(r.tons>0?r.tons:'—')+'</td><td>'+(r.rank?'<span class="rank-badge '+rkCls+'">'+RL[r.rank-1]+'</span>':'<span class="outlet-empty">—</span>')+'</td><td>'+r.firstFreight+'</td><td>'+r.distance+'</td><td>'+r.secondFreight.toFixed(2)+'</td><td><strong>'+r.total.toFixed(2)+'</strong></td><td>'+dvIncHtml+'</td></tr>';});h+='</tbody></table>';c.innerHTML=h;
+let dvHtml;
+if(r.firstTotal==null)dvHtml='<span style="color:#c53030">⚠ 无自有库基准</span>';
+else if(!r.hasSales||r.tons<=0)dvHtml='<span style="color:#c53030">⚠ 无销量，差异不参与计算</span>';
+else{const dv=(r.total-r.firstTotal)*r.tons;dvHtml=dv>0?'<span style="color:#c53030;font-weight:600">+'+dv.toFixed(2)+'</span>':(dv<0?'<span style="color:#276749">'+dv.toFixed(2)+'</span>':'<span style="color:#718096">0.00</span>');}
+h+='<tr><td>'+(i+1)+'</td><td>'+r.region+'</td><td><span class="company-badge '+cb+'">'+CC[r.type]+'</span></td><td>'+r.name+'</td><td style="text-align:center;font-weight:600;color:#2d3748">'+(r.hasSales?r.tons:'⚠ 无销量')+'</td><td>'+(r.rank?'<span class="rank-badge '+rkCls+'">'+RL[r.rank-1]+'</span>':'<span class="outlet-empty">—</span>')+'</td><td>'+r.firstFreight+'</td><td>'+r.distance+'</td><td>'+r.secondFreight.toFixed(2)+'</td><td><strong>'+r.total.toFixed(2)+'</strong></td><td>'+dvHtml+'</td></tr>';});h+='</tbody></table>';c.innerHTML=h;
 gid('rowCount').textContent='共 '+rows.length+' 个加油站';gid('statFiltered').textContent=rows.length;const c1=rows.filter(r=>r.rank===1).length,c2=rows.filter(r=>r.rank===2).length,c3=rows.filter(r=>r.rank===3).length,c4=rows.filter(r=>r.rank===4).length,c5=rows.filter(r=>r.rank===5).length;gid('statFilteredDetail').textContent='第一 '+c1+' / 第二 '+c2+' / 第三 '+c3+' / 第四 '+c4+' / 第五 '+c5+' / 其他 '+(rows.length-c1-c2-c3-c4-c5);gid('statStatus').textContent='油库视角';}catch(e){console.error('[renderDepotView] 异常:',e);gid('tableContainer').innerHTML='<div class="empty">油库视图渲染出错：'+e.message+'</div>';}}
 
 // ===== v3.12 销量 / 编码 / 自有库第一出库点对比 =====
@@ -974,27 +1008,29 @@ function daysInCurrentMonth(){const d=new Date();return new Date(d.getFullYear()
 function monthTag(){const d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');}
 // 构建「出库优先级明细」行数组。factor=1 按日销量；factor=当月天数 按月销量。
 // 对比基准 = 自有库第一出库点（库类型=自有库 且全程运费最低）。
+// 构建「出库优先级明细」行数组。factor=1 按日销量；factor=当月天数 按月销量。
+// v3.13：统一基准 = 自有库第一出库点；无销量/无基准时差异留空并在「数据状态」注明原因。
 function buildStationRows(gs,bp,factor,label){
   const f=factor||1,lb=label||'日销量',rows=[];
   gs.forEach(function(g){
     const sa=g.sa||{};
     const num=function(v){return (v==null||v===''||!isFinite(Number(v)))?'':Number(v);};
     const scale=function(v){const x=num(v);return x===''?'':Number((x*f).toFixed(4));};
-    const dayTons=Number(sa[bp]!=null&&sa[bp]!==''?sa[bp]:0)||0;
-    const tons=dayTons*f;
-    const own=g.ownFirst||null,baseTt=own?own.tt:null;
+    const sv=num(sa[bp]),hasSales=sv!=='';
+    const tons=(hasSales?sv:0)*f;
+    const own=g.ownFirst||null,baseTt=(g.baseTt!=null)?g.baseTt:(own?own.tt:null);
     const row={
       '分组':g.cl,'分公司':g.dn,'站类型':g.cl,'加油站名称':g.st,'加油站编码':g.code||'',
-      ['吨数('+PN[bp]+lb+',吨)']:(sa[bp]!=null&&sa[bp]!=='')?Number(tons.toFixed(4)):'',
+      ['吨数('+PN[bp]+lb+',吨)']:hasSales?Number(tons.toFixed(4)):'',
       ['0#'+lb+'(吨)']:scale(sa['0']),['92#'+lb+'(吨)']:scale(sa['92']),
       ['95#'+lb+'(吨)']:scale(sa['95']),['98#'+lb+'(吨)']:scale(sa['98']),
-      '自有库第一出库点-油库名称':own?own.dn:'',
-      '自有库第一出库点-全程运费合计(元/吨)':own?Number(own.tt.toFixed(2)):''
+      '自有库第一出库点-油库名称':own?own.dn:'⚠ 无可选自有库',
+      '自有库第一出库点-全程运费合计(元/吨)':(baseTt!=null)?Number(baseTt.toFixed(2)):''
     };
     for(let r=0;r<5;r++){
       const o=g.ot[r],sfx=RL[r];
       if(o){
-        const inc=(baseTt==null)?null:(o.tt-baseTt)*tons;
+        const inc=(baseTt==null||!hasSales)?null:(o.tt-baseTt)*tons;
         row[sfx+'-油库名称']=o.dn;row[sfx+'-油库类型']=o.dtc;
         row[sfx+'-一次运费(元/吨)']=o.ff;row[sfx+'-运距(公里)']=o.di;
         row[sfx+'-二次运费(元/吨)']=Number(o.sf.toFixed(2));
@@ -1004,16 +1040,19 @@ function buildStationRows(gs,bp,factor,label){
         ['油库名称','油库类型','一次运费(元/吨)','运距(公里)','二次运费(元/吨)','全程运费合计(元/吨)','增加运费(元)'].forEach(function(k){row[sfx+'-'+k]='';});
       }
     }
+    row['数据状态']=stationDataStatus(g,bp);
     rows.push(row);
   });
   return rows;
 }
+
 // ===== Export =====
 function exportExcel(){
   if(!stationResults.length){alert('没有数据可导出');return;}
   const bp=gid('productSelect').value,days=daysInCurrentMonth();
   const cw=[8,10,10,36,14,16,14,14,14,14,24,22];
   for(let r=0;r<5;r++)cw.push(20,10,14,12,13,15,14);
+  cw.push(52);
   const wb=XLSX.utils.book_new();
   const ws1=XLSX.utils.json_to_sheet(buildStationRows(stationResults,bp,1,'日销量'));
   const ws2=XLSX.utils.json_to_sheet(buildStationRows(stationResults,bp,days,'月销量'));
@@ -1043,16 +1082,129 @@ function downloadSalesTemplate(){
   const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,'日销量模板');
   XLSX.writeFile(wb,'加油站日销量模板_'+new Date().toISOString().slice(0,10)+'.xlsx');
 }
-function uploadSalesData(ev){const f=ev.target.files[0];if(!f)return;const r=new FileReader();r.onload=function(e){try{const wb=XLSX.read(new Uint8Array(e.target.result),{type:'array'});const rows=XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]]);const ns={};let ok=0,fl=0;for(const row of rows){const nk=Object.keys(row).find(k=>/名称|站名/.test(k));if(!nk)continue;const sn=String(row[nk]).trim();if(!sn)continue;const s={};for(const pk of PK){const k=Object.keys(row).find(k=>k.includes(pk)&&/销量/.test(k));if(k&&row[k]!=null&&row[k]!=='')s[pk]=parseFloat(row[k])||0;}const nm=sn.replace(/\s+/g,'');let target=null;
-const exact=appData.stations.find(s=>s.name===sn||s.name.replace(/\s+/g,'')===nm);if(exact)target=exact.name;
-else{
-  const ck=Object.keys(row).find(k=>/编码/.test(k));const cv=ck?String(row[ck]==null?'':row[ck]).trim():'';
-  const byCode=cv?appData.stations.find(s=>String(s.code||'')===cv||String(s.refCode||'')===cv):null;
-  if(byCode)target=byCode.name;
-  else{const fd=appData.stations.find(s=>s.name.includes(sn)||sn.includes(s.name.replace(/中国石油/g,'').trim()));if(fd)target=fd.name;}
+// ===== v3.13 销量上传：兼容「销量模板 / 原始运距表 / 两行表头」，持久化 + 异常提示 =====
+const SALES_KEY='sort_sales_v1';
+let salesMeta=null,salesStats=null;
+function salesNum(v){if(v==null||v==='')return '';const n=Number(String(v).replace(/,/g,'').trim());return isFinite(n)&&n>=0?n:'';}
+function saveSalesLocal(){try{localStorage.setItem(SALES_KEY,JSON.stringify({meta:salesMeta,stats:salesStats,data:salesData}));}catch(e){}}
+function loadSalesLocal(){try{const raw=localStorage.getItem(SALES_KEY);if(!raw)return false;const o=JSON.parse(raw);if(!o||!o.data||!Object.keys(o.data).length)return false;salesData=o.data;salesMeta=o.meta||null;salesStats=o.stats||null;return true;}catch(e){return false;}}
+// 页面与导出共用的缺失/异常说明
+function stationDataStatus(g,bp){
+  const v=(g.sa||{})[bp],hasSales=(v!=null&&v!==''&&isFinite(Number(v)));
+  const base=(g.baseTt!=null)?g.baseTt:(g.ownFirst?g.ownFirst.tt:null);
+  const notes=[];
+  if(!hasSales)notes.push('⚠ 无'+(PN[bp]||bp)+'日销量：差异不参与计算');
+  else if(Number(v)===0)notes.push('销量为0：差异按0计');
+  if(base==null)notes.push('⚠ 无可选自有库：差异不可用');
+  const f0=g.ot&&g.ot[0];
+  if(f0&&f0.dt!=='ziyou')notes.push('⚠ 第一出库点为'+f0.dtc+'（非基准，仍按统一口径对比）');
+  if(!notes.length)notes.push('正常｜基准：'+(g.ownFirst?g.ownFirst.dn:'—'));
+  return notes.join('；');
 }
-if(target){ns[target]=s;ok++;}else fl++;}
-salesData=ns;const st=gid('salesStatus');st.className='sales-status '+(ok?'loaded':'empty');st.textContent=ok?'✅ 已匹配 '+ok+' 个加油站'+(fl?'，'+fl+' 个未匹配':''):'⏳ 未匹配到加油站';gid('salesSummary').textContent=ok?'（自有 '+Object.keys(ns).filter(k=>gi(k,'').type==='own').length+' / 控股 '+Object.keys(ns).filter(k=>gi(k,'').type==='konggu').length+' / 参股 '+Object.keys(ns).filter(k=>gi(k,'').type==='cangu').length+'）':'';updateView();}catch(err){gid('salesStatus').className='sales-status empty';gid('salesStatus').textContent='❌ 解析失败：'+err.message;}};r.readAsArrayBuffer(f);ev.target.value='';}
+function renderSalesStatus(){
+  const st=gid('salesStatus'),sum=gid('salesSummary'),diag=gid('salesDiag');
+  if(!st)return;
+  const n=Object.keys(salesData||{}).length;
+  const fromMaster=(appData&&appData.stations)?appData.stations.filter(s=>s.salesDaily&&Object.values(s.salesDaily).some(v=>v!==''&&v!=null)).length:0;
+  const m=salesMeta||{};
+  if(n){
+    st.className='sales-status loaded';
+    st.textContent='✅ 已加载 '+n+' 站销量 · '+(m.mode||'上传文件')+' · '+(m.values||0)+' 个数值'+(m.file?' · '+m.file:'')+(m.time?' · '+m.time:'');
+  }else if(fromMaster){
+    st.className='sales-status loaded';
+    st.textContent='✅ 销量来自主数据运距表（'+fromMaster+' 站有日销量）';
+  }else{
+    st.className='sales-status empty';
+    st.textContent='⏳ 未上传销量数据，且主数据不含日销量列 —— 请上传销量模板，或重新上传《加油站运距_补充修正部分.xlsx》';
+  }
+  if(sum)sum.textContent=n?'（已匹配 '+(salesStats?salesStats.matched:n)+' 站）':'';
+  if(!diag)return;
+  const bits=[];
+  if(salesStats){
+    if(salesStats.unmatched)bits.push('⚠ '+salesStats.unmatched+' 行站名/编码未匹配');
+    if(salesStats.bad)bits.push('⚠ '+salesStats.bad+' 个非数值或负值已跳过');
+    if(salesStats.warn)bits.push('⚠ '+salesStats.warn);
+  }
+  if(stationResults&&stationResults.length){
+    const bp=gid('productSelect').value,noS=stationResults.filter(g=>!g.hasSales).length,noB=stationResults.filter(g=>g.baseTt==null).length,hg=stationResults.filter(g=>g.ot&&g.ot[0]&&g.ot[0].dt!=='ziyou').length;
+    if(noS)bits.push('⚠ '+noS+' 站无'+(PN[bp]||bp)+'日销量，差异不参与计算');
+    if(noB)bits.push('⚠ '+noB+' 站无可选自有库，差异不可用');
+    if(hg)bits.push('ℹ '+hg+' 站第一出库点为非自有库，已标识并仍按统一基准对比');
+  }
+  diag.innerHTML=bits.length?bits.map(t=>'<span style="display:inline-block;margin-right:16px;color:'+(t.indexOf('⚠')>=0?'#c53030':'#2b6cb0')+'">'+t+'</span>').join(''):'<span style="color:#276749">✅ 销量与对比基准均完整</span>';
+}
+// 用 header:1 读取，自行定位列，避免同名列（年度组/日度组）被覆盖
+function parseSalesWorkbook(wb){
+  const ws=wb.Sheets[wb.SheetNames[0]],aoa=XLSX.utils.sheet_to_json(ws,{header:1,defval:''});
+  if(!aoa||aoa.length<2)return{rows:[],mode:'',cols:{},warn:'空表'};
+  let hRow=0,best=-1;
+  for(let i=0;i<Math.min(3,aoa.length);i++){
+    const a=(aoa[i]||[]).map(v=>String(v==null?'':v).trim());
+    const score=(a.some(v=>/站名|加油站名称/.test(v))?20:0)+a.filter(v=>/销量|汽油|柴油|小计|合计|编码/.test(v)).length;
+    if(score>best){best=score;hRow=i;}
+  }
+  const hdr=(aoa[hRow]||[]).map(v=>String(v==null?'':v).trim());
+  let nIdx=-1,cIdx=-1;
+  hdr.forEach((v,j)=>{if(nIdx<0&&/站名|加油站名称/.test(v)&&!/编码/.test(v))nIdx=j;if(cIdx<0&&/编码/.test(v))cIdx=j;});
+  const cols={},pat={'0':/^0#.*销量/,'92':/^92#.*销量/,'E92':/^E92#.*销量/,'95':/^95#.*销量/,'98':/^98#.*销量/};
+  for(const pk of PK){const j=hdr.findIndex(v=>pat[pk].test(v));if(j>=0)cols[pk]=j;}
+  let mode='',warn='';
+  if(Object.keys(cols).length)mode='销量模板';
+  else{
+    const starts=[],diesels=[];
+    hdr.forEach((v,j)=>{if(/^E92#汽油/.test(v))starts.push(j);if(/^柴油小计/.test(v))diesels.push(j);});
+    if(!starts.length)return{rows:[],mode:'',cols:{},warn:'未找到销量列（既无「0#日销量」等模板列，也无「E92#汽油」销量组）'};
+    const g0=starts[starts.length-1];
+    cols['E92']=g0;cols['92']=g0+1;cols['95']=g0+2;cols['98']=g0+3;
+    cols['0']=diesels.length?diesels[diesels.length-1]:g0+5;
+    mode=starts.length>1?'原始运距表·日度销量组':'运距表·唯一销量组';
+    if(starts.length<2)warn='只识别到一组销量列，已按日销量读取，请确认是否为日度口径';
+  }
+  const rows=[];
+  for(let i=hRow+1;i<aoa.length;i++){
+    const r=aoa[i]||[],o={_name:nIdx>=0?String(r[nIdx]==null?'':r[nIdx]).trim():'',_code:cIdx>=0?String(r[cIdx]==null?'':r[cIdx]).trim():'',_v:{}};
+    for(const pk of PK)if(cols[pk]!=null)o._v[pk]=r[cols[pk]];
+    if(o._name)rows.push(o);
+  }
+  return{rows:rows,mode:mode,cols:cols,warn:warn,hdrRow:hRow};
+}
+function uploadSalesData(ev){
+  const f=ev.target.files[0];if(!f)return;
+  gid('salesStatus').className='sales-status empty';gid('salesStatus').textContent='解析中：'+f.name+' ...';
+  const rd=new FileReader();
+  rd.onload=function(e){
+    try{
+      if(!appData)throw new Error('主数据尚未加载完成，请稍后重试');
+      const wb=XLSX.read(new Uint8Array(e.target.result),{type:'array'});
+      const p=parseSalesWorkbook(wb);
+      if(!p.rows.length||!Object.keys(p.cols||{}).length)throw new Error(p.warn||'未识别到站名列或销量列；请用「下载销量模板」生成模板，或上传《加油站运距_补充修正部分.xlsx》');
+      const ns={};let ok=0,fl=0,vals=0,bad=0;
+      for(const row of p.rows){
+        const sn=row._name,nm=sn.replace(/\s+/g,'');let target=null;
+        const exact=appData.stations.find(s=>s.name===sn||String(s.name).replace(/\s+/g,'')===nm);if(exact)target=exact.name;
+        else{
+          const cv=row._code,byCode=cv?appData.stations.find(s=>String(s.code||'')===cv||String(s.refCode||'')===cv):null;
+          if(byCode)target=byCode.name;
+          else{const fd=appData.stations.find(s=>String(s.name).includes(sn)||sn.includes(String(s.name).replace(/中国石油/g,'').trim()));if(fd)target=fd.name;}
+        }
+        if(!target){fl++;continue;}
+        const one={};for(const pk of PK){const v=salesNum(row._v[pk]);if(v===''){if(row._v[pk]!=null&&row._v[pk]!=='')bad++;continue;}one[pk]=v;vals++;}
+        if(Object.keys(one).length){ns[target]=one;ok++;}else fl++;
+      }
+      if(!vals)throw new Error('匹配到 '+ok+' 个加油站，但读到 0 个销量数值（列名不匹配）。请用「下载销量模板」生成模板，或直接上传《加油站运距_补充修正部分.xlsx》');
+      salesData=ns;
+      salesMeta={file:f.name,mode:p.mode,values:vals,time:new Date().toLocaleString('zh-CN',{month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'})};
+      salesStats={matched:ok,unmatched:fl,bad:bad,warn:p.warn||''};
+      saveSalesLocal();updateView();
+    }catch(err){
+      gid('salesStatus').className='sales-status empty';
+      gid('salesStatus').textContent='❌ 销量未加载：'+err.message;
+      const d=gid('salesDiag');if(d)d.innerHTML='<span style="color:#c53030">原有销量数据保持不变；请修正文件后重新上传。</span>';
+    }
+  };
+  rd.readAsArrayBuffer(f);ev.target.value='';
+}
+
 // ===== 配送计划核对 =====
 let planResults=[],planFileName='',lastPlanData=[];
 const RL5=['第一出库点','第二出库点','第三出库点','第四出库点','第五出库点'];
