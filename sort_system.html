@@ -888,7 +888,10 @@ const bp=gid('productSelect').value,rf=getMSVals('msRegion'),tf=gid('typeFilter'
 console.log('[runStationView] 触发筛选:',JSON.stringify({bp:bp,rf:rf,tf:tf,cf:cf,ss:ss,currentView:currentView}));
 const t2k={'自有库':'ziyou','互供库':'hugong','外采库':'waicai','以站代库':'yizhan'};const db=Object.fromEntries(appData.depots.map(d=>[d.code,d]));const ci={};Object.entries(appData.colToDepot||{}).forEach(([c,dc]) => {if(dc==='_none_')return;const d=db[dc];if(!d||d.type==='以站代库')return;ci[c]=d;});
 const gs=[];for(const st of appData.stations){const ciInfo=gi(st.name,st.region);if(rf.length>0&&!rf.includes(ciInfo.display))continue;if(cf!=='all'&&ciInfo.type!==cf)continue;if(ss&&!st.name.toLowerCase().includes(ss))continue;const es=[];for(const[ci2,dist]of Object.entries(st.distances)){const d=ci[ci2];if(!d)continue;const tm={'ziyou':'自有库','hugong':'互供库','waicai':'外采库'};if(tf!=='all'&&d.type!==tm[tf])continue;if(!productAvailability[d.code]?.[bp]||!hasDepotProduct(d,bp))continue;const ff=d[FF[bp]];const sf=dist>30?.67*dist:29,tt=ff+sf,dk=t2k[d.type]||'unknown';es.push({dn:d.name,dt:dk,dtc:TC[dk]||d.type,ff:ff,di:dist,sf:Math.round(sf*1e4)/1e4,tt:Math.round(tt*1e4)/1e4});}
-if(!es.length)continue;es.sort((a,b)=>a.tt-b.tt);const sa=salesData[st.name]||{};gs.push({st:st.name,rg:st.region,dn:ciInfo.display,ct:ciInfo.type,cl:CC[ciInfo.type]||'自有站',sa,ot:es.slice(0,5).map((e,i)=>({rk:i+1,...e}))});}
+if(!es.length)continue;es.sort((a,b)=>a.tt-b.tt);
+const sa=Object.assign({},dailyToSales(st.salesDaily),salesData[st.name]||{});
+const ownFirst=es.find(e=>e.dt==='ziyou')||null;
+gs.push({st:st.name,rg:st.region,code:st.code||st.refCode||'',dn:ciInfo.display,ct:ciInfo.type,cl:CC[ciInfo.type]||'自有站',sa,ownFirst,ot:es.slice(0,5).map((e,i)=>({rk:i+1,...e}))});}
 stationResults=gs;renderStationTable(gs);gid('statStatus').textContent='已完成';gid('statFiltered').textContent=gs.length;const own=gs.filter(g=>g.ct==='own').length,kg=gs.filter(g=>g.ct==='konggu').length,cg=gs.filter(g=>g.ct==='cangu').length;gid('statFilteredDetail').textContent='自有 '+own+' / 控股 '+kg+' / 参股 '+cg;}
 
 // 分页状态
@@ -960,9 +963,66 @@ const cb=r.type=='own'?'own':r.type=='konggu'?'konggu':'cangu';const rkCls=r.ran
 const dvInc=(r.firstTotal!=null)?(r.total-r.firstTotal)*r.tons:null;const dvIncHtml=dvInc==null?'—':(r.tons>0?(dvInc>0?'<span style="color:#c53030;font-weight:600">+'+dvInc.toFixed(2)+'</span>':(dvInc<0?'<span style="color:#276749">'+dvInc.toFixed(2)+'</span>':'<span style="color:#718096">0.00</span>')):'<span style="color:#718096">—</span>');h+='<tr><td>'+(i+1)+'</td><td>'+r.region+'</td><td><span class="company-badge '+cb+'">'+CC[r.type]+'</span></td><td>'+r.name+'</td><td style="text-align:center;font-weight:600;color:#2d3748">'+(r.tons>0?r.tons:'—')+'</td><td>'+(r.rank?'<span class="rank-badge '+rkCls+'">'+RL[r.rank-1]+'</span>':'<span class="outlet-empty">—</span>')+'</td><td>'+r.firstFreight+'</td><td>'+r.distance+'</td><td>'+r.secondFreight.toFixed(2)+'</td><td><strong>'+r.total.toFixed(2)+'</strong></td><td>'+dvIncHtml+'</td></tr>';});h+='</tbody></table>';c.innerHTML=h;
 gid('rowCount').textContent='共 '+rows.length+' 个加油站';gid('statFiltered').textContent=rows.length;const c1=rows.filter(r=>r.rank===1).length,c2=rows.filter(r=>r.rank===2).length,c3=rows.filter(r=>r.rank===3).length,c4=rows.filter(r=>r.rank===4).length,c5=rows.filter(r=>r.rank===5).length;gid('statFilteredDetail').textContent='第一 '+c1+' / 第二 '+c2+' / 第三 '+c3+' / 第四 '+c4+' / 第五 '+c5+' / 其他 '+(rows.length-c1-c2-c3-c4-c5);gid('statStatus').textContent='油库视角';}catch(e){console.error('[renderDepotView] 异常:',e);gid('tableContainer').innerHTML='<div class="empty">油库视图渲染出错：'+e.message+'</div>';}}
 
+// ===== v3.12 销量 / 编码 / 自有库第一出库点对比 =====
+// 运距表「日度销量」→ 页面与导出使用的 PK 口径（0# 取柴油小计）
+function dailyToSales(sd){
+  if(!sd)return {};
+  const n=function(v){if(v===''||v==null)return '';const x=Number(v);return isFinite(x)?x:'';};
+  return {'0':n(sd.dieselSum),'92':n(sd.g92),'E92':n(sd.e92),'95':n(sd.g95),'98':n(sd.g98)};
+}
+function daysInCurrentMonth(){const d=new Date();return new Date(d.getFullYear(),d.getMonth()+1,0).getDate();}
+function monthTag(){const d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');}
+// 构建「出库优先级明细」行数组。factor=1 按日销量；factor=当月天数 按月销量。
+// 对比基准 = 自有库第一出库点（库类型=自有库 且全程运费最低）。
+function buildStationRows(gs,bp,factor,label){
+  const f=factor||1,lb=label||'日销量',rows=[];
+  gs.forEach(function(g){
+    const sa=g.sa||{};
+    const num=function(v){return (v==null||v===''||!isFinite(Number(v)))?'':Number(v);};
+    const scale=function(v){const x=num(v);return x===''?'':Number((x*f).toFixed(4));};
+    const dayTons=Number(sa[bp]!=null&&sa[bp]!==''?sa[bp]:0)||0;
+    const tons=dayTons*f;
+    const own=g.ownFirst||null,baseTt=own?own.tt:null;
+    const row={
+      '分组':g.cl,'分公司':g.dn,'站类型':g.cl,'加油站名称':g.st,'加油站编码':g.code||'',
+      ['吨数('+PN[bp]+lb+',吨)']:(sa[bp]!=null&&sa[bp]!=='')?Number(tons.toFixed(4)):'',
+      ['0#'+lb+'(吨)']:scale(sa['0']),['92#'+lb+'(吨)']:scale(sa['92']),
+      ['95#'+lb+'(吨)']:scale(sa['95']),['98#'+lb+'(吨)']:scale(sa['98']),
+      '自有库第一出库点-油库名称':own?own.dn:'',
+      '自有库第一出库点-全程运费合计(元/吨)':own?Number(own.tt.toFixed(2)):''
+    };
+    for(let r=0;r<5;r++){
+      const o=g.ot[r],sfx=RL[r];
+      if(o){
+        const inc=(baseTt==null)?null:(o.tt-baseTt)*tons;
+        row[sfx+'-油库名称']=o.dn;row[sfx+'-油库类型']=o.dtc;
+        row[sfx+'-一次运费(元/吨)']=o.ff;row[sfx+'-运距(公里)']=o.di;
+        row[sfx+'-二次运费(元/吨)']=Number(o.sf.toFixed(2));
+        row[sfx+'-全程运费合计(元/吨)']=Number(o.tt.toFixed(2));
+        row[sfx+'-增加运费(元)']=inc==null?'':Number(inc.toFixed(2));
+      }else{
+        ['油库名称','油库类型','一次运费(元/吨)','运距(公里)','二次运费(元/吨)','全程运费合计(元/吨)','增加运费(元)'].forEach(function(k){row[sfx+'-'+k]='';});
+      }
+    }
+    rows.push(row);
+  });
+  return rows;
+}
 // ===== Export =====
-function exportExcel(){if(!stationResults.length){alert('没有数据可导出');return;}const bp=gid('productSelect').value;const rows=[];stationResults.forEach(g=>{const tons=Number(g.sa&&g.sa[bp]!=null&&g.sa[bp]!==''?g.sa[bp]:0)||0;const firstTt=g.ot[0]?g.ot[0].tt:null;const row={'分组':g.cl,'分公司':g.dn,'站类型':g.cl,'加油站名称':g.st,['吨数('+PN[bp]+'日销量,吨)']:(g.sa&&g.sa[bp]!=null&&g.sa[bp]!==''?g.sa[bp]:''),'0#日销量(吨)':g.sa['0']??'','92#日销量(吨)':g.sa['92']??'','95#日销量(吨)':g.sa['95']??'','98#日销量(吨)':g.sa['98']??''};for(let r=0;r<5;r++){const o=g.ot[r],sfx=RL[r];if(o){const inc=(r===0||firstTt==null)?0:(o.tt-firstTt)*tons;row[sfx+'-油库名称']=o.dn;row[sfx+'-油库类型']=o.dtc;row[sfx+'-一次运费(元/吨)']=o.ff;row[sfx+'-运距(公里)']=o.di;row[sfx+'-二次运费(元/吨)']=Number(o.sf.toFixed(2));row[sfx+'-全程运费合计(元/吨)']=Number(o.tt.toFixed(2));row[sfx+'-增加运费(元)']=(r===0||firstTt==null)?0:Number(inc.toFixed(2));}else{['油库名称','油库类型','一次运费(元/吨)','运距(公里)','二次运费(元/吨)','全程运费合计(元/吨)','增加运费(元)'].forEach(k=>row[sfx+'-'+k]='');}}rows.push(row);});
-const ws=XLSX.utils.json_to_sheet(rows);const cw=[8,8,10,36,10,11,11,11,11];for(let r=0;r<5;r++)cw.push(20,8,13,11,12,14,12);ws['!cols']=cw.map(w=>({wch:w}));const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,'出库优先级明细');XLSX.writeFile(wb,'油品出库优先级明细_'+PN[bp]+'_'+new Date().toISOString().slice(0,10)+'.xlsx');}
+function exportExcel(){
+  if(!stationResults.length){alert('没有数据可导出');return;}
+  const bp=gid('productSelect').value,days=daysInCurrentMonth();
+  const cw=[8,10,10,36,14,16,14,14,14,14,24,22];
+  for(let r=0;r<5;r++)cw.push(20,10,14,12,13,15,14);
+  const wb=XLSX.utils.book_new();
+  const ws1=XLSX.utils.json_to_sheet(buildStationRows(stationResults,bp,1,'日销量'));
+  const ws2=XLSX.utils.json_to_sheet(buildStationRows(stationResults,bp,days,'月销量'));
+  ws1['!cols']=cw.map(function(w){return {wch:w};});
+  ws2['!cols']=cw.map(function(w){return {wch:w};});
+  XLSX.utils.book_append_sheet(wb,ws1,'出库优先级明细');
+  XLSX.utils.book_append_sheet(wb,ws2,'按月销量_'+monthTag()+'_'+days+'天');
+  XLSX.writeFile(wb,'油品出库优先级明细_'+PN[bp]+'_'+new Date().toISOString().slice(0,10)+'.xlsx');
+}
 function exportDepotSummary(){if(!stationResults.length){alert('没有数据');return;}const stats={};stationResults.forEach(g=>g.ot.forEach(o=>{const k=o.dn;if(!stats[k])stats[k]={name:k,type:o.dtc,c1:0,c2:0,c3:0,c4:0,c5:0,total:0};stats[k].total++;if(o.rk===1)stats[k].c1++;else if(o.rk===2)stats[k].c2++;else if(o.rk===3)stats[k].c3++;else if(o.rk===4)stats[k].c4++;else if(o.rk===5)stats[k].c5++;}));const data=Object.values(stats).sort((a,b)=>b.total-a.total).map((d,i)=>({'序号':i+1,'油库名称':d.name,'油库类型':d.type,'第一出库点':d.c1,'第二出库点':d.c2,'第三出库点':d.c3,'第四出库点':d.c4,'第五出库点':d.c5,'合计出现':d.total}));const ws=XLSX.utils.json_to_sheet(data);ws['!cols']=[{wch:6},{wch:20},{wch:10},{wch:12},{wch:12},{wch:12},{wch:12},{wch:12},{wch:12}];const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,'油库汇总');XLSX.writeFile(wb,'油库出库汇总_'+new Date().toISOString().slice(0,10)+'.xlsx');}
 // v3.10 销量模板：按《加油站运距_补充修正部分》样式，含真实销量数据、加油站编码、小计/合计、片区负责人，可直接回传
 function downloadSalesTemplate(){
