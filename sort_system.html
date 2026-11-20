@@ -608,7 +608,30 @@ gid('statStations').textContent=nd.stations.length;gid('statRegions').textConten
 // 片区定义：A=桂东桂北、B=桂中桂西、C=沿海
 var REGION_GROUPS={A:{label:'A片区（桂东桂北）',members:['玉林','贵港','桂林','贺州','梧州']},B:{label:'B片区（桂中桂西）',members:['南宁','崇左','柳州','来宾','河池','百色']},C:{label:'C片区（沿海）',members:['钦州','北海','防城港']}};
 function getRegionGroup(name){for(const[g,grp]of Object.entries(REGION_GROUPS)){for(const m of grp.members){if(name.includes(m)||m.includes(name.replace(/分公司$/,'')))return g;}}return '';}
-// ===== v3.10 固定约束①：片区负责人按片区/地区映射，任何导出均不得留空 =====
+// ===== v3.14 固定约束①：片区负责人以「分公司」精确对照表为主依据（2026-11-20 用户提供 14 行明细）=====
+// 输出姓名沿用工作站统一写法：佘思成 / 尤晓光 / 刘芸翔
+var OWNER_BY_COMPANY={
+  '广西销售百色分公司':'尤晓光','广西销售北海分公司':'刘芸翔','广西销售崇左分公司':'尤晓光',
+  '广西销售防城港分公司':'刘芸翔','广西销售贵港分公司':'佘思成','广西销售桂林分公司':'佘思成',
+  '广西销售河池分公司':'尤晓光','广西销售贺州分公司':'佘思成','广西销售来宾分公司':'尤晓光',
+  '广西销售柳州分公司':'尤晓光','广西销售南宁分公司':'尤晓光','广西销售钦州分公司':'刘芸翔',
+  '广西销售梧州分公司':'佘思成','广西销售玉林分公司':'佘思成'
+};
+// 仅接受「分公司」类字段：站名（含"加油站"/以"站"结尾）一律不参与，避免站名里的异地地名抢先命中
+function ownerByCompany(v){
+  var s=String(v===null||v===undefined?'':v).replace(/\s/g,'');
+  if(!s||s.length>24||s.indexOf('加油站')>=0||/站$/.test(s))return null;
+  if(s==='余思成')return '佘思成';if(s==='刘雲翔')return '刘芸翔';
+  if(s==='佘思成'||s==='尤晓光'||s==='刘芸翔')return s;
+  if(OWNER_BY_COMPANY[s])return OWNER_BY_COMPANY[s];
+  for(var k in OWNER_BY_COMPANY){
+    var city=k.replace(/^广西销售/,'').replace(/分公司$/,'');
+    if(s===city)return OWNER_BY_COMPANY[k];
+    if((s.indexOf('分公司')>=0||s.indexOf('销售')>=0)&&s.indexOf(city)>=0)return OWNER_BY_COMPANY[k];
+  }
+  return null;
+}
+// 回退表：控股/参股公司等未列入 14 行对照表时，仍按片区/地区映射，保证任何导出不留空
 var OWNER_BY_REGION=[
   {owner:'佘思成',members:['玉林','贵港','桂林','贺州','梧州']},
   {owner:'尤晓光',members:['南宁','崇左','柳州','来宾','河池','百色']},
@@ -617,9 +640,13 @@ var OWNER_BY_REGION=[
 var OWNER_ALIAS={'灵山':'钦州','浦北':'钦州','钦南':'钦州','钦北':'钦州','合浦':'北海','海城':'北海','银海':'北海','铁山港':'北海','东兴':'防城港','上思':'防城港','防城':'防城港','武鸣':'南宁','横州':'南宁','宾阳':'南宁','良圻':'南宁','隆安':'南宁','马山':'南宁','上林':'南宁','全州':'桂林','兴安':'桂林','桂平':'贵港','平南':'贵港','岑溪':'梧州','藤县':'梧州','柳江':'柳州','鹿寨':'柳州','田阳':'百色','靖西':'百色','宜州':'河池','凭祥':'崇左','扶绥':'崇左','来宾':'来宾'};
 var OWNER_FALLBACK='尤晓光';
 function ownerOf(){
-  var t='';for(var i=0;i<arguments.length;i++){var v=arguments[i];if(v!==null&&v!==undefined&&v!=='')t+='|'+String(v);}
-  for(var i=0;i<OWNER_BY_REGION.length;i++){var o=OWNER_BY_REGION[i];for(var k=0;k<o.members.length;k++){if(t.indexOf(o.members[k])>=0)return o.owner;}}
-  for(var a in OWNER_ALIAS){if(t.indexOf(a)>=0){var city=OWNER_ALIAS[a];for(var j=0;j<OWNER_BY_REGION.length;j++){if(OWNER_BY_REGION[j].members.indexOf(city)>=0)return OWNER_BY_REGION[j].owner;}}}
+  var args=[];for(var i=0;i<arguments.length;i++){var v=arguments[i];if(v!==null&&v!==undefined&&v!=='')args.push(String(v));}
+  // ① 主依据：按「分公司」精确查表（不再靠地区/站名里的地名字眼猜测）
+  for(var q=0;q<args.length;q++){var hit=ownerByCompany(args[q]);if(hit)return hit;}
+  // ② 回退：控股/参股公司等未列入对照表时，按地区/别名匹配
+  var t='|'+args.join('|');
+  for(var j=0;j<OWNER_BY_REGION.length;j++){var o=OWNER_BY_REGION[j];for(var k=0;k<o.members.length;k++){if(t.indexOf(o.members[k])>=0)return o.owner;}}
+  for(var a in OWNER_ALIAS){if(t.indexOf(a)>=0){var city=OWNER_ALIAS[a];for(var m=0;m<OWNER_BY_REGION.length;m++){if(OWNER_BY_REGION[m].members.indexOf(city)>=0)return OWNER_BY_REGION[m].owner;}}}
   return OWNER_FALLBACK;
 }
 // ===== v3.10 固定约束②：一次运费仅对该油库实际存在的油品计算 =====
@@ -1354,7 +1381,7 @@ async function analyzePlans(plans){
       const station=fuzzyMatchStation(p.stationName,p.region);
       if(!station){planResults.push({...p,productKey:pk,matched:false,error:'未匹配到加油站',rank:null,actualDepotName:'',actualDepotType:'',optimalRanking:[],owner:ownerOf(p.region,p.stationName),ownBest:null});continue;}
       const actualDepot=fuzzyMatchDepot(p.liftOrg);
-      if(!actualDepot){planResults.push({...p,productKey:pk,matched:true,error:'未匹配到出库点',rank:null,actualDepotName:p.liftOrg,actualDepotType:'',optimalRanking:[],owner:ownerOf(station.region,station.name,station.owner),ownBest:null});continue;}
+      if(!actualDepot){planResults.push({...p,productKey:pk,matched:true,error:'未匹配到出库点',rank:null,actualDepotName:p.liftOrg,actualDepotType:'',optimalRanking:[],owner:ownerOf(p.region,station.region,station.name,station.owner),ownBest:null});continue;}
       const es=[];
       for(const[ci2,d]of Object.entries(ci)){
         const ff=d[FF[pk]];if(!hasDepotProduct(d,pk)||!productAvailability[d.code]?.[pk])continue;
@@ -1379,7 +1406,7 @@ async function analyzePlans(plans){
         let ownRank=null;
         if(actualDepot.type==='自有库'){const ownEntries=top5.filter(e=>e.dt==='自有库');const ownIdx=ownEntries.findIndex(e=>e.dn===actualDepot.name);if(ownIdx>=0)ownRank=ownIdx+1;}
         return {...p,stationName:p.stationName,productName:p.productName,date:p.date,orderNo:p.orderNo,region:p.region,
-          matched:true,productKey:pk,owner:ownerOf(station.region,station.name,station.owner),ownBest:ownBest,
+          matched:true,productKey:pk,owner:ownerOf(p.region,station.region,station.name,station.owner),ownBest:ownBest,
           actualDepotName:actualDepot.name,actualDepotType:actualDepot.type||'',actualDist:aE?aE.dist:null,
           rank:rkIdx>=0?rkIdx+1:null,ownRank:ownRank,totalCost:rkIdx>=0?ex[rkIdx].tt:null,
           optimalRanking:top5,error:'',firstDist:fE?fE.dist:null,firstFf:fE?fE.ff:null,firstSf:fE?fE.sf:null,firstTt:fE?fE.tt:null,
