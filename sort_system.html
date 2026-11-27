@@ -266,6 +266,14 @@ tr:hover td{background:#f7fafc}
     <div class="ms-wrap" id="msPlanRegion"></div>
     <label>油品：</label>
       <div class="ms-wrap" id="msProduct"></div>
+      <label>实际出库点：</label>
+      <div class="ms-wrap" id="msPlanDepot"></div>
+      <label>片区负责人：</label>
+      <div class="ms-wrap" id="msPlanOwner"></div>
+      <label>配送日期：</label>
+      <input type="date" id="planDateFrom" onchange="renderPlanResults()" style="width:130px" title="起始日期">
+      <span style="color:#a0aec0;font-size:12px">至</span>
+      <input type="date" id="planDateTo" onchange="renderPlanResults()" style="width:130px" title="截止日期">
       <label>油库类型：</label>
       <select id="planTypeFilter" onchange="renderPlanResults()">
         <option value="all">全部</option><option value="自有库">自有库</option><option value="互供库">互供库</option><option value="外采库">外采库</option>
@@ -639,9 +647,22 @@ var OWNER_BY_REGION=[
 ];
 var OWNER_ALIAS={'灵山':'钦州','浦北':'钦州','钦南':'钦州','钦北':'钦州','合浦':'北海','海城':'北海','银海':'北海','铁山港':'北海','东兴':'防城港','上思':'防城港','防城':'防城港','武鸣':'南宁','横州':'南宁','宾阳':'南宁','良圻':'南宁','隆安':'南宁','马山':'南宁','上林':'南宁','全州':'桂林','兴安':'桂林','桂平':'贵港','平南':'贵港','岑溪':'梧州','藤县':'梧州','柳江':'柳州','鹿寨':'柳州','田阳':'百色','靖西':'百色','宜州':'河池','凭祥':'崇左','扶绥':'崇左','来宾':'来宾'};
 var OWNER_FALLBACK='尤晓光';
+// v3.16：参控股公司（非「广西销售…分公司」体系的有限公司/股份公司）统一标注，不再并入三位片区负责人
+var OWNER_HOLDING='参控股公司';
+function isHoldingCompany(v){
+  var s=String(v===null||v===undefined?'':v).replace(/\s/g,'');
+  if(!s)return false;
+  if(s.indexOf('广西销售')===0)return false;
+  if(s.indexOf('加油站')>=0||/站$/.test(s))return false;
+  if(s==='佘思成'||s==='尤晓光'||s==='刘芸翔')return false;
+  return /有限公司|有限责任公司|股份公司/.test(s);
+}
 function ownerOf(){
   var args=[];for(var i=0;i<arguments.length;i++){var v=arguments[i];if(v!==null&&v!==undefined&&v!=='')args.push(String(v));}
-  // ① 主依据：按「分公司」精确查表（不再靠地区/站名里的地名字眼猜测）
+  // ① 参控股公司优先：分公司字段本身即「…有限公司/股份公司」时直接认定，
+  //    否则会被后续参数（如集团分公司）用 14 行表抢先命中，导致参控股行显示成片区负责人
+  if(args.length&&isHoldingCompany(args[0]))return OWNER_HOLDING;
+  // ② 主依据：按「分公司」精确查表（不再靠地区/站名里的地名字眼猜测）
   for(var q=0;q<args.length;q++){var hit=ownerByCompany(args[q]);if(hit)return hit;}
   // ② 回退：控股/参股公司等未列入对照表时，按地区/别名匹配
   var t='|'+args.join('|');
@@ -805,6 +826,8 @@ function initMsFilters(){
   initMultiSelect('msCheck',[{value:'ok',label:'符合最优'},{value:'fail',label:'不符合'},{value:'unmatched',label:'未匹配'}], renderPlanResults);
   initMultiSelect('msProduct',[{value:'0',label:'0#'},{value:'92',label:'92#'},{value:'95',label:'95#'},{value:'98',label:'98#'}], renderPlanResults);
   initMultiSelect('msPlanRegion',[], function(vals){renderPlanResults();});
+  initMultiSelect('msPlanDepot',[], function(vals){renderPlanResults();});
+  initMultiSelect('msPlanOwner',[], function(vals){renderPlanResults();});
 }
 setTimeout(initMsFilters,100);
 function uploadFreightData(ev){const f=ev.target.files[0];if(!f)return;gid('freightFileName').textContent='📎 '+f.name;gid('freightStatus').textContent='解析中...';const r=new FileReader();r.onload=function(e){try{const wb=XLSX.read(new Uint8Array(e.target.result),{type:'array'});const d=pfExcel(wb);applyData(d,null);saveMaster();}catch(err){gid('freightStatus').className='file-status err';gid('freightStatus').textContent='❌ '+err.message;}};r.readAsArrayBuffer(f);ev.target.value='';}
@@ -1433,6 +1456,8 @@ function renderPlanResults(keepPage){
   if(!keepPage)_planPage=1;
   const tf=gid('planTypeFilter').value,sq=gid('planSearchInput').value.trim().toLowerCase(),tof=gid('planTonsFilter').value;
   const prf=getMSVals('msRank'),porf=getMSVals('msOwnRank'),pcf=getMSVals('msCheck'),rgf=getMSVals('msPlanRegion'),pf=getMSVals('msProduct');
+  const df=getMSVals('msPlanDepot'),owf=getMSVals('msPlanOwner');
+  const dFrom=(gid('planDateFrom')?gid('planDateFrom').value:''),dTo=(gid('planDateTo')?gid('planDateTo').value:'');
   let filtered=planResults.filter(r=>{
     if(tf!=='all'&&r.actualDepotType!==tf)return false;
     const rt=Number(r.tons);
@@ -1444,6 +1469,9 @@ function renderPlanResults(keepPage){
     if(pcf.length>0){const rk=r.rank;const matchCheck=pcf.some(function(v){if(v==='ok')return rk===1;if(v==='fail')return rk!==null&&rk>1;if(v==='unmatched')return rk===null;return false;});if(!matchCheck)return false;}
     if(rgf.length>0&&rgf.indexOf(r.region)<0)return false;
     if(pf.length>0&&pf.indexOf(r.productKey)<0)return false;
+    if(df.length>0&&df.indexOf(r.actualDepotName)<0)return false;
+    if(owf.length>0&&owf.indexOf(ownerOf(r.region,r.stationName,r.owner))<0)return false;
+    if(dFrom||dTo){var dd=String(r.date||'').slice(0,10);if(dFrom&&dd&&dd<dFrom)return false;if(dTo&&dd&&dd>dTo)return false;}
     return true;
   });
   const total=planResults.length,ok=planResults.filter(r=>r.rank===1).length,nonfirst=planResults.filter(r=>r.rank&&r.rank>1).length,unmatched=planResults.filter(r=>r.rank===null).length;
@@ -1453,9 +1481,43 @@ function renderPlanResults(keepPage){
   const regions=[...new Set(planResults.map(function(r){return r.region;}).filter(Boolean))];
   regions.sort(function(a,b){return a.localeCompare(b,'zh');});
   setMSItems('msPlanRegion',regions.map(function(r){return{value:r,label:r};}));
+  // v3.16：实际出库点 / 片区负责人 筛选项跟随数据动态生成
+  const depotNames=[...new Set(planResults.map(function(r){return r.actualDepotName;}).filter(Boolean))];
+  depotNames.sort(function(a,b){return a.localeCompare(b,'zh');});
+  setMSItems('msPlanDepot',depotNames.map(function(d){return{value:d,label:d};}));
+  const ownerNames=[...new Set(planResults.map(function(r){return ownerOf(r.region,r.stationName,r.owner);}).filter(Boolean))];
+  ownerNames.sort(function(a,b){return a.localeCompare(b,'zh');});
+  setMSItems('msPlanOwner',ownerNames.map(function(o){return{value:o,label:o};}));
   gid('planTableWrap').style.display='block';
   const c=gid('planTableContainer');
-  if(!filtered.length){c.innerHTML='<div class="empty">没有符合条件的计划</div>';gid('planRowCount').textContent='共 0 行';renderPlanPager(0,1);return;}
+  if(!filtered.length){
+    // v3.16：空状态给出「生效条件 + 一键重置」，避免整块区域看起来像空白
+    var _condLabel=function(id,allText){
+      var v=getMSVals(id);var s=_msState[id];
+      if(!s||v.length===0)return allText;
+      if(v.length===s.items.length)return allText;
+      return v.map(function(x){var it=s.items.filter(function(i){return i.value===x;})[0];return it?it.label:x;}).join('、');
+    };
+    var _conds=[];
+    if(tf!=='all')_conds.push('油库类型='+tf);
+    if(tof==='gt0')_conds.push('出库吨>0');if(tof==='eq0')_conds.push('出库吨=0');
+    if(sq)_conds.push('搜索「'+sq+'」');
+    if(dFrom)_conds.push('起始≥'+dFrom);if(dTo)_conds.push('截止≤'+dTo);
+    _conds.push('排名='+_condLabel('msRank','全部'));
+    _conds.push('自有库排名='+_condLabel('msOwnRank','全部'));
+    _conds.push('核对结果='+_condLabel('msCheck','全部'));
+    _conds.push('分公司='+_condLabel('msPlanRegion','全部'));
+    _conds.push('油品='+_condLabel('msProduct','全部'));
+    _conds.push('实际出库点='+_condLabel('msPlanDepot','全部'));
+    _conds.push('片区负责人='+_condLabel('msPlanOwner','全部'));
+    c.innerHTML='<div class="empty" style="padding:28px 16px;line-height:1.9">'
+      +'<div style="font-size:15px;font-weight:600;color:#4a5568;margin-bottom:6px">没有符合条件的计划</div>'
+      +'<div style="font-size:12px;color:#718096;margin-bottom:10px">当前生效条件：'+_conds.join('；')+'</div>'
+      +'<div style="font-size:12px;color:#a0aec0;margin-bottom:14px">提示：多项条件为「且」关系；例如「排名=第一」与「核对结果=不符合」互斥，交集必为空。</div>'
+      +'<button class="btn btn-primary btn-sm" onclick="resetPlanFilters()">重置全部筛选</button>'
+      +'</div>';
+    gid('planRowCount').textContent='共 0 行';renderPlanPager(0,1);return;
+  }
   const pages=Math.max(1,Math.ceil(filtered.length/PLAN_PAGE_SIZE));
   if(_planPage>pages)_planPage=pages; if(_planPage<1)_planPage=1;
   const start=(_planPage-1)*PLAN_PAGE_SIZE, end=Math.min(start+PLAN_PAGE_SIZE,filtered.length);
@@ -1506,6 +1568,17 @@ function renderPlanResults(keepPage){
   h+='</tbody></table>';c.innerHTML=h;gid('planRowCount').textContent='共 '+filtered.length+' 条计划 · 第 '+_planPage+'/'+pages+' 页 · 显示 '+(start+1)+'-'+end+' 行';
   renderPlanPager(_planPage,pages);
 }
+// v3.16：一键重置配送计划筛选（空状态下的兜底入口）
+function resetPlanFilters(){
+  ['msRank','msOwnRank','msCheck','msPlanRegion','msProduct','msPlanDepot','msPlanOwner'].forEach(function(id){
+    var s=_msState[id];if(!s)return;
+    s.vals=s.items.map(function(i){return i.value;});
+    s.touched=false;renderMS(id);
+  });
+  ['planTypeFilter','planTonsFilter'].forEach(function(id){var el=gid(id);if(el)el.value='all';});
+  ['planSearchInput','planDateFrom','planDateTo'].forEach(function(id){var el=gid(id);if(el)el.value='';});
+  renderPlanResults();
+}
 function renderPlanPager(cur,pages){
   let el=gid('planPagerBar');
   if(!el){el=document.createElement('div');el.id='planPagerBar';el.className='pager-bar';const wrap=gid('planTableWrap');if(wrap)wrap.appendChild(el);}
@@ -1543,95 +1616,62 @@ function _numCell(v,dec,style){if(v==null||isNaN(v))return _stCell('—','s',{fo
 
 function buildStyledAuditSheet(dataRows,mode){
   var isZ=(mode==='z');
-  var COLS=[
-    ['序号',6],['配送日期',12],['配送单号',22],['状态',10],['业务类型',18],
-    ['分公司',32],['收油机构',18],['油品',16],['出库(吨)',10],['实际出库点',20],
-    ['库类型',12],['第一出库点',20],['第二出库点',20],['第三出库点',20],
-    ['第四出库点',20],['第五出库点',20],['排名',6],['自有库排名',8],['核对结果',10],
-    ['now_dist',12],['now_ff',14],['now_sf',14],['now_tt',14],
-    ['opt_dist',12],['opt_ff',14],['opt_sf',14],['opt_tt',14],['opt_dist2',12],
-    ['d_ff',16],['d_sf',16],['d_tt',20],['d_money',14],
-    ['tons',10],['备注',12],
-    ['片区负责人',14],
-    ['own_dist',12],['own_ff',14],['own_sf',14],['own_tt',14],['own_dist2',12],
-    ['dz_ff',16],['dz_sf',16],['dz_tt',20],['dz_money',14]
+  // v3.16：单行表头 + 自动筛选（WPS/Excel 打开即可按列筛选，不再因双行表头/空子表头导致整片空白）；
+  // 列序：实际出库点→第一出库点→自有库最优 各自紧跟运距/一次/二次/合计，随后两组对比，片区负责人移到最后。
+  var G_OWN={patternType:'solid',fgColor:{rgb:'FFFFF7E6'}},G_OWNINC={patternType:'solid',fgColor:{rgb:'FFF0FFF4'}};
+  var HDR=[
+    ['序号',7,_XF.baseFill],['配送日期',12,_XF.baseFill],['配送单号',22,_XF.baseFill],['状态',10,_XF.baseFill],
+    ['业务类型',16,_XF.baseFill],['分公司',30,_XF.baseFill],['收油机构',20,_XF.baseFill],['油品',20,_XF.baseFill],
+    ['出库(吨)',10,_XF.baseFill],['实际出库点',22,_XF.baseFill],['库类型',10,_XF.baseFill],
+    ['实际出库点-运距(km)',21,_XF.nowFill],['实际出库点-一次运费(元/吨)',24,_XF.nowFill],['实际出库点-二次运费(元/吨)',24,_XF.nowFill],['实际出库点-合计运费(元/吨)',24,_XF.nowFill],
+    ['第一出库点',22,_XF.optFill],['第一出库点-运距(km)',20,_XF.optFill],['第一出库点-一次运费(元/吨)',23,_XF.optFill],['第一出库点-二次运费(元/吨)',23,_XF.optFill],['第一出库点-合计运费(元/吨)',23,_XF.optFill],['第一出库点-二次运距(km)',22,_XF.optFill],
+    ['自有库最优出库点',22,G_OWN],['自有库最优-运距(km)',20,G_OWN],['自有库最优-一次运费(元/吨)',23,G_OWN],['自有库最优-二次运费(元/吨)',23,G_OWN],['自有库最优-合计运费(元/吨)',23,G_OWN],['自有库最优-二次运距(km)',22,G_OWN],
+    ['实际vs第一-一次增加(元/吨)',25,_XF.incHdrFill],['实际vs第一-二次增加(元/吨)',25,_XF.incHdrFill],['实际vs第一-整体增加(元/吨)',26,_XF.incHdrFill],['实际vs第一-实际增加(元)',22,_XF.incHdrFill],
+    ['实际vs自有库最优-一次增加(元/吨)',30,G_OWNINC],['实际vs自有库最优-二次增加(元/吨)',30,G_OWNINC],['实际vs自有库最优-整体增加(元/吨)',31,G_OWNINC],['实际vs自有库最优-实际增加(元)',26,G_OWNINC],
+    ['第二出库点',22,_XF.baseFill],['第三出库点',22,_XF.baseFill],['第四出库点',22,_XF.baseFill],['第五出库点',22,_XF.baseFill],
+    ['排名',7,_XF.baseFill],['自有库排名',9,_XF.baseFill],['核对结果',11,_XF.baseFill],
+    ['吨数(吨)',10,_XF.baseFill],['备注',46,_XF.baseFill],['片区负责人',13,_XF.baseFill]
   ];
-  var NC=COLS.length,out=[];
-  var ownFill={patternType:'solid',fgColor:{rgb:'FFFFF7E6'}};
-  var ownIncFill={patternType:'solid',fgColor:{rgb:'FFF0FFF4'}};
-  // v3.08：最上方标题行文字改为红色（原白字配浅底纹不可读）
-  var redHdr=function(v,fill){return _stCell(v,'s',{font:_XF.redFont,fill:fill,alignment:_XF.center,border:_XF.border});};
-  // Row1 分组/标题行。前 19 列与「片区负责人」列在此保留列名，Row2 对应位置留空 → 重复表头只保留一处
-  var r1=[],b;
-  for(b=0;b<19;b++)r1.push(redHdr(COLS[b][0],_XF.baseFill));
-  r1.push(redHdr('现在出库点运费',_XF.nowFill));for(b=0;b<3;b++)r1.push(redHdr('',_XF.nowFill));
-  r1.push(redHdr('最优(第一)出库点运费',_XF.optFill));for(b=0;b<4;b++)r1.push(redHdr('',_XF.optFill));
-  r1.push(redHdr('运费增加',_XF.incHdrFill));for(b=0;b<3;b++)r1.push(redHdr('',_XF.incHdrFill));
-  r1.push(redHdr('',_XF.baseFill));r1.push(redHdr('',_XF.baseFill));
-  r1.push(redHdr('片区负责人',_XF.baseFill));
-  r1.push(redHdr('自有库最优出库点运费',ownFill));for(b=0;b<4;b++)r1.push(redHdr('',ownFill));
-  r1.push(redHdr('与自有库最优对比运费增减',ownIncFill));for(b=0;b<3;b++)r1.push(redHdr('',ownIncFill));
-  out.push(r1);
-  // Row2 子表头（与 Row1 重复处留空）
-  var SUB=[
-    '','','','','','','','','','','','','','','','','','','',
-    '运距(km)','一次运费(元/吨)','二次运费(元/吨)','合计运费(元/吨)',
-    '运距(km)','一次运费(元/吨)','二次运费(元/吨)','合计运费(元/吨)','二次运距(km)',
-    '一次吨油运费增加(元/吨)','二次吨油运费增加(元/吨)','一二次整体吨油运费增加(元/吨)','实际运费增加(元)',
-    '吨数(吨)','备注',
-    '',
-    '运距(km)','一次运费(元/吨)','二次运费(元/吨)','合计运费(元/吨)','二次运距(km)',
-    '一次吨油运费增加(元/吨)','二次吨油运费增加(元/吨)','一二次整体吨油运费增加(元/吨)','实际运费增加(元)'
-  ];
-  var r2=[];
-  for(var s=0;s<NC;s++)r2.push(_subHdrCell(SUB[s]));
-  out.push(r2);
-  // Data rows（现有 0~33 列内容与口径完全不变，仅追加新列）
+  var out=[];
+  out.push(HDR.map(function(h){return _stCell(h[0],'s',{font:_XF.redFont,fill:h[2],alignment:{horizontal:'center',vertical:'center',wrapText:true},border:_XF.border});}));
+  var numS=function(fill){return {fill:fill,border:_XF.border,alignment:_XF.rightAlign,font:_XF.blackFont};};
+  var mkNum=function(v,dec,fill){return _numCell(v,dec,numS(fill));};
   for(var i=0;i<dataRows.length;i++){
-    var raw=dataRows[i];
-    var r=isZ?(raw.z||raw):raw;
+    var raw=dataRows[i];var r=isZ?(raw.z||raw):raw;
     var tons=Number(r.tons)||0;
     var aFf=r.actualFf,aSf=r.actualSf,aTt=r.actualTt,aDist=r.actualDist;
     var fFf=r.firstFf,fSf=r.firstSf,fTt=r.firstTt,fDist=r.firstDist;
     var d1=(aFf!=null&&fFf!=null)?aFf-fFf:null,d2=(aSf!=null&&fSf!=null)?aSf-fSf:null,dT=(aTt!=null&&fTt!=null)?aTt-fTt:null,dM=(dT!=null)?dT*tons:null;
+    var ob=r.ownBest||null;
+    var z1=(aFf!=null&&ob)?aFf-ob.ff:null,z2=(aSf!=null&&ob)?aSf-ob.sf:null,zT=(aTt!=null&&ob)?aTt-ob.tt:null,zM=(zT!=null)?zT*tons:null;
+    var opt=function(n){var e=r.optimalRanking&&r.optimalRanking[n];return e?e.dn+' ('+e.dt+')':'';};
     var row=[];
     row.push(_dataCell(i+1,_XF.center));
     row.push(_dataCell(r.date||''));row.push(_dataCell(r.orderNo||''));
     row.push(_dataCell(r.status==='复核通过'?'复核通过':r.status==='已下发'?'已下达':(r.status||'')));
-    row.push(_dataCell(r.bizType||'—'));row.push(_dataCell(r.region));row.push(_dataCell(r.stationName));
-    row.push(_dataCell(r.productName));row.push(_dataCell(+tons.toFixed(2)));
+    row.push(_dataCell(r.bizType||'—'));row.push(_dataCell(r.region));row.push(_dataCell(r.stationName));row.push(_dataCell(r.productName));
+    row.push(_dataCell(+tons.toFixed(2)));
     row.push(_dataCell(r.actualDepotName));row.push(_dataCell(r.actualDepotType||''));
-    row.push(_dataCell(r.optimalRanking[0]?r.optimalRanking[0].dn+' ('+r.optimalRanking[0].dt+')':''));
-    row.push(_dataCell(r.optimalRanking[1]?r.optimalRanking[1].dn+' ('+r.optimalRanking[1].dt+')':''));
-    row.push(_dataCell(r.optimalRanking[2]?r.optimalRanking[2].dn+' ('+r.optimalRanking[2].dt+')':''));
-    row.push(_dataCell(r.optimalRanking[3]?r.optimalRanking[3].dn+' ('+r.optimalRanking[3].dt+')':''));
-    row.push(_dataCell(r.optimalRanking[4]?r.optimalRanking[4].dn+' ('+r.optimalRanking[4].dt+')':''));
+    row.push(mkNum(aDist,1,_XF.nowFill));row.push(mkNum(aFf,2,_XF.nowFill));row.push(mkNum(aSf,2,_XF.nowFill));row.push(mkNum(aTt,2,_XF.nowFill));
+    row.push(_dataCell(opt(0)));
+    row.push(mkNum(fDist,1,_XF.optFill));row.push(mkNum(fFf,2,_XF.optFill));row.push(mkNum(fSf,2,_XF.optFill));row.push(mkNum(fTt,2,_XF.optFill));row.push(mkNum(fDist,1,_XF.optFill));
+    row.push(_dataCell(ob?ob.dn:''));
+    row.push(mkNum(ob?ob.dist:null,1,G_OWN));row.push(mkNum(ob?ob.ff:null,2,G_OWN));row.push(mkNum(ob?ob.sf:null,2,G_OWN));row.push(mkNum(ob?ob.tt:null,2,G_OWN));row.push(mkNum(ob?ob.dist2:null,1,G_OWN));
+    row.push(_diffCell(d1,2));row.push(_diffCell(d2,2));row.push(_diffCell(dT,2));row.push(_moneyDiffCell(dM));
+    row.push(_diffCell(z1,2));row.push(_diffCell(z2,2));row.push(_diffCell(zT,2));row.push(_moneyDiffCell(zM));
+    row.push(_dataCell(opt(1)));row.push(_dataCell(opt(2)));row.push(_dataCell(opt(3)));row.push(_dataCell(opt(4)));
     row.push(_dataCell(r.rank?r.rank+'':'—',_XF.center));row.push(_dataCell(r.ownRank?r.ownRank+'':'—',_XF.center));
     row.push(_dataCell(r.error||(r.rank===1?'符合':'不符合')));
-    var nS={fill:_XF.nowFill,border:_XF.border,alignment:_XF.rightAlign,font:_XF.blackFont};
-    row.push(_numCell(aDist,1,nS));row.push(_numCell(aFf,2,nS));row.push(_numCell(aSf,2,nS));row.push(_numCell(aTt,2,nS));
-    var oS={fill:_XF.optFill,border:_XF.border,alignment:_XF.rightAlign,font:_XF.blackFont};
-    row.push(_numCell(fDist,1,oS));row.push(_numCell(fFf,2,oS));row.push(_numCell(fSf,2,oS));row.push(_numCell(fTt,2,oS));row.push(_numCell(fDist,1,oS));
-    row.push(_diffCell(d1,2));row.push(_diffCell(d2,2));row.push(_diffCell(dT,2));row.push(_moneyDiffCell(dM));
     row.push(_dataCell(+tons.toFixed(2)));row.push(_dataCell(r.errorNote||r.error||''));
-    // v3.08 新增：片区负责人 + 自有库最优出库点运费 + 与自有库最优对比的运费增减
-    var ob=r.ownBest||null;
     row.push(_dataCell(ownerOf(r.region,r.stationName,r.owner)));
-    var obS={fill:ownFill,border:_XF.border,alignment:_XF.rightAlign,font:_XF.blackFont};
-    row.push(_numCell(ob?ob.dist:null,1,obS));row.push(_numCell(ob?ob.ff:null,2,obS));
-    row.push(_numCell(ob?ob.sf:null,2,obS));row.push(_numCell(ob?ob.tt:null,2,obS));
-    row.push(_numCell(ob?ob.dist2:null,1,obS));
-    var z1=(aFf!=null&&ob)?aFf-ob.ff:null,z2=(aSf!=null&&ob)?aSf-ob.sf:null,
-        zT=(aTt!=null&&ob)?aTt-ob.tt:null,zM=(zT!=null)?zT*tons:null;
-    row.push(_diffCell(z1,2));row.push(_diffCell(z2,2));row.push(_diffCell(zT,2));row.push(_moneyDiffCell(zM));
     out.push(row);
   }
   var X=_wXLSX();
   var ws=X.utils.aoa_to_sheet(out);
-  ws['!merges']=[{s:{r:0,c:19},e:{r:0,c:22}},{s:{r:0,c:23},e:{r:0,c:27}},{s:{r:0,c:28},e:{r:0,c:31}},
-    {s:{r:0,c:35},e:{r:0,c:39}},{s:{r:0,c:40},e:{r:0,c:43}}];
-  ws['!cols']=COLS.map(function(c){return {wch:c[1]};});
-  ws['!freeze']={xSplit:'0',ySplit:'2'};
+  ws['!cols']=HDR.map(function(h){return {wch:h[1]};});
+  ws['!freeze']={xSplit:0,ySplit:1};
+  // v3.16：自动筛选覆盖表头行到末行，WPS 打开即有下拉箭头且下拉值来自真实数据
+  ws['!autofilter']={ref:'A1:'+X.utils.encode_col(HDR.length-1)+out.length};
   return ws;
 }
 // v3.15：缺失清单 sheet —— 把「—」行按缺失类型分组列出，避免被 WPS 数字筛选悄悄吞掉
@@ -1662,7 +1702,8 @@ function buildMissingSheet(dataRows,mode){
   var X=_wXLSX();
   var ws=X.utils.aoa_to_sheet(out);
   ws['!cols']=[{wch:9},{wch:11},{wch:20},{wch:20},{wch:28},{wch:18},{wch:9},{wch:20},{wch:12},{wch:26},{wch:46}];
-  ws['!freeze']={xSplit:'0',ySplit:'1'};
+  ws['!freeze']={xSplit:0,ySplit:1};
+  ws['!autofilter']={ref:'A1:K'+out.length};
   return ws;
 }
 function exportPlanAudit(){
