@@ -1405,12 +1405,19 @@ async function analyzePlans(plans){
         const ownBest=ob?{dn:ob.dn,dt:ob.dt,dist:ob.dist,ff:ob.ff,sf:ob.sf,tt:ob.tt,dist2:ob.dist}:null;
         let ownRank=null;
         if(actualDepot.type==='自有库'){const ownEntries=top5.filter(e=>e.dt==='自有库');const ownIdx=ownEntries.findIndex(e=>e.dn===actualDepot.name);if(ownIdx>=0)ownRank=ownIdx+1;}
+        // v3.15：备注列写入缺失原因（此前恒空「—」，用户无法从文件判断空值成因）
+        var _notes=[];
+        if(!aE)_notes.push('实际出库点['+actualDepot.name+']运距未维护(运距表该列空且日报第23列运距也为0)');
+        else if(aE.ff==null)_notes.push('一次费未登记：'+actualDepot.name+' '+pk+'#(一次吨油运费表对应子列为空)');
+        if(!fE)_notes.push('候选池为空：'+pk+'#无任何可用出库点，最优组/排名不可算');
+        if(!ob&&fE)_notes.push('候选池中无自有库，自有库最优对比不可算');
+        var errorNote=_notes.join('；');
         return {...p,stationName:p.stationName,productName:p.productName,date:p.date,orderNo:p.orderNo,region:p.region,
           matched:true,productKey:pk,owner:ownerOf(p.region,station.region,station.name,station.owner),ownBest:ownBest,
           actualDepotName:actualDepot.name,actualDepotType:actualDepot.type||'',actualDist:aE?aE.dist:null,
           rank:rkIdx>=0?rkIdx+1:null,ownRank:ownRank,totalCost:rkIdx>=0?ex[rkIdx].tt:null,
           optimalRanking:top5,error:'',firstDist:fE?fE.dist:null,firstFf:fE?fE.ff:null,firstSf:fE?fE.sf:null,firstTt:fE?fE.tt:null,
-          actualFf:aE?aE.ff:null,actualSf:aE?aE.sf:null,actualTt:aE?aE.tt:null};
+          actualFf:aE?aE.ff:null,actualSf:aE?aE.sf:null,actualTt:aE?aE.tt:null,errorNote:errorNote};
       };
       const r=mkRow(es,false);
       r.z=esZ?mkRow(esZ,true):null;
@@ -1606,7 +1613,7 @@ function buildStyledAuditSheet(dataRows,mode){
     var oS={fill:_XF.optFill,border:_XF.border,alignment:_XF.rightAlign,font:_XF.blackFont};
     row.push(_numCell(fDist,1,oS));row.push(_numCell(fFf,2,oS));row.push(_numCell(fSf,2,oS));row.push(_numCell(fTt,2,oS));row.push(_numCell(fDist,1,oS));
     row.push(_diffCell(d1,2));row.push(_diffCell(d2,2));row.push(_diffCell(dT,2));row.push(_moneyDiffCell(dM));
-    row.push(_dataCell(+tons.toFixed(2)));row.push(_dataCell(r.error||''));
+    row.push(_dataCell(+tons.toFixed(2)));row.push(_dataCell(r.errorNote||r.error||''));
     // v3.08 新增：片区负责人 + 自有库最优出库点运费 + 与自有库最优对比的运费增减
     var ob=r.ownBest||null;
     row.push(_dataCell(ownerOf(r.region,r.stationName,r.owner)));
@@ -1627,12 +1634,51 @@ function buildStyledAuditSheet(dataRows,mode){
   ws['!freeze']={xSplit:'0',ySplit:'2'};
   return ws;
 }
+// v3.15：缺失清单 sheet —— 把「—」行按缺失类型分组列出，避免被 WPS 数字筛选悄悄吞掉
+function buildMissingSheet(dataRows,mode){
+  var isZ=(mode==='z');
+  var HDR=['Excel行号','配送日期','配送单号','分公司','加油站','油品','出库(吨)','实际出库点','库类型','缺失类型','缺失原因'];
+  var hdrSt={font:_XF.redFont,fill:_XF.baseFill,alignment:_XF.center,border:_XF.border};
+  var out=[HDR.map(function(h){return _stCell(h,'s',hdrSt);})];
+  var miss=[];
+  for(var i=0;i<dataRows.length;i++){
+    var raw=dataRows[i];var r=isZ?(raw.z||raw):raw;
+    var tons=Number(r.tons)||0;
+    if(!r.matched){miss.push([i+3,r.date||'',r.orderNo||'',r.region||'',r.stationName||'',r.productName||'',tons,r.actualDepotName||'', '', '未匹配',r.error||'']);continue;}
+    var why=[];
+    if(!r.actualDist)why.push('运距缺失');
+    else if(r.actualFf==null)why.push('一次费未登记');
+    if(!r.firstDist&&!r.firstTt)why.push('最优出库点组不可算');
+    if(!r.ownBest)why.push('自有库最优不可算');
+    if(!why.length)continue;
+    miss.push([i+3,r.date||'',r.orderNo||'',r.region||'',r.stationName||'',r.productName||'',tons,r.actualDepotName||'',r.actualDepotType||'',why.join('+'),r.errorNote||'']);
+  }
+  miss.sort(function(a,b){return String(a[9]).localeCompare(String(b[9]))||(a[0]-b[0]);});
+  miss.forEach(function(m){
+    out.push(m.map(function(v,ci){
+      return _stCell(v,typeof v==='number'?'n':'s',{font:_XF.blackFont,alignment:ci===0?_XF.center:(typeof v==='number'?_XF.rightAlign:{horizontal:'left',vertical:'center'}),border:_XF.border});
+    }));
+  });
+  var X=_wXLSX();
+  var ws=X.utils.aoa_to_sheet(out);
+  ws['!cols']=[{wch:9},{wch:11},{wch:20},{wch:20},{wch:28},{wch:18},{wch:9},{wch:20},{wch:12},{wch:26},{wch:46}];
+  ws['!freeze']={xSplit:'0',ySplit:'1'};
+  return ws;
+}
 function exportPlanAudit(){
   if(!planResults.length){alert('没有数据可导出');return;}
+  var rows=planResults;
+  // v3.15：0 吨计划导出前确认开关
+  var zeroRows=rows.filter(function(r){return !(Number(r.tons)>0);});
+  if(zeroRows.length){
+    var exclude=window.confirm('检测到 '+zeroRows.length+' 行「出库(吨)=0」的计划。\n\n确定 = 排除这 '+zeroRows.length+' 行后导出\n取消 = 全部行导出');
+    if(exclude)rows=rows.filter(function(r){return Number(r.tons)>0;});
+  }
   var X=_wXLSX();
   var wb=X.utils.book_new();
-  X.utils.book_append_sheet(wb,buildStyledAuditSheet(planResults,'base'),'配送计划核对');
-  X.utils.book_append_sheet(wb,buildStyledAuditSheet(planResults,'z'),'配送计划核对_含珠海0#');
+  X.utils.book_append_sheet(wb,buildStyledAuditSheet(rows,'base'),'配送计划核对');
+  X.utils.book_append_sheet(wb,buildStyledAuditSheet(rows,'z'),'配送计划核对_含珠海0#');
+  X.utils.book_append_sheet(wb,buildMissingSheet(rows,'base'),'缺失清单');
   X.writeFile(wb,'配送计划核对_'+new Date().toISOString().slice(0,10)+'.xlsx');
 }
 function exportNonFirst(){
